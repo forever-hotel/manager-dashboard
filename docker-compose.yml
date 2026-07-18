@@ -1,0 +1,54 @@
+# =============================================================================
+# Forever Hotel - Manager Dashboard (MAD) Docker Compose
+# SDS Section 1.2.1 – Container Deployment Model
+# MAD-003: Docker Compose Configuration
+# =============================================================================
+
+services:
+  # MAD Backend (NestJS)
+  mad-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mad-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    environment:
+      - PORT=4000
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:5432/forever_hotel}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - JWT_EXPIRATION=${JWT_EXPIRATION:-15m}
+      - JWT_REFRESH_EXPIRATION=${JWT_REFRESH_EXPIRATION:-7d}
+    networks:
+      - mad-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+  # MAD Frontend (Next.js)
+  mad-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    container_name: mad-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    depends_on:
+      mad-backend:
+        condition: service_healthy
+    networks:
+      - mad-network
+
+networks:
+  mad-network:
+    driver: bridge
