@@ -9,13 +9,13 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const isLoginPage = pathname === "/login" || pathname === "/";
 
   if (isLoginPage) {
-    return <div className="app-container">{children}</div>;
+    return <>{children}</>;
   }
 
   return (
-    <div className="app-container">
+    <div className="flex w-full min-h-screen bg-white text-black">
       <Sidebar />
-      <div className="main-content pl-64">{children}</div>
+      <div className="flex-1 min-w-0 pl-[220px]">{children}</div>
     </div>
   );
 }
