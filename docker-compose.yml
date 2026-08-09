@@ -17,10 +17,13 @@ services:
     environment:
       - PORT=4000
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:5432/forever_hotel}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/forever_hotel}
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - JWT_EXPIRATION=${JWT_EXPIRATION:-15m}
       - JWT_REFRESH_EXPIRATION=${JWT_REFRESH_EXPIRATION:-7d}
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - mad-network
     healthcheck:
@@ -49,6 +52,30 @@ services:
     networks:
       - mad-network
 
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: mad-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: forever_hotel
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mad-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d forever_hotel"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 networks:
   mad-network:
     driver: bridge
+
+volumes:
+  postgres_data:
