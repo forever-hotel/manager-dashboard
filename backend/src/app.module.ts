@@ -4,6 +4,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { StaffModule } from './staff/staff.module';
 
 @Module({
   imports: [
@@ -13,6 +15,8 @@ import { AuthModule } from './auth/auth.module';
     }),
     DatabaseModule,
     AuthModule,
+    AnalyticsModule, // MAD-009, MAD-010, MAD-011
+    StaffModule,     // MAD-012
   ],
   controllers: [AppController],
   providers: [AppService],
