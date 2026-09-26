@@ -1,81 +1,74 @@
-# =============================================================================
-# Forever Hotel - Manager Dashboard (MAD) Docker Compose
-# SDS Section 1.2.1 – Container Deployment Model
-# MAD-003: Docker Compose Configuration
-# =============================================================================
-
 services:
-  # MAD Backend (NestJS)
-  mad-backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: mad-backend
-    restart: unless-stopped
-    ports:
-      - "${BACKEND_PORT:-4000}:4000"
-    environment:
-      - PORT=4000
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/forever_hotel}
-      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
-      - JWT_EXPIRATION=${JWT_EXPIRATION:-15m}
-      - JWT_REFRESH_EXPIRATION=${JWT_REFRESH_EXPIRATION:-7d}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - mad-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/"]
-      interval: 30s
-      timeout: 3s
-      start_period: 10s
-      retries: 3
-
-  # MAD Frontend (Next.js)
-  mad-frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
-    container_name: mad-frontend
-    restart: unless-stopped
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
-    depends_on:
-      mad-backend:
-        condition: service_healthy
-    networks:
-      - mad-network
-
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: mad-postgres
-    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       POSTGRES_DB: forever_hotel
+      MAD_DB_PASSWORD: ${MAD_DB_PASSWORD:?Set MAD_DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - mad-network
+      - ./backend/docker/01-runtime-role.sh:/docker-entrypoint-initdb.d/01-runtime-role.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d forever_hotel"]
       interval: 5s
-      timeout: 5s
-      retries: 5
+      timeout: 3s
+      retries: 15
 
-networks:
-  mad-network:
-    driver: bridge
+  migrate:
+    build: ./backend
+    command: ["node", "dist/database/migrate-cli.js"]
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/forever_hotel
+      MAD_DB_ROLE: mad_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  mad-backend:
+    build: ./backend
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      DATABASE_URL: postgresql://mad_app:${MAD_DB_PASSWORD}@postgres:5432/forever_hotel
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:?Set JWT_ISSUER}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:?Set AUTH_SERVICE_URL}
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 8s
+      retries: 6
+    restart: unless-stopped
+
+  mad-frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    environment:
+      BACKEND_API_URL: http://mad-backend:4000
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    # Start independently so the login page can explain a backend/database outage.
+    # Its readiness check still fails until the backend database is ready.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 8s
+      retries: 6
+    restart: unless-stopped
 
 volumes:
   postgres_data:
