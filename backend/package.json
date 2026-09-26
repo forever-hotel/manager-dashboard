@@ -12,27 +12,27 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --max-warnings=0",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "lint:fix": "npm run lint -- --fix",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "migration:run": "node --env-file-if-exists=.env dist/database/migrate-cli.js",
+    "test:integration": "jest --config ./test/jest-e2e.json --runInBand",
+    "test:serve": "ts-node test/serve-contract-stack.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.2",
-    "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/typeorm": "^11.0.3",
-    "@types/bcryptjs": "^2.4.6",
-    "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
-    "passport": "^0.7.0",
-    "passport-jwt": "^4.0.1",
     "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -75,9 +75,40 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "auth/**/*.ts",
+      "config/**/*.ts",
+      "common/**/*.ts",
+      "health/**/*.ts",
+      "database/migrate.ts",
+      "database/migrations/*.ts",
+      "!**/*.module.ts"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "json-summary"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "lines": 80,
+        "branches": 80
+      },
+      "./src/auth/token.service.ts": {
+        "branches": 90
+      },
+      "./src/auth/auth.service.ts": {
+        "branches": 90
+      }
+    },
+    "coverageProvider": "v8"
+  },
+  "engines": {
+    "node": ">=22.14 <23",
+    "npm": ">=10"
+  },
+  "overrides": {
+    "multer": "^2.4.0"
   }
 }
