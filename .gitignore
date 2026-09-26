@@ -1,3 +1,7 @@
 project*
 .env
 docs/*
+.npm-cache/
+test-results/
+playwright-report/
+!docs/implementation/

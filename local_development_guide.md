@@ -1,101 +1,120 @@
-# Forever Hotel - Manager Dashboard (MAD) Development Guide
+﻿# Forever Hotel — DDP foundation development
 
-This guide explains how the Docker Compose architecture works, how it manages environment variables and secrets, and how you can run the system both fully containerized and manually for local development.
+The current implementation is scoped to DDP-001 through DDP-008. DDP is the ticket
+prefix used from now on. Existing `mad_*` database names, cookie name and Compose
+service names remain compatible with existing installations; this is not a data
+or infrastructure rename.
 
----
+## Prerequisites and configuration
 
-## 1. How Docker Compose Runs
+Use Node 22.14.x (`.nvmrc`), npm 10 or later, Docker with Compose v2 and PostgreSQL 15.
+Keep the committed package-lock files and install with `npm ci`. Retain the
+Next.js/React/NestJS versions already selected in the repository.
 
-The `docker-compose.yml` file is the orchestrator for your local development environment. It defines three interconnected services that run in isolated containers:
+Copy example files only when creating local configuration; preserve any existing
+settings. Example passwords are for isolated local development. Use externally
+supplied secrets and HTTPS origins in shared environments. Database passwords in
+connection URLs must be URL-encoded; the local examples use URL-safe characters.
 
-1. **`postgres` (Database)**: A PostgreSQL 15 database instance. It mounts a Docker volume (`postgres_data`) so that your data persists even if you stop or delete the container.
-2. **`mad-backend` (NestJS)**: The backend API. It builds from the `backend/Dockerfile`. It uses a `depends_on` rule to ensure it waits for the `postgres` database to be healthy before attempting to connect and run migrations.
-3. **`mad-frontend` (Next.js)**: The frontend user interface. It builds from the `frontend/Dockerfile` and passes the API URL as a build argument so the browser knows where to send requests.
+Real login depends on the central Auth Service. Set `AUTH_SERVICE_URL`,
+`JWT_ISSUER` and `JWT_SECRET` to the agreed provider configuration. No local default
+manager account is created. The expected contract is documented in
+[ddp_foundation_contracts.md](docs/implementation/ddp_foundation_contracts.md).
 
-All three containers are placed on an internal virtual network called `mad-network`. This allows them to communicate with each other using their service names as hostnames (e.g., the backend connects to the database via `postgres:5432`).
+## Run in containers
 
----
+From the repository root, after creating `.env` from `.env.example`:
 
-## 2. How Secrets & Environment Variables are Handled
-
-Docker Compose handles secrets through **environment variable substitution** and **fallback defaults**.
-
-If you look at the `docker-compose.yml` file, you will see syntax like this:
-```yaml
-JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+```powershell
+docker compose up --build -d
+docker compose ps
 ```
 
-### Here is how it evaluates this:
-1. **Host Environment:** It first checks if your terminal/OS has an environment variable named `JWT_SECRET` exported.
-2. **Root `.env` File:** If not, it looks for a file named `.env` in the exact same directory as the `docker-compose.yml` file.
-3. **Fallback Default:** If it still can't find it, it uses the fallback value provided after the `:-` symbol (in this case, `change-me-in-production`).
+The stack contains four services on Compose's default network:
 
-> [!WARNING]
-> **Production Security**
-> In a production environment, you should never rely on the fallback defaults in the `docker-compose.yml`. You should inject these secrets securely using GitHub Secrets via your CI/CD pipeline, or provide a strictly controlled `.env` file on the production server.
+1. `postgres` creates a dedicated `mad_app` login on a fresh volume and keeps
+   database files in the named `postgres_data` volume.
+2. `migrate` waits for PostgreSQL, applies versioned migrations using owner
+   credentials and exits. An advisory transaction lock serializes migration runs.
+3. `mad-backend` starts after successful migration. Its readiness check queries
+   the database rather than returning a static success response.
+4. `mad-frontend` starts independently so it can render an unavailable page while
+   the backend/database is down. Its health check remains unhealthy until the
+   backend is ready.
 
----
+Open `http://localhost:3000`. The backend is at `http://localhost:4000`.
+Compose uses `postgres:5432` and `http://mad-backend:4000` inside its network.
+The default central Auth URL `http://host.docker.internal:5000` assumes that a
+separate provider runs on the host. Configure a reachable provider URL for your
+environment; the provider is not supplied by this repository.
 
-## 3. Running the Stack (Two Options)
-
-Depending on what you are trying to achieve, you can run the stack in two different ways.
-
-### Option A: Fully Containerized (Best for testing the final build)
-
-This option spins up the entire application exactly as it would run in production.
-
-1. Open a terminal in the root directory (where `docker-compose.yml` is).
-2. Run the following command to build and start everything:
-   ```bash
-   docker-compose up -d --build
-   ```
-3. To view the live logs of your application, run:
-   ```bash
-   docker-compose logs -f
-   ```
-4. Access the application:
-   - Frontend: `http://localhost:3000`
-   - Backend API: `http://localhost:4000`
-5. To stop the application:
-   ```bash
-   docker-compose down
-   ```
-
-### Option B: Manual Execution (Best for Active Development)
-
-This is the standard workflow for active coding. You run the database in Docker, but you run the Node.js applications natively on your Windows machine so you get instant Hot Module Replacement (HMR) and better debugging.
-
-**Step 1: Start the Database**
-Open a terminal in the root directory and start *only* the postgres container:
-```bash
-docker-compose up -d postgres
+```powershell
+docker compose logs mad-backend mad-frontend migrate
+docker compose down
 ```
 
-**Step 2: Start the Backend (NestJS)**
-1. Ensure your local configuration is set up:
-   ```bash
-   cd backend
-   cp .env.example .env
-   ```
-   *(Note: I already did this for you in the previous step. Your `.env` points to `localhost:5432`)*
-2. Install dependencies and start the server:
-   ```bash
-   npm install
-   npm run start:dev
-   ```
+Normal `down` preserves the database volume. Do not add `--volumes` when retaining
+local data. An existing volume will not rerun PostgreSQL initialization scripts;
+changing an environment password does not rotate an existing database password.
+The database owner must provision/update the runtime role for an older volume.
 
-**Step 3: Start the Frontend (Next.js)**
-1. Ensure your local configuration is set up:
-   ```bash
-   cd frontend
-   cp .env.example .env.local
-   ```
-2. Install dependencies and start the server:
-   ```bash
-   npm install
-   npm run dev
-   ```
+After a database outage, restart failed migrations/backend if necessary:
 
-> [!TIP]
-> **Database Conflicts**
-> If you switch between Option A and Option B, be mindful of your database connection strings. When running manually (Option B), the backend reaches the database via `localhost:5432`. When running inside Docker (Option A), the backend reaches the database via `postgres:5432`.
+```powershell
+docker compose up -d postgres
+docker compose run --rm migrate
+docker compose up -d mad-backend mad-frontend
+```
+
+## Run applications on the host
+
+Create the root `.env`, `backend/.env` and `frontend/.env.local` from their examples.
+Keep database passwords consistent. Host processes use `localhost:5432` and
+`http://localhost:4000`; they cannot resolve Compose service names.
+
+From the repository root:
+
+```powershell
+docker compose up -d postgres
+```
+
+In a backend terminal:
+
+```powershell
+cd backend
+npm ci
+npm run build
+npm run migration:run
+npm run start:dev
+```
+
+In a frontend terminal:
+
+```powershell
+cd frontend
+npm ci
+npm run dev
+```
+
+For an external PostgreSQL instance, a database administrator must create the
+dedicated non-owner `mad_app` login before migration, without superuser, database
+creation, role creation, replication, RLS bypass or membership privileges.
+`MIGRATION_DATABASE_URL` is the separate owner connection used only by the CLI.
+The application uses `DATABASE_URL` with the restricted login.
+
+## Quality gates and current verification status
+
+Both applications provide read-only lint and format checks, builds and unit
+coverage commands. GitHub Actions runs them on every push and on PRs to develop
+or main. API integration and browser jobs use disposable PostgreSQL instances and
+a test-only Auth contract provider. High/critical dependency findings fail CI.
+Coverage artifacts are uploaded even when another check fails.
+
+The repository maintainer must configure required status checks/branch protection:
+Backend checks, Frontend checks, Browser acceptance and Container smoke. Staging
+and release deployment belong to later tickets.
+
+No tests, builds, containers or runtime acceptance checks were run during the
+current implementation-only review. See
+[the implementation review](docs/implementation/ddp_001_008_review.md) for scope
+and remaining external acceptance requirements.
