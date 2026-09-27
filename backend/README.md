@@ -39,5 +39,9 @@ It does not use `DATABASE_URL`. `test:serve` is a test-only browser fixture.
 to the migrated database. Database loss prevents readiness. Protected requests
 fail closed when authentication or database checks cannot complete.
 
-See [the integration contract](../docs/implementation/ddp_foundation_contracts.md)
-for the authentication API, schema boundary and recovery procedure.
+The central Auth provider must support login, session validation, logout and
+password change. Confirm its contract and token-invalidation behavior before
+integration. Database migrations use separate owner credentials, preserve existing
+supported records and restrict the runtime role to its permitted tables. Failed
+migrations roll back; committed schema changes require a reviewed forward migration
+or backup recovery.

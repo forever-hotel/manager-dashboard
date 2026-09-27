@@ -18,8 +18,8 @@ connection URLs must be URL-encoded; the local examples use URL-safe characters.
 
 Real login depends on the central Auth Service. Set `AUTH_SERVICE_URL`,
 `JWT_ISSUER` and `JWT_SECRET` to the agreed provider configuration. No local default
-manager account is created. The expected contract is documented in
-[ddp_foundation_contracts.md](docs/implementation/ddp_foundation_contracts.md).
+manager account is created. See the [backend README](backend/README.md) for setup
+and integration prerequisites.
 
 ## Run in containers
 
@@ -115,6 +115,8 @@ Backend checks, Frontend checks, Browser acceptance and Container smoke. Staging
 and release deployment belong to later tickets.
 
 No tests, builds, containers or runtime acceptance checks were run during the
-current implementation-only review. See
-[the implementation review](docs/implementation/ddp_001_008_review.md) for scope
-and remaining external acceptance requirements.
+implementation-only review. Real Auth integration, database ownership agreement,
+hosted CI and branch protection still require confirmation before ticket sign-off.
+
+The root `docs/` directory is reserved for local documents and is excluded from
+future Git commits. Its files are not required to build or run the application.
