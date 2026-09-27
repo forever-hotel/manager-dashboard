@@ -1,5 +1,9 @@
 node_modules
 .next
+.npm-cache
+coverage
+test-results
+playwright-report
 .git
 .gitignore
 *.md

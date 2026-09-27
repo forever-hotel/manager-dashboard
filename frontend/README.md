@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+﻿# Forever Hotel frontend — DDP-001–008
 
-## Getting Started
+Next.js App Router, React, TypeScript and Tailwind foundation. The existing white,
+gray-bordered design is retained. Login, password change, sign out and responsive
+protected navigation are implemented. All 12 navigation destinations are shells;
+later-ticket charts, forms and sample records have been removed.
 
-First, run the development server:
+Use Node 22.14.x (see `../.nvmrc`) and npm 10 or later. From this directory:
 
-```bash
+```powershell
+Copy-Item .env.example .env.local
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Setting               | Purpose                                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL` | Required public API/gateway URL, validated when Next.js loads its configuration; embedded at build time |
+| `BACKEND_API_URL`     | Server-only reachable API/gateway base URL; BFF requests use this address                               |
+| `APP_ORIGIN`          | Exact browser origin, without a path; used for CSRF checks and cookie security                          |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Browser authentication requests go to same-origin `/api/auth/*` routes. The BFF
+keeps tokens in HttpOnly, SameSite=Strict cookies (Secure on HTTPS), forwards bearer
+tokens on the server and returns only safe session fields. It never stores tokens
+or passwords in localStorage/sessionStorage. Set an HTTPS origin for shared hosts.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`npm run build` produces a standalone build. `npm run start` serves the local
+production build. Docker starts `.next/standalone/server.js`. `npm run lint` and
+`npm run format:check` are read-only; `npm run format` explicitly formats files.
+`npm run test:cov` and `npm run test:e2e` are the existing CI verification commands.
 
-## Learn More
+`GET /api/health` reports readiness only when the backend reports database
+readiness. The login page displays service unavailability and a retry link during
+an outage. The central authentication provider must be configured for real login.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See the [development guide](../local_development_guide.md) for full-stack setup.
