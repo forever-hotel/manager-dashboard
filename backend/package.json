@@ -104,6 +104,9 @@
       },
       "./src/analytics/booking-analytics.service.ts": {
         "branches": 90
+      },
+      "./src/analytics/occupancy-analytics.service.ts": {
+        "branches": 90
       }
     },
     "coverageProvider": "v8"
