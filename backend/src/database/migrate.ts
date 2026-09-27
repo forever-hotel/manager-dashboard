@@ -61,6 +61,9 @@ export async function migrate(database: DataSource, role: string) {
       'rooms',
       'room_types',
       'mad_booking_analytics',
+      'mad_occupancy_rooms',
+      'mad_occupancy_allocations',
+      'mad_occupancy_maintenance',
     ]) {
       const found = (await runner.query(
         'SELECT to_regclass($1)::text AS present',
