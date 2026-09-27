@@ -4,3 +4,4 @@ project*
 .npm-cache/
 test-results/
 playwright-report/
+docs
