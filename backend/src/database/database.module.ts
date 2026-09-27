@@ -1,22 +1,19 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-
+import { ConfigService } from '@nestjs/config';
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        const databaseUrl = configService.get<string>('DATABASE_URL');
-        return {
-          type: 'postgres' as const,
-          url: databaseUrl,
-          autoLoadEntities: true,
-          synchronize: false, // We use migrations, never auto-sync in production
-          logging: configService.get<string>('NODE_ENV') !== 'production',
-        };
-      },
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres' as const,
+        url: config.getOrThrow<string>('DATABASE_URL'),
+        autoLoadEntities: true,
+        synchronize: false,
+        logging: false,
+        retryAttempts: 0,
+        extra: { connectionTimeoutMillis: 5000, statement_timeout: 5000 },
+      }),
     }),
   ],
 })

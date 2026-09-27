@@ -3,6 +3,8 @@ dist
 .git
 .gitignore
 coverage
+.npm-cache
+test
 *.md
 .env
 .env.*

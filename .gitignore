@@ -1,2 +1,6 @@
 project*
-.env*
+.env
+/docs/
+.npm-cache/
+test-results/
+playwright-report/
