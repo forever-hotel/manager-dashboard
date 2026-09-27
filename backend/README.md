@@ -1,9 +1,9 @@
-# Forever Hotel backend — DDP-001–009
+# Forever Hotel backend — DDP-001–010
 
 NestJS API foundation with validated configuration, health/readiness, central
 authentication, manager authorization and versioned PostgreSQL migrations.
-Booking totals and trends are implemented by DDP-009. Staff provisioning,
-occupancy and revenue analytics remain later-ticket work.
+Booking totals/trends and occupancy calendars are implemented by DDP-009–010.
+Staff provisioning, the calendar UI and revenue analytics remain later-ticket work.
 
 Use Node 22.14.x (see `../.nvmrc`) and npm 10 or later. From this directory:
 
@@ -123,3 +123,80 @@ even when no schema version is new. Do not grant MAD write access to the source.
 No tests were run while implementing DDP-009. See [the test register](test/README.md)
 for the included cases and commands. Runtime acceptance, real-provider agreement,
 performance and CI results are not established by source or static checks alone.
+
+## DDP-010: occupancy calendar
+
+`GET /mad/analytics/occupancy?from=2026-09-27&to=2026-09-29` requires the same
+active MANAGER session and completed password change as the bookings endpoint.
+Both dates are required and **inclusive**. Only real `YYYY-MM-DD` dates with years
+0001–9999 are accepted. Reversed ranges, ranges longer than 366 dates, timestamps,
+repeated parameters and unknown parameters return `400 VALIDATION_ERROR`.
+
+The implementation defaults to Asia/Colombo hotel-local dates and the following
+policy, pending business/provider confirmation under DDP-038:
+
+- A stay occupies a physical room on `[check_in_date, check_out_date)`; checkout
+  day is excluded. Allocation rows represent individual rooms, including multiple
+  rooms allocated to one booking. Overlaps and duplicate joins count a room once.
+- Included statuses are CONFIRMED, CHECKED_IN and CHECKED_OUT, matching DDP-009.
+  Cancelled, pending and unknown/null statuses do not occupy rooms.
+- Eligible capacity is distinct active physical rooms on that date, minus rooms
+  under maintenance. Room activity and maintenance intervals are start-inclusive,
+  end-exclusive. An open `active_to` means the room remains active.
+- Occupied counts include only those eligible rooms. Allocations against inactive,
+  unknown or maintenance-blocked rooms do not inflate counts or produce rates
+  above 1; provider reconciliation of those conflicting allocations is separate.
+- A date without allocations has zero occupied rooms. `rate` is a fraction from
+  0 to 1 (`occupiedRooms / eligibleRooms`), or **null** when capacity is zero.
+
+The response contains `from`, `to`, `timezone`, `rangeEndInclusive: true`,
+`maxRangeDays: 366`, `includedStatuses`,
+`denominator: "active_rooms_excluding_maintenance"`, and ordered `dates` entries:
+
+```json
+{
+  "date": "2026-09-27",
+  "occupiedRooms": 3,
+  "eligibleRooms": 10,
+  "rate": 0.3
+}
+```
+
+Every requested date appears, even with no bookings or no rooms. The single
+read-only database statement reads all three sources in one snapshot and returns
+`freshness.queriedAt` and `freshness.sourceLatestUpdatedAt`. The latter is the
+maximum visible update across all source views, null when all are empty; it is
+not an ingestion watermark or a historical snapshot. Past dates use the provider's
+currently corrected room/stay history.
+
+### Occupancy provider views
+
+The room and booking owners must provision these views in `public` using their
+actual schemas. They are external contracts, not application-created tables:
+
+| View                        | Required columns                                                                                     | Meaning                                                                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `mad_occupancy_rooms`       | `room_id UUID`, `active_from DATE`, `active_to DATE NULL`, `updated_at TIMESTAMPTZ`                  | Active intervals for each physical room; preserve historical intervals when rooms close or reopen                               |
+| `mad_occupancy_allocations` | `room_id UUID`, `check_in_date DATE`, `check_out_date DATE`, `status TEXT`, `updated_at TIMESTAMPTZ` | Current corrected room assignments and booking status, one row per room/stay; split a room move into its actual night intervals |
+| `mad_occupancy_maintenance` | `room_id UUID`, `start_date DATE`, `end_date DATE`, `updated_at TIMESTAMPTZ`                         | Current effective maintenance blocks, including relevant historical blocks; remove cancelled blocks                             |
+
+IDs, dates and timestamps must be non-null except `active_to`. Status may be null
+and is excluded. Each finite interval must end after it starts. Providers convert
+instants into Asia/Colombo dates before projection. Views must expose corrected
+current records, **not raw event/version history**: cancelled/rescheduled/reassigned
+allocations must replace the old values. Identical duplicate rows are tolerated;
+conflicting versions must be resolved by the owner before projection. Index source
+room IDs and interval boundaries and measure performance on the real dataset.
+
+After provisioning all three views, rebuild the backend and rerun
+`npm run migration:run` with owner credentials and `MAD_DB_ROLE`. The migration
+runner grants SELECT when views are present, including on repeated runs with no
+new schema version. It gives the runtime role no writes to these sources.
+Missing views, denied reads and database outages return `503 SERVICE_UNAVAILABLE`,
+not a fabricated empty calendar. An available empty room view means zero capacity;
+providers must therefore publish complete inventory and maintenance coverage.
+
+No tests were run for DDP-010 at the user's request. The
+[verification register](test/README.md#ddp-010--occupancy-calendar) lists cases and
+commands. Runtime acceptance, coverage and final DDP-038 provider/policy agreement
+remain pending; the calendar UI belongs to DDP-016.

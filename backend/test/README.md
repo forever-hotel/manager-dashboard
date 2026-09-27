@@ -44,3 +44,44 @@ npm run test:integration
 Record actual results, environment, date, coverage output and evidence after
 execution. New analytics source participates in unit coverage collection, with a
 90% branch threshold on the booking service and the existing 80% global thresholds.
+
+## DDP-010 — occupancy calendar
+
+All cases below are **Not run**, at the user's request. Actual results and evidence
+links are pending execution. API cases use disposable PostgreSQL and the test Auth
+contract server, not production or staging providers.
+
+| ID                      | Requirement / priority | Type and file                                                                                     | Preconditions / input                                                                     | Expected result                                                                                        |
+| ----------------------- | ---------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| TC-DDP-010-AC1-ROOMS    | AC1 / High             | API/DB: [occupancy.e2e-spec.ts](occupancy.e2e-spec.ts)                                            | Two physical rooms, overlapping stays, duplicate room/allocation rows; Sep 27–29          | Occupied counts 2, 1, 0; capacities 2, 2, 2; checkout excluded                                         |
+| TC-DDP-010-AC1-STATUS   | AC1 / High             | API/DB: same suite                                                                                | Cancelled/pending/unknown/null statuses, then cancel or reschedule a confirmed allocation | Only included current statuses count; old dates no longer occupied                                     |
+| TC-DDP-010-AC2-CALENDAR | AC2 / High             | API/DB: same suite                                                                                | Empty bookings over leap day, year boundary, single date and 366-day range                | Complete ordered dates; occupied count and rate zero with eligible capacity                            |
+| TC-DDP-010-AC2-QUERY    | AC2 / High             | API/DB: same suite                                                                                | Missing, impossible, reversed, oversized, timestamp, repeated or unknown query input      | 400 VALIDATION_ERROR; source records unchanged                                                         |
+| TC-DDP-010-AC3-CAPACITY | AC3 / High             | API/DB: same suite                                                                                | Active/retired/future rooms, overlapping maintenance, conflicting allocations             | Daily eligible counts 1, 0, 2; rates 1, null, 1; interval ends excluded                                |
+| TC-DDP-010-AC3-EMPTY    | AC3 / High             | API/DB: same suite                                                                                | All reporting views available but empty                                                   | Every requested date has zero counts and null rate; source freshness null                              |
+| TC-DDP-010-AUTH         | Access / High          | API/DB: same suite                                                                                | Missing/malformed bearer, worker, forced-password-change manager                          | 401 UNAUTHENTICATED or appropriate 403; manager success covered above                                  |
+| TC-DDP-010-READONLY     | Ownership / High       | API/DB: same suite                                                                                | Migration grants and restricted runtime role                                              | View SELECT permitted, DELETE and direct provider table access denied                                  |
+| TC-DDP-010-UNAVAILABLE  | Failure / High         | API/DB: same suite                                                                                | Revoke reads or remove each view temporarily                                              | Redacted 503 SERVICE_UNAVAILABLE, never zero occupancy                                                 |
+| TC-DDP-010-UNIT         | Boundaries / High      | Unit: [occupancy-analytics.service.spec.ts](../src/analytics/occupancy-analytics.service.spec.ts) | Mocked reads and deterministic ISO dates                                                  | Fractional/null rates, range limits, strict date validation, freshness and fail-closed invalid results |
+
+The disposable integration database deliberately uses a runtime connection in
+America/New_York to catch accidental dependence on the database timezone. Fixture
+tables stand in for the provider views documented in the backend README. Cleanup
+drops only the randomly named database and role created by this suite.
+
+From `backend`, run these yourself:
+
+```powershell
+npm run test -- --runInBand src/analytics/occupancy-analytics.service.spec.ts
+
+# TEST_DATABASE_URL must target a disposable database with "test" in its name,
+# using an account permitted to create/drop test databases and roles.
+npm run test:integration -- --testPathPatterns=occupancy.e2e-spec.ts
+
+npm run test:cov -- --runInBand
+npm run test:integration
+```
+
+Record actual results, date, environment, coverage and evidence links after running.
+The occupancy service has a 90% branch-coverage threshold; global thresholds remain
+80%. Static checks do not establish runtime or real-provider acceptance.

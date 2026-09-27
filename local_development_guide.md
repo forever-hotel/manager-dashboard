@@ -1,6 +1,6 @@
 ﻿# Forever Hotel — DDP foundation development
 
-The current implementation covers DDP-001 through DDP-009. DDP is the ticket
+The current implementation covers DDP-001 through DDP-010. DDP is the ticket
 prefix used from now on. Existing `mad_*` database names, cookie name and Compose
 service names remain compatible with existing installations; this is not a data
 or infrastructure rename.
@@ -8,6 +8,10 @@ or infrastructure rename.
 DDP-009 adds the manager-only booking totals/trends API by check-in date. Provision
 the booking provider's reporting view and rerun the migration permissions step as
 described in the [backend README](backend/README.md#ddp-009-booking-totals-and-trends).
+
+DDP-010 adds the manager-only occupancy calendar API. Provision its room,
+allocation and maintenance reporting views, then rebuild and rerun migrations;
+see the [occupancy contract](backend/README.md#ddp-010-occupancy-calendar).
 
 ## Prerequisites and configuration
 
