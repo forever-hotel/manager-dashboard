@@ -55,7 +55,16 @@ export async function migrate(database: DataSource, role: string) {
       REVOKE ALL ON ALL TABLES IN SCHEMA public FROM "${role}";
       REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM "${role}";
       GRANT SELECT, INSERT, UPDATE, DELETE ON mad_promotion_codes, mad_revoked_sessions TO "${role}";`);
-    for (const table of ['bookings', 'payments', 'rooms', 'room_types']) {
+    for (const table of [
+      'bookings',
+      'payments',
+      'rooms',
+      'room_types',
+      'mad_booking_analytics',
+      'mad_occupancy_rooms',
+      'mad_occupancy_allocations',
+      'mad_occupancy_maintenance',
+    ]) {
       const found = (await runner.query(
         'SELECT to_regclass($1)::text AS present',
         ['public.' + table],

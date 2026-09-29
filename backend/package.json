@@ -75,6 +75,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
+      "analytics/**/*.ts",
       "auth/**/*.ts",
       "config/**/*.ts",
       "common/**/*.ts",
@@ -99,6 +100,12 @@
         "branches": 90
       },
       "./src/auth/auth.service.ts": {
+        "branches": 90
+      },
+      "./src/analytics/booking-analytics.service.ts": {
+        "branches": 90
+      },
+      "./src/analytics/occupancy-analytics.service.ts": {
         "branches": 90
       }
     },
