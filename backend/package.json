@@ -21,6 +21,7 @@
     "lint:fix": "npm run lint -- --fix",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "migration:run": "node --env-file-if-exists=.env dist/database/migrate-cli.js",
+    "manager:create": "node --env-file-if-exists=.env dist/auth/provision-manager-cli.js",
     "test:integration": "jest --config ./test/jest-e2e.json --runInBand",
     "test:serve": "ts-node test/serve-contract-stack.ts"
   },

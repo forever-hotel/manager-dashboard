@@ -5,3 +5,4 @@ project*
 test-results/
 playwright-report/
 docs
+api-gateway

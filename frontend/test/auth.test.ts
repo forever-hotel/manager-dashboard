@@ -61,6 +61,7 @@ describe('Configuration, redirects and server transport', () => {
   it('forwards bearer requests without caching and maps network errors to 503', async () => {
     vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');
     vi.stubEnv('BACKEND_API_URL', 'http://localhost:4000');
+    vi.stubEnv('BACKEND_API_MODE', 'direct');
     const fetcher = vi.fn().mockResolvedValue(new Response('{"ok":true}'));
     vi.stubGlobal('fetch', fetcher);
     expect(await backend('/test', 'POST', 'token', { a: 1 })).toEqual({
@@ -77,5 +78,38 @@ describe('Configuration, redirects and server transport', () => {
     await backend('/health');
     fetcher.mockRejectedValue(new Error('private details'));
     expect((await backend('/test')).status).toBe(503);
+  });
+  it('maps auth and MAD readiness through the gateway without double-prefixing analytics', async () => {
+    vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');
+    vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080');
+    vi.stubEnv('BACKEND_API_MODE', 'gateway');
+    const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response('{}')));
+    vi.stubGlobal('fetch', fetcher);
+    for (const [path, target] of [
+      ['/auth/login', '/mad/auth/login'],
+      ['/auth/session', '/mad/auth/session'],
+      ['/auth/logout', '/mad/auth/logout'],
+      ['/auth/change-password', '/mad/auth/change-password'],
+      ['/health/ready', '/mad/health/ready'],
+      ['/mad/analytics/bookings?period=week', '/mad/analytics/bookings?period=week'],
+    ]) {
+      await backend(path, 'GET', 'token');
+      expect(fetcher).toHaveBeenLastCalledWith('http://localhost:8080' + target,
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token' }) }));
+    }
+  });
+  it('does not treat gateway rate limits as invalid sessions', async () => {
+    vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');
+    vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 429 })));
+    expect((await backend('/auth/session', 'GET', 'token')).status).toBe(503);
+  });
+  it('rejects ambiguous backend origins and transport modes', () => {
+    vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');
+    vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080/mad');
+    expect(() => serverConfig()).toThrow('BACKEND_API_URL');
+    vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080');
+    vi.stubEnv('BACKEND_API_MODE', 'unknown');
+    expect(() => serverConfig()).toThrow('BACKEND_API_MODE');
   });
 });

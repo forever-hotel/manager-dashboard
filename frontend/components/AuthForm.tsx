@@ -23,7 +23,10 @@ export function AuthForm({
   const [pending, setPending] = useState(false);
   const locked = useRef(false);
   const formSchema = changePassword
-    ? schema.extend({ username: z.string().min(1).max(1024) })
+    ? schema.extend({
+        username: z.string().min(1).max(1024),
+        password: z.string().min(12, 'Use at least 12 characters.').max(1024),
+      })
     : schema;
   const {
     register,

@@ -1,6 +1,6 @@
 # Forever Hotel backend — DDP-001–010
 
-NestJS API foundation with validated configuration, health/readiness, central
+NestJS API foundation with validated configuration, health/readiness, local manager
 authentication, manager authorization and versioned PostgreSQL migrations.
 Booking totals/trends and occupancy calendars are implemented by DDP-009–010.
 Staff provisioning, the calendar UI and revenue analytics remain later-ticket work.
@@ -16,9 +16,9 @@ npm run start:dev
 ```
 
 First provision the database and restricted `mad_app` role using the
-[local development guide](../local_development_guide.md). Set the central Auth
-provider URL, issuer and shared signing key before signing in. There are no local
-manager credentials or production authentication stubs.
+[application guide](../APPLICATION_GUIDE.md). Configure MAD's JWT issuer and
+signing key, run migrations, then provision a manager using the guide's account
+creation command. No default manager is seeded and no central Auth service is needed.
 
 | Command                               | Purpose                                                  |
 | ------------------------------------- | -------------------------------------------------------- |
@@ -40,9 +40,9 @@ It does not use `DATABASE_URL`. `test:serve` is a test-only browser fixture.
 to the migrated database. Database loss prevents readiness. Protected requests
 fail closed when authentication or database checks cannot complete.
 
-The central Auth provider must support login, session validation, logout and
-password change. Confirm its contract and token-invalidation behavior before
-integration. Database migrations use separate owner credentials, preserve existing
+MAD owns login, session validation, logout and password change. The gateway routes
+requests; MAD verifies tokens and checks account state and revocations.
+Database migrations use separate owner credentials, preserve existing
 supported records and restrict the runtime role to its permitted tables. Failed
 migrations roll back; committed schema changes require a reviewed forward migration
 or backup recovery.

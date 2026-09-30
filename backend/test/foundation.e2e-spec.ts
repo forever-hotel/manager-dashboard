@@ -12,7 +12,7 @@ import { HealthController } from '../src/health/health.controller';
 import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
 import { configureHttp } from '../src/common/http';
 import { migrate } from '../src/database/migrate';
-import { startAuthContractServer } from './auth-contract-server';
+import { seedLocalAuth } from './local-auth-fixture';
 
 // Exercise the exported foundation guard without depending on later feature APIs.
 @Controller('protected')
@@ -29,7 +29,7 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
   let database: DataSource;
   let runtime: DataSource;
   let app: INestApplication<App>;
-  let provider: Awaited<ReturnType<typeof startAuthContractServer>>;
+  let provider: Awaited<ReturnType<typeof seedLocalAuth>>;
   const suffix = randomUUID().replace(/-/g, '').slice(0, 12);
   const name = 'mad_test_' + suffix;
   const role = 'mad_test_app_' + suffix;
@@ -63,7 +63,7 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
     runtimeUrl.password = 'integration-only';
     runtime = new DataSource({ type: 'postgres', url: runtimeUrl.toString() });
     await runtime.initialize();
-    provider = await startAuthContractServer(secret);
+    provider = await seedLocalAuth(database, secret);
     const module = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -72,8 +72,7 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
           load: [
             () => ({
               JWT_SECRET: secret,
-              JWT_ISSUER: 'central-auth',
-              AUTH_SERVICE_URL: provider.url,
+              JWT_ISSUER: 'mad',
             }),
           ],
         }),
@@ -93,7 +92,6 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
   }, 60000);
   afterAll(async () => {
     await app?.close();
-    await provider?.close();
     if (runtime?.isInitialized) await runtime.destroy();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
@@ -102,16 +100,15 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
       await admin.destroy();
     }
   });
-  afterEach(() => provider?.setOutage(false));
   const http = () => request(app.getHttpServer());
-  it('preserves existing data and records one version despite concurrent runners', async () => {
+  it('preserves existing data and records each version once despite concurrent runners', async () => {
     const rows = await database.query<{ code_string: string }[]>(
       "SELECT code_string FROM mad_promotion_codes WHERE code_string='KEEP-ME'",
     );
     expect(rows).toHaveLength(1);
     expect(
       await database.query('SELECT version FROM mad_migrations'),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     await migrate(database, role);
     expect(
       await database.query(
@@ -128,6 +125,12 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
       runtime.query('SELECT password_hash FROM staff_users'),
     ).rejects.toMatchObject({ driverError: { code: '42501' } });
     await expect(
+      runtime.query("INSERT INTO mad_manager_accounts(username,password_hash) VALUES ('unauthorized','invalid')"),
+    ).rejects.toMatchObject({ driverError: { code: '42501' } });
+    await expect(
+      runtime.query('UPDATE mad_manager_accounts SET active=false'),
+    ).rejects.toMatchObject({ driverError: { code: '42501' } });
+    await expect(
       runtime.query('CREATE TABLE unauthorized(id integer)'),
     ).rejects.toMatchObject({ driverError: { code: '42501' } });
     await expect(
@@ -142,6 +145,7 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
   it('exposes independent liveness and database readiness', async () => {
     await http().get('/health/live').expect(200);
     await http().get('/health/ready').expect(200);
+    await http().get('/mad/health/ready').expect(200);
     await database.query(
       `REVOKE SELECT ON mad_revoked_sessions FROM "${role}"`,
     );
@@ -180,26 +184,25 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
       .set('Authorization', 'Bearer ' + provider.issue('worker'))
       .expect(403);
   });
-  it('denies sessions immediately after central deactivation/password reset', async () => {
+  it('denies sessions immediately after local deactivation', async () => {
     const token = provider.issue('manager');
     await http()
       .get('/auth/session')
       .set('Authorization', 'Bearer ' + token)
       .expect(200);
-    provider.sessions.get(token)!.active = false;
+    await database.query('UPDATE mad_manager_accounts SET active=false WHERE username=$1', ['manager']);
     await http()
       .get('/protected')
       .set('Authorization', 'Bearer ' + token)
       .expect(401);
   });
-  it('persists logout revocation even when the central service fails', async () => {
+  it('persists local logout revocation without an external service', async () => {
     const token = provider.issue('manager');
-    provider.setOutage(true);
+    await database.query('UPDATE mad_manager_accounts SET active=true WHERE username=$1', ['manager']);
     await http()
       .post('/auth/logout')
       .set('Authorization', 'Bearer ' + token)
-      .expect(503);
-    provider.setOutage(false);
+      .expect(200);
     await http()
       .get('/auth/session')
       .set('Authorization', 'Bearer ' + token)
@@ -211,6 +214,7 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
       .send({ username: 'first-login', password: 'contract-password' })
       .expect(200);
     const token = (login.body as { accessToken: string }).accessToken;
+    const otherSession = provider.issue('first-login');
     const blocked = await http()
       .get('/protected')
       .set('Authorization', 'Bearer ' + token)
@@ -235,6 +239,16 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
       .get('/auth/session')
       .set('Authorization', 'Bearer ' + token)
       .expect(401);
+    await http().get('/auth/session')
+      .set('Authorization', 'Bearer ' + otherSession).expect(401);
+  });
+  it('persists account lockout and permits login again after the lock expires', async () => {
+    await database.query("UPDATE mad_manager_accounts SET failed_attempts=0, locked_until=NULL WHERE username='manager'");
+    for (let attempt = 0; attempt < 5; attempt++)
+      await http().post('/auth/login').send({ username: 'manager', password: 'wrong' }).expect(401);
+    await http().post('/auth/login').send({ username: 'manager', password: 'contract-password' }).expect(401);
+    await database.query("UPDATE mad_manager_accounts SET locked_until=now()-interval '1 second' WHERE username='manager'");
+    await http().post('/auth/login').send({ username: 'manager', password: 'contract-password' }).expect(200);
   });
   it('creates a fresh schema and supports clean migration reruns', async () => {
     const fresh = 'mad_test_fresh_' + suffix;
@@ -247,7 +261,7 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
       await migrate(source, role);
       await migrate(source, role);
       expect(await source.query('SELECT * FROM mad_migrations')).toHaveLength(
-        1,
+        2,
       );
       expect(await source.query('SELECT * FROM mad_promotion_codes')).toEqual(
         [],

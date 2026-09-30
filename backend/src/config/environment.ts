@@ -5,7 +5,7 @@ export function validateEnvironment(env: Record<string, unknown>) {
       throw new Error(`Configuration: ${name} is required`);
     return value;
   };
-  for (const name of ['DATABASE_URL', 'AUTH_SERVICE_URL', 'FRONTEND_URL']) {
+  for (const name of ['DATABASE_URL', 'FRONTEND_URL']) {
     const value = required(name);
     try {
       const url = new URL(value);

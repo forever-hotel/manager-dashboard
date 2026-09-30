@@ -14,7 +14,7 @@ import {
 } from '../src/analytics/booking-analytics.service';
 import { configureHttp } from '../src/common/http';
 import { migrate } from '../src/database/migrate';
-import { startAuthContractServer } from './auth-contract-server';
+import { seedLocalAuth } from './local-auth-fixture';
 
 type Summary = Awaited<ReturnType<BookingAnalyticsService['summary']>>;
 
@@ -23,7 +23,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
   let database: DataSource;
   let runtime: DataSource;
   let app: INestApplication<App>;
-  let provider: Awaited<ReturnType<typeof startAuthContractServer>>;
+  let provider: Awaited<ReturnType<typeof seedLocalAuth>>;
   let clock: Date;
   const suffix = randomUUID().replace(/-/g, '').slice(0, 12);
   const name = 'ddp_booking_test_' + suffix;
@@ -54,7 +54,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     owner.password = 'integration-only';
     runtime = new DataSource({ type: 'postgres', url: owner.toString() });
     await runtime.initialize();
-    provider = await startAuthContractServer(secret);
+    provider = await seedLocalAuth(database, secret);
     const module = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -63,8 +63,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
           load: [
             () => ({
               JWT_SECRET: secret,
-              JWT_ISSUER: 'central-auth',
-              AUTH_SERVICE_URL: provider.url,
+              JWT_ISSUER: 'mad',
             }),
           ],
         }),
@@ -89,12 +88,10 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
   beforeEach(async () => {
     clock = new Date('2026-09-27T04:00:00Z');
     await database.query('TRUNCATE hw_booking_snapshots');
-    provider.setOutage(false);
   });
 
   afterAll(async () => {
     await app?.close();
-    await provider?.close();
     if (runtime?.isInitialized) await runtime.destroy();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
@@ -250,7 +247,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       (await get('', provider.issue('worker')).expect(403)).body,
     ).toMatchObject({ code: 'FORBIDDEN' });
     expect(
-      (await get('', provider.issue('first-login', true)).expect(403)).body,
+      (await get('', provider.issue('first-login')).expect(403)).body,
     ).toMatchObject({ code: 'PASSWORD_CHANGE_REQUIRED' });
   });
 

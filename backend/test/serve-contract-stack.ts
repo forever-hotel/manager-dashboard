@@ -8,7 +8,7 @@ import { AuthModule } from '../src/auth/auth.module';
 import { HealthController } from '../src/health/health.controller';
 import { configureHttp } from '../src/common/http';
 import { migrate } from '../src/database/migrate';
-import { startAuthContractServer } from './auth-contract-server';
+import { seedLocalAuth } from './local-auth-fixture';
 
 async function main() {
   const url = process.env.TEST_DATABASE_URL;
@@ -34,7 +34,7 @@ async function main() {
   runtime.username = role;
   runtime.password = 'integration-only';
   const secret = 'browser-test-only-secret-at-least-32-characters';
-  const provider = await startAuthContractServer(secret);
+  await seedLocalAuth(database, secret);
   const module = await Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({
@@ -43,8 +43,7 @@ async function main() {
         load: [
           () => ({
             JWT_SECRET: secret,
-            JWT_ISSUER: 'central-auth',
-            AUTH_SERVICE_URL: provider.url,
+            JWT_ISSUER: 'mad',
           }),
         ],
       }),
@@ -65,7 +64,6 @@ async function main() {
     if (stopping) return;
     stopping = true;
     await app.close();
-    await provider.close();
     await database.destroy();
     await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
     await admin.query(`DROP ROLE IF EXISTS "${role}"`);

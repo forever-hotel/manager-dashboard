@@ -1,0 +1,18 @@
+[
+  {
+    "id": "mad-auth",
+    "enabled": true,
+    "prefix": "/mad/auth",
+    "rewritePrefix": "/auth",
+    "upstreamEnv": "MAD_SERVICE_URL",
+    "cookieNames": ["mad_session", "mad_csrf"]
+  },
+  {
+    "id": "mad",
+    "enabled": true,
+    "prefix": "/mad",
+    "rewritePrefix": "/mad",
+    "upstreamEnv": "MAD_SERVICE_URL",
+    "cookieNames": ["mad_session", "mad_csrf"]
+  }
+]

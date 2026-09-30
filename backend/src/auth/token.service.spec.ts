@@ -7,13 +7,16 @@ describe('Staff token policy', () => {
   const jwt = new JwtService({ secret });
   const service = new TokenService(
     jwt,
-    new ConfigService({ JWT_SECRET: secret, JWT_ISSUER: 'central-auth' }),
+    new ConfigService({ JWT_SECRET: secret, JWT_ISSUER: 'mad' }),
   );
   const now = Math.floor(Date.now() / 1000);
   const claims = {
     sub: '11111111-1111-4111-8111-111111111111',
     role: 'MANAGER',
-    iss: 'central-auth',
+    iss: 'mad',
+    aud: 'mad',
+    ver: 0,
+    jti: '22222222-2222-4222-8222-222222222222',
     iat: now,
     exp: now + 28800,
   };
@@ -25,6 +28,10 @@ describe('Staff token policy', () => {
     ['sub', 'not-a-uuid'],
     ['role', undefined],
     ['role', 3],
+    ['ver', undefined],
+    ['ver', -1],
+    ['jti', 'bad'],
+    ['aud', 'fds'],
     ['iss', undefined],
     ['iss', 'another-provider'],
     ['iat', undefined],
@@ -55,5 +62,11 @@ describe('Staff token policy', () => {
       service.verify(jwt.sign(claims, { secret: 'another-secret' })),
     ).toThrow();
     expect(() => service.verify('garbage')).toThrow();
+  });
+  it('issues distinct manager tokens scoped to MAD', () => {
+    const first = service.issue(claims.sub, 2);
+    const second = service.issue(claims.sub, 2);
+    expect(first).not.toBe(second);
+    expect(service.verify(first)).toMatchObject({ sub: claims.sub, role: 'MANAGER', ver: 2, aud: 'mad' });
   });
 });

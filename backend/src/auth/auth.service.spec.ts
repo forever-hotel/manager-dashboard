@@ -1,167 +1,135 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { AuthService } from './auth.service';
-import { AuthProvider } from './auth-provider';
 import { TokenService } from './token.service';
+import { hashPassword, verifyPassword } from './password';
+jest.mock('./password', () => ({
+  verifyPassword: jest.fn(),
+  hashPassword: jest.fn(),
+  validPassword: (value: string) => value.length >= 12 && value.length <= 1024,
+}));
 
-describe('Central sessions and local revocation', () => {
-  const secret = 'test-only-secret-with-more-than-32-characters';
-  const jwt = new JwtService({ secret });
-  const tokens = new TokenService(
-    jwt,
-    new ConfigService({ JWT_SECRET: secret, JWT_ISSUER: 'central-auth' }),
-  );
-  const now = Math.floor(Date.now() / 1000);
-  const claims = {
-    sub: '11111111-1111-4111-8111-111111111111',
-    role: 'MANAGER',
-    iss: 'central-auth',
-    iat: now,
-    exp: now + 28800,
+describe('Manager-owned authentication', () => {
+  const jwt = new JwtService();
+  const tokens = new TokenService(jwt, new ConfigService({
+    JWT_SECRET: 'test-only-secret-with-more-than-32-characters', JWT_ISSUER: 'mad',
+  }));
+  const account = {
+    manager_id: '11111111-1111-4111-8111-111111111111',
+    username: 'manager', active: true, password_hash: 'stored',
+    password_change_required: false, session_version: 0,
+    failed_attempts: 0, locked_until: null as Date | null,
   };
-  const token = jwt.sign(claims);
-  const state = {
-    active: true,
-    sub: claims.sub,
-    role: 'MANAGER',
-    username: 'manager',
-    passwordChangeRequired: false,
-  };
-  let request: jest.Mock;
   let query: jest.Mock;
   let service: AuthService;
   beforeEach(() => {
-    request = jest.fn().mockResolvedValue(state);
-    query = jest.fn().mockResolvedValue([]);
-    service = new AuthService(
-      tokens,
-      { request } as unknown as AuthProvider,
-      { query } as unknown as DataSource,
-    );
+    query = jest.fn().mockResolvedValue([account]);
+    const database = {
+      query,
+      transaction: (work: (manager: EntityManager) => unknown) =>
+        work({ query } as unknown as EntityManager),
+    } as unknown as DataSource;
+    service = new AuthService(tokens, database);
+    jest.mocked(verifyPassword).mockReset().mockResolvedValue(true);
+    jest.mocked(hashPassword).mockReset().mockResolvedValue('new-hash');
   });
-  it('returns only safe session data after checking revocation and central state', async () => {
-    expect(await service.session(token)).toEqual({
-      sub: claims.sub,
-      role: 'MANAGER',
-      username: 'manager',
-      expiresAt: claims.exp,
-      passwordChangeRequired: false,
-    });
-    expect(query).toHaveBeenCalledWith(expect.any(String), [
-      expect.stringMatching(/^[a-f0-9]{64}$/),
-    ]);
+  it('issues a safe session using a normalized local username', async () => {
+    const result = await service.login({ username: ' Manager ', password: 'local-password' });
+    expect(query).toHaveBeenNthCalledWith(1, expect.stringContaining('FOR UPDATE'), ['manager']);
+    expect(result).toMatchObject({ username: 'manager', role: 'MANAGER', passwordChangeRequired: false });
+    expect(result).not.toHaveProperty('password_hash');
+    expect(tokens.verify(result.accessToken)).toMatchObject({ sub: account.manager_id, ver: 0 });
   });
-  it('rejects local revocation without contacting the provider', async () => {
-    query.mockResolvedValue([{ token_hash: 'hash' }]);
-    await expect(service.session(token)).rejects.toThrow('Unauthorized');
-    expect(request).not.toHaveBeenCalled();
-  });
-  it.each([null, [], 'invalid'])(
-    'fails closed for malformed provider data %s',
-    async (value) => {
-      request.mockResolvedValue(value);
-      await expect(service.session(token)).rejects.toThrow();
-    },
-  );
-  it.each([{ active: false }, { sub: 'someone-else' }])(
-    'rejects inactive/reset/invalid central session %s',
-    async (change) => {
-      request.mockResolvedValue({ ...state, ...change });
-      await expect(service.session(token)).rejects.toThrow('Unauthorized');
-    },
-  );
   it.each([
-    { role: 'WORKER' },
-    { passwordChangeRequired: undefined },
-    { username: undefined },
-  ])('rejects disallowed or malformed state %s', async (change) => {
-    request.mockResolvedValue({ ...state, ...change });
-    await expect(service.session(token)).rejects.toThrow();
+    undefined, { ...account, active: false },
+    { ...account, locked_until: new Date(Date.now() + 60000) },
+  ])('rejects unknown, inactive and locked accounts', async (row) => {
+    query.mockResolvedValueOnce(row ? [row] : []);
+    await expect(service.login({ username: 'manager', password: 'wrong' })).rejects.toThrow('Unauthorized');
+    expect(verifyPassword).toHaveBeenCalled();
   });
-  it('rejects a token role even if the provider incorrectly reports manager', async () => {
-    await expect(
-      service.session(jwt.sign({ ...claims, role: 'WORKER' })),
-    ).rejects.toThrow('Forbidden');
+  it('persists failed-login counters and locks after five guesses', async () => {
+    query.mockResolvedValueOnce([{ ...account, failed_attempts: 4 }]);
+    jest.mocked(verifyPassword).mockResolvedValue(false);
+    await expect(service.login({ username: 'manager', password: 'wrong' })).rejects.toThrow('Unauthorized');
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('15 minutes'), [account.manager_id, 5]);
   });
-  it('restricts forced-change sessions to the password-change flow', async () => {
-    request.mockResolvedValue({ ...state, passwordChangeRequired: true });
-    await expect(service.session(token)).rejects.toMatchObject({
-      response: { code: 'PASSWORD_CHANGE_REQUIRED' },
-    });
-    expect((await service.session(token, true)).passwordChangeRequired).toBe(
-      true,
-    );
+  it('starts a fresh counter after an expired lockout', async () => {
+    query.mockResolvedValueOnce([{ ...account, failed_attempts: 5, locked_until: new Date(0) }]);
+    jest.mocked(verifyPassword).mockResolvedValue(false);
+    await expect(service.login({ username: 'manager', password: 'wrong' })).rejects.toThrow();
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), [account.manager_id, 1]);
   });
-  it('accepts a login only after validating the returned token and central state', async () => {
-    request
-      .mockResolvedValueOnce({ accessToken: token })
-      .mockResolvedValueOnce(state);
-    expect(
-      (await service.login({ username: 'manager', password: 'test-password' }))
-        .accessToken,
-    ).toBe(token);
+  it('returns only public fields from an active, unrevoked account', async () => {
+    const token = tokens.issue(account.manager_id, 0);
+    const session = await service.session(token);
+    expect(session).not.toHaveProperty('password_hash');
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('NOT EXISTS'),
+      [account.manager_id, expect.stringMatching(/^[a-f0-9]{64}$/)]);
   });
-  it.each([null, {}, { accessToken: 1 }])(
-    'rejects malformed login responses %s',
-    async (value) => {
-      request.mockResolvedValue(value);
-      await expect(
-        service.login({ username: 'manager', password: 'password' }),
-      ).rejects.toThrow();
+  it.each([undefined, { ...account, active: false }, { ...account, session_version: 1 }])(
+    'rejects revoked, inactive or superseded sessions', async (row) => {
+      query.mockResolvedValue(row ? [row] : []);
+      await expect(service.session(tokens.issue(account.manager_id, 0))).rejects.toThrow('Unauthorized');
     },
   );
-  it('revokes locally before contacting central logout, even on provider failure', async () => {
-    request.mockRejectedValue(new Error('provider unavailable'));
-    await expect(service.logout(token)).rejects.toThrow();
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO mad_revoked_sessions'),
-      expect.any(Array),
-    );
-    expect(query.mock.invocationCallOrder[0]).toBeLessThan(
-      request.mock.invocationCallOrder[0],
-    );
+  it('enforces password change before business access', async () => {
+    query.mockResolvedValue([{ ...account, password_change_required: true }]);
+    const token = tokens.issue(account.manager_id, 0);
+    await expect(service.session(token)).rejects.toThrow('Change your password');
+    expect((await service.session(token, true)).passwordChangeRequired).toBe(true);
   });
-  it('completes a successful logout', async () => {
-    await expect(service.logout(token)).resolves.toEqual({
-      status: 'signed_out',
+  it('rejects signed non-manager tokens', async () => {
+    const token = jwt.sign({
+      sub: account.manager_id, ver: 0, role: 'WORKER',
+      jti: '22222222-2222-4222-8222-222222222222',
+    }, { secret: 'test-only-secret-with-more-than-32-characters',
+      issuer: 'mad', audience: 'mad', expiresIn: '8h' });
+    await expect(service.session(token)).rejects.toThrow('Forbidden');
+    await expect(service.logout(token)).rejects.toThrow('Forbidden');
+  });
+  it('rotates the password and all previous session versions atomically', async () => {
+    const token = tokens.issue(account.manager_id, 0);
+    query.mockResolvedValueOnce([account]).mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ ...account, session_version: 1 }]);
+    const result = await service.changePassword(token, {
+      currentPassword: 'old-password', newPassword: 'replacement-password',
     });
+    expect(result.accessToken).not.toBe(token);
+    expect(tokens.verify(result.accessToken).ver).toBe(1);
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('session_version=session_version+1'),
+      [account.manager_id, 'new-hash']);
   });
-  it('requires a fresh, unrestricted token after central password change', async () => {
-    const fresh = jwt.sign({ ...claims, jti: 'replacement' });
-    request
-      .mockResolvedValueOnce(state)
-      .mockResolvedValueOnce({ accessToken: fresh })
-      .mockResolvedValueOnce(state);
-    expect(
-      (
-        await service.changePassword(token, {
-          currentPassword: 'old',
-          newPassword: 'new',
-        })
-      ).accessToken,
-    ).toBe(fresh);
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT'),
-      expect.any(Array),
-    );
+  it('commits wrong-current-password counters without changing the hash', async () => {
+    query.mockResolvedValueOnce([account]).mockResolvedValueOnce([]);
+    jest.mocked(verifyPassword).mockResolvedValue(false);
+    await expect(service.changePassword(tokens.issue(account.manager_id, 0), {
+      currentPassword: 'wrong', newPassword: 'replacement-password',
+    })).rejects.toThrow('Unauthorized');
+    expect(hashPassword).not.toHaveBeenCalled();
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('failed_attempts'), [account.manager_id, 1]);
   });
-  it.each([false, true])(
-    'rejects unchanged token or incomplete password change (%s)',
-    async (pending) => {
-      const replacement = pending
-        ? jwt.sign({ ...claims, jti: 'replacement' })
-        : token;
-      request
-        .mockResolvedValueOnce(state)
-        .mockResolvedValueOnce({ accessToken: replacement })
-        .mockResolvedValueOnce({ ...state, passwordChangeRequired: pending });
-      await expect(
-        service.changePassword(token, {
-          currentPassword: 'old',
-          newPassword: 'new',
-        }),
-      ).rejects.toThrow();
-    },
-  );
+  it.each([
+    { currentPassword: 'old', newPassword: 'short' },
+    { currentPassword: 'same-password', newPassword: 'same-password' },
+  ])('rejects unacceptable password changes', async (body) => {
+    await expect(service.changePassword(tokens.issue(account.manager_id, 0), body)).rejects.toThrow('12 to 1024');
+    expect(query).not.toHaveBeenCalled();
+  });
+  it('refuses revoked sessions during password change', async () => {
+    query.mockResolvedValueOnce([account]).mockResolvedValueOnce([{ token_hash: 'revoked' }]);
+    await expect(service.changePassword(tokens.issue(account.manager_id, 0), {
+      currentPassword: 'old-password', newPassword: 'replacement-password',
+    })).rejects.toThrow('Unauthorized');
+  });
+  it('durably revokes logout without an external provider', async () => {
+    expect(await service.logout(tokens.issue(account.manager_id, 0))).toEqual({ status: 'signed_out' });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('ON CONFLICT DO NOTHING'),
+      [expect.stringMatching(/^[a-f0-9]{64}$/), expect.any(Number)]);
+  });
+  it('propagates database failure rather than accepting a session', async () => {
+    query.mockRejectedValue(new Error('database offline'));
+    await expect(service.session(tokens.issue(account.manager_id, 0))).rejects.toThrow('Service Unavailable');
+  });
 });

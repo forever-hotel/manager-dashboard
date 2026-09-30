@@ -30,8 +30,19 @@ export function serverConfig() {
     throw new Error(
       'Configuration: APP_ORIGIN must use HTTPS outside localhost',
     );
+  const api = httpUrl('BACKEND_API_URL', process.env.BACKEND_API_URL);
+  if (new URL(api).pathname !== '/')
+    throw new Error(
+      'Configuration: BACKEND_API_URL must be an origin without a path',
+    );
+  const apiMode = process.env.BACKEND_API_MODE ?? 'gateway';
+  if (!['gateway', 'direct'].includes(apiMode))
+    throw new Error(
+      'Configuration: BACKEND_API_MODE must be gateway or direct',
+    );
   return {
     origin,
-    api: httpUrl('BACKEND_API_URL', process.env.BACKEND_API_URL),
+    api,
+    apiMode,
   };
 }

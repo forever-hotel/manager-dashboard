@@ -1,0 +1,7 @@
+# The gateway has its own repository; dashboard CI does not require its source.
+# Select only postgres, migrate, mad-backend and mad-frontend when using this file.
+services:
+  mad-frontend:
+    environment:
+      BACKEND_API_URL: http://mad-backend:4000
+      BACKEND_API_MODE: direct

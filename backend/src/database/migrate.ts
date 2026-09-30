@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { MadFoundation1789600000000 } from './migrations/001-foundation';
+import { MadManagerAuth1790726400000 } from './migrations/002-manager-auth';
 
 export async function migrate(database: DataSource, role: string) {
   if (!/^[a-z_][a-z0-9_]{0,62}$/.test(role))
@@ -35,6 +36,7 @@ export async function migrate(database: DataSource, role: string) {
     // Append future forward migrations here; never replay recorded versions.
     const migrations = [
       { version: '1789600000000', migration: new MadFoundation1789600000000() },
+      { version: '1790726400000', migration: new MadManagerAuth1790726400000() },
     ];
     for (const { version, migration } of migrations) {
       const applied = (await runner.query(
@@ -54,7 +56,10 @@ export async function migrate(database: DataSource, role: string) {
       GRANT USAGE ON SCHEMA public TO "${role}";
       REVOKE ALL ON ALL TABLES IN SCHEMA public FROM "${role}";
       REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM "${role}";
-      GRANT SELECT, INSERT, UPDATE, DELETE ON mad_promotion_codes, mad_revoked_sessions TO "${role}";`);
+      GRANT SELECT, INSERT, UPDATE, DELETE ON mad_promotion_codes, mad_revoked_sessions TO "${role}";
+      GRANT SELECT ON mad_manager_accounts TO "${role}";
+      GRANT UPDATE (password_hash, password_change_required, session_version, failed_attempts, locked_until, updated_at)
+        ON mad_manager_accounts TO "${role}";`);
     for (const table of [
       'bookings',
       'payments',
@@ -76,7 +81,7 @@ export async function migrate(database: DataSource, role: string) {
       IF EXISTS (
         SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'f')
-          AND c.relname NOT IN ('mad_promotion_codes', 'mad_revoked_sessions')
+          AND c.relname NOT IN ('mad_promotion_codes', 'mad_revoked_sessions', 'mad_manager_accounts')
           AND (has_table_privilege('${role}', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
             OR has_any_column_privilege('${role}', c.oid, 'INSERT,UPDATE,REFERENCES'))
       ) THEN

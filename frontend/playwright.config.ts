@@ -32,6 +32,7 @@ export default defineConfig({
       env: {
         NEXT_PUBLIC_API_URL: 'http://127.0.0.1:4401',
         BACKEND_API_URL: 'http://127.0.0.1:4401',
+        BACKEND_API_MODE: 'direct',
         APP_ORIGIN: 'http://127.0.0.1:3301',
       },
     },

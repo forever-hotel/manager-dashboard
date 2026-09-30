@@ -13,6 +13,9 @@ DDP-010 adds the manager-only occupancy calendar API. Provision its room,
 allocation and maintenance reporting views, then rebuild and rerun migrations;
 see the [occupancy contract](backend/README.md#ddp-010-occupancy-calendar).
 
+The [application guide](APPLICATION_GUIDE.md) contains the full architecture,
+gateway-enabled Compose setup, account provisioning and troubleshooting.
+
 ## Prerequisites and configuration
 
 Use Node 22.14.x (`.nvmrc`), npm 10 or later, Docker with Compose v2 and PostgreSQL 15.
@@ -24,10 +27,9 @@ settings. Example passwords are for isolated local development. Use externally
 supplied secrets and HTTPS origins in shared environments. Database passwords in
 connection URLs must be URL-encoded; the local examples use URL-safe characters.
 
-Real login depends on the central Auth Service. Set `AUTH_SERVICE_URL`,
-`JWT_ISSUER` and `JWT_SECRET` to the agreed provider configuration. No local default
-manager account is created. See the [backend README](backend/README.md) for setup
-and integration prerequisites.
+MAD now owns manager login. Set `JWT_ISSUER` and `JWT_SECRET` for MAD and provision
+an initial manager as described in the [application guide](APPLICATION_GUIDE.md).
+No default account is created. The gateway only routes authentication requests.
 
 ## Run in containers
 
@@ -38,7 +40,8 @@ docker compose up --build -d
 docker compose ps
 ```
 
-The stack contains four services on Compose's default network:
+Supply the gateway source at `api-gateway/`, or set `API_GATEWAY_CONTEXT` to its
+checkout. The stack contains five services on Compose's default network:
 
 1. `postgres` creates a dedicated `mad_app` login on a fresh volume and keeps
    database files in the named `postgres_data` volume.
@@ -46,18 +49,19 @@ The stack contains four services on Compose's default network:
    credentials and exits. An advisory transaction lock serializes migration runs.
 3. `mad-backend` starts after successful migration. Its readiness check queries
    the database rather than returning a static success response.
-4. `mad-frontend` starts independently so it can render an unavailable page while
+4. `api-gateway` starts after backend readiness and routes MAD requests using the
+   local MAD-only route file in `deploy/`.
+5. `mad-frontend` starts independently so it can render an unavailable page while
    the backend/database is down. Its health check remains unhealthy until the
    backend is ready.
 
-Open `http://localhost:3000`. The backend is at `http://localhost:4000`.
-Compose uses `postgres:5432` and `http://mad-backend:4000` inside its network.
-The default central Auth URL `http://host.docker.internal:5000` assumes that a
-separate provider runs on the host. Configure a reachable provider URL for your
-environment; the provider is not supplied by this repository.
+Open `http://localhost:3000`. The gateway is at `http://localhost:8080` and MAD's
+debugging endpoint is at `http://localhost:4000`. Inside Docker the frontend uses
+`http://api-gateway:8080`, the gateway uses `http://mad-backend:4000`, and MAD uses
+`postgres:5432`. No central Auth provider is required.
 
 ```powershell
-docker compose logs mad-backend mad-frontend migrate
+docker compose logs mad-backend api-gateway mad-frontend migrate
 docker compose down
 ```
 
@@ -71,14 +75,15 @@ After a database outage, restart failed migrations/backend if necessary:
 ```powershell
 docker compose up -d postgres
 docker compose run --rm migrate
-docker compose up -d mad-backend mad-frontend
+docker compose up -d mad-backend api-gateway mad-frontend
 ```
 
 ## Run applications on the host
 
 Create the root `.env`, `backend/.env` and `frontend/.env.local` from their examples.
 Keep database passwords consistent. Host processes use `localhost:5432` and
-`http://localhost:4000`; they cannot resolve Compose service names.
+the frontend uses `http://localhost:8080` in gateway mode; they cannot resolve
+Compose service names. Do not run containers on the same ports as host processes.
 
 From the repository root:
 
@@ -94,6 +99,16 @@ npm ci
 npm run build
 npm run migration:run
 npm run start:dev
+```
+
+In a gateway terminal, copy its environment example if needed, select a local
+MAD-only route file with `ROUTES_FILE`, and set `MAD_SERVICE_URL=http://localhost:4000`.
+See its [handoff guide](api-gateway/DEVELOPER_GUIDE.md) for route configuration.
+
+```powershell
+cd api-gateway
+npm ci --ignore-scripts
+npm run dev
 ```
 
 In a frontend terminal:
@@ -115,7 +130,7 @@ The application uses `DATABASE_URL` with the restricted login.
 Both applications provide read-only lint and format checks, builds and unit
 coverage commands. GitHub Actions runs them on every push and on PRs to develop
 or main. API integration and browser jobs use disposable PostgreSQL instances and
-a test-only Auth contract provider. High/critical dependency findings fail CI.
+test-only local manager account fixtures. High/critical dependency findings fail CI.
 Coverage artifacts are uploaded even when another check fails.
 
 The repository maintainer must configure required status checks/branch protection:
@@ -123,8 +138,9 @@ Backend checks, Frontend checks, Browser acceptance and Container smoke. Staging
 and release deployment belong to later tickets.
 
 No tests, builds, containers or runtime acceptance checks were run during the
-implementation-only review. Real Auth integration, database ownership agreement,
-hosted CI and branch protection still require confirmation before ticket sign-off.
+implementation-only review. The local Compose configuration has been validated;
+live gateway/login integration, database ownership agreement, hosted CI and branch
+protection still require confirmation before ticket sign-off.
 
 The root `docs/` directory is reserved for local documents and is excluded from
 future Git commits. Its files are not required to build or run the application.

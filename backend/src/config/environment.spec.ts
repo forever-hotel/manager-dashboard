@@ -2,10 +2,9 @@ import { validateEnvironment } from './environment';
 describe('Startup configuration', () => {
   const valid = {
     DATABASE_URL: 'postgresql://mad:password@localhost:5432/mad',
-    AUTH_SERVICE_URL: 'http://localhost:5000',
     FRONTEND_URL: 'http://localhost:3000',
     JWT_SECRET: 'test-secret-with-at-least-32-characters',
-    JWT_ISSUER: 'central-auth',
+    JWT_ISSUER: 'mad',
   };
   it('accepts valid local configuration and a numeric port', () => {
     expect(validateEnvironment(valid).PORT).toBe(4000);
@@ -14,7 +13,6 @@ describe('Startup configuration', () => {
       validateEnvironment({
         ...valid,
         NODE_ENV: 'production',
-        AUTH_SERVICE_URL: 'https://auth.test',
         FRONTEND_URL: 'https://mad.test',
       }).PORT,
     ).toBe(4000);
@@ -27,7 +25,7 @@ describe('Startup configuration', () => {
       );
     },
   );
-  it.each(['DATABASE_URL', 'AUTH_SERVICE_URL', 'FRONTEND_URL'])(
+  it.each(['DATABASE_URL', 'FRONTEND_URL'])(
     'redacts invalid %s',
     (key) => {
       try {
@@ -46,13 +44,13 @@ describe('Startup configuration', () => {
     'http://test?query=x',
   ])('rejects unsafe service URL %s', (url) => {
     expect(() =>
-      validateEnvironment({ ...valid, AUTH_SERVICE_URL: url }),
-    ).toThrow('AUTH_SERVICE_URL');
+      validateEnvironment({ ...valid, FRONTEND_URL: url }),
+    ).toThrow('FRONTEND_URL');
   });
   it('rejects insecure production service URLs and short signing secrets', () => {
     expect(() =>
       validateEnvironment({ ...valid, NODE_ENV: 'production' }),
-    ).toThrow('AUTH_SERVICE_URL');
+    ).toThrow('FRONTEND_URL');
     expect(() =>
       validateEnvironment({ ...valid, JWT_SECRET: 'short' }),
     ).toThrow('JWT_SECRET');
