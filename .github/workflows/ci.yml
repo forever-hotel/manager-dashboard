@@ -120,7 +120,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose --env-file .env.example -f docker-compose.yml -f deploy/compose.ci.yml -p mad-ci config --quiet
-      - run: docker compose --env-file .env.example -f docker-compose.yml -f deploy/compose.ci.yml -p mad-ci up --build --wait --wait-timeout 180 postgres migrate mad-backend mad-frontend
+      - run: docker compose --env-file .env.example -f docker-compose.yml -f deploy/compose.ci.yml -p mad-ci up --build --wait --wait-timeout 180 postgres mad-backend mad-frontend
       - run: |
           curl --fail http://localhost:4000/health/ready
           curl --fail http://localhost:3000/api/health

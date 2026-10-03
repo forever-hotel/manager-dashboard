@@ -1,6 +1,26 @@
-# The gateway has its own repository; dashboard CI does not require its source.
-# Select only postgres, migrate, mad-backend and mad-frontend when using this file.
+# CI only: disposable database fixtures, never the Neon development database.
 services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_DB: mad_test
+    volumes:
+      - ./deploy/ci-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./deploy/neon-mad-auth.sql:/docker-entrypoint-initdb.d/02-auth.sql:ro
+      - ./deploy/neon-mad-supplement.sql:/docker-entrypoint-initdb.d/03-reporting.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d mad_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  mad-backend:
+    environment:
+      DATABASE_URL: postgresql://postgres:ci-only-password@postgres:5432/mad_test
+      DB_SSL: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
   mad-frontend:
     environment:
       BACKEND_API_URL: http://mad-backend:4000
