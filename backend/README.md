@@ -1,3 +1,7 @@
+> Current hosted-Neon setup: [APPLICATION_GUIDE.md](../APPLICATION_GUIDE.md).
+> Do not run the legacy migration commands below against Neon. Reporting views
+> are supplied by the manual SQL supplement; no local database is required.
+
 # Forever Hotel backend — DDP-001–010
 
 NestJS API foundation with validated configuration, health/readiness, local manager
@@ -11,14 +15,15 @@ Use Node 22.14.x (see `../.nvmrc`) and npm 10 or later. From this directory:
 Copy-Item .env.example .env
 npm ci
 npm run build
-npm run migration:run
 npm run start:dev
 ```
 
 First provision the database and restricted `mad_app` role using the
 [application guide](../APPLICATION_GUIDE.md). Configure MAD's JWT issuer and
-signing key, run migrations, then provision a manager using the guide's account
-creation command. No default manager is seeded and no central Auth service is needed.
+signing key, apply the manual Neon supplement, then provision a manager using the guide's account
+creation command, or configure INITIAL_MANAGER_EMAIL, INITIAL_MANAGER_USERNAME and
+INITIAL_MANAGER_PASSWORD for startup provisioning. Existing accounts are never reset.
+No central Auth service is needed.
 
 | Command                               | Purpose                                                  |
 | ------------------------------------- | -------------------------------------------------------- |

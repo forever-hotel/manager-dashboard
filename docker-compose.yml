@@ -1,48 +1,26 @@
-# Local development stack. The gateway source folder is supplied separately.
+# Local application containers; PostgreSQL is hosted on Neon. No schema changes run at startup.
 services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
-      POSTGRES_DB: forever_hotel
-      MAD_DB_PASSWORD: ${MAD_DB_PASSWORD:?Set MAD_DB_PASSWORD}
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/docker/01-runtime-role.sh:/docker-entrypoint-initdb.d/01-runtime-role.sh:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d forever_hotel"]
-      interval: 5s
-      timeout: 3s
-      retries: 15
-
-  migrate:
-    build: ./backend
-    command: ["node", "dist/database/migrate-cli.js"]
-    environment:
-      MIGRATION_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/forever_hotel
-      MAD_DB_ROLE: mad_app
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
   mad-backend:
     build: ./backend
     environment:
       NODE_ENV: development
       PORT: 4000
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      DATABASE_URL: postgresql://mad_app:${MAD_DB_PASSWORD}@postgres:5432/forever_hotel
+      DB_HOST: ${DB_HOST:?Set DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USERNAME: ${DB_USERNAME:?Set DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      DB_NAME: ${DB_NAME:?Set DB_NAME}
+      DB_SSL: "true"
+      DB_SYNCHRONIZE: "false"
+      DB_LOGGING: ${DB_LOGGING:-false}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
       JWT_ISSUER: ${JWT_ISSUER:?Set JWT_ISSUER}
+      INITIAL_MANAGER_EMAIL: ${INITIAL_MANAGER_EMAIL:-}
+      INITIAL_MANAGER_USERNAME: ${INITIAL_MANAGER_USERNAME:-}
+      INITIAL_MANAGER_PASSWORD: ${INITIAL_MANAGER_PASSWORD:-}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-4000}:4000"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
@@ -90,13 +68,10 @@ services:
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
     # Start independently so the login page can explain a backend/database outage.
-    # Readiness requires the gateway to reach the migrated MAD backend.
+    # Readiness requires the gateway to reach the hosted MAD database through the backend.
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 8s
       retries: 6
     restart: unless-stopped
-
-volumes:
-  postgres_data:

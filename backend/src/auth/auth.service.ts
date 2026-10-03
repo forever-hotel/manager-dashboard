@@ -21,10 +21,11 @@ export interface Session {
   passwordChangeRequired: boolean;
 }
 interface Account {
-  manager_id: string;
+  worker_id: string;
   username: string;
   password_hash: string;
-  active: boolean;
+  is_active: boolean;
+  role: string;
   password_change_required: boolean;
   session_version: number;
   failed_attempts: number;
@@ -48,11 +49,12 @@ export class AuthService {
     }
   }
   private describe(account: Account, claims: StaffClaims): Session {
-    if (!account.active || account.session_version !== claims.ver)
+    if (!account.is_active || account.session_version !== claims.ver)
       throw new UnauthorizedException();
-    if (claims.role !== 'MANAGER') throw new ForbiddenException();
+    if (claims.role !== 'MANAGER' || account.role !== 'MANAGER')
+      throw new ForbiddenException();
     return {
-      sub: account.manager_id,
+      sub: account.worker_id,
       username: account.username,
       role: 'MANAGER',
       expiresAt: claims.exp,
@@ -63,7 +65,7 @@ export class AuthService {
     const claims = this.tokens.verify(token);
     const rows = await this.storage(() =>
       this.database.query<Account[]>(
-        'SELECT a.* FROM mad_manager_accounts a WHERE manager_id = $1 AND NOT EXISTS (SELECT 1 FROM mad_revoked_sessions WHERE token_hash = $2)',
+        'SELECT a.* FROM staff_users a WHERE worker_id = $1 AND NOT EXISTS (SELECT 1 FROM mad_revoked_sessions WHERE token_hash = $2)',
         [claims.sub, this.digest(token)],
       ),
     );
@@ -86,13 +88,13 @@ export class AuthService {
     // The row is locked by the caller, so simultaneous guesses cannot lose increments.
     const attempts = account.locked_until ? 1 : account.failed_attempts + 1;
     await manager.query(
-      "UPDATE mad_manager_accounts SET failed_attempts=$2, locked_until=CASE WHEN $2 >= 5 THEN now()+interval '15 minutes' ELSE NULL END, updated_at=now() WHERE manager_id=$1",
-      [account.manager_id, attempts],
+      "UPDATE staff_users SET failed_attempts=$2, locked_until=CASE WHEN $2 >= 5 THEN now()+interval '15 minutes' ELSE NULL END, updated_at=now() WHERE worker_id=$1",
+      [account.worker_id, attempts],
     );
   }
   private issue(account: Account) {
     const accessToken = this.tokens.issue(
-      account.manager_id,
+      account.worker_id,
       account.session_version,
     );
     return {
@@ -101,24 +103,29 @@ export class AuthService {
     };
   }
   async login(body: { username: string; password: string }) {
-    const result = await this.storage(() => this.database.transaction(async (manager) => {
-      const rows = await manager.query<Account[]>(
-        'SELECT * FROM mad_manager_accounts WHERE username=$1 FOR UPDATE',
-        [body.username.trim().toLowerCase()],
-      );
-      const account = rows[0];
-      const valid = await verifyPassword(body.password, account?.password_hash);
-      if (!account || !account.active || this.locked(account)) return null;
-      if (!valid) {
-        await this.failure(manager, account);
-        return null; // Commit failed-attempt counters before returning 401.
-      }
-      await manager.query(
-        'UPDATE mad_manager_accounts SET failed_attempts=0, locked_until=NULL, updated_at=now() WHERE manager_id=$1',
-        [account.manager_id],
-      );
-      return this.issue(account);
-    }));
+    const result = await this.storage(() =>
+      this.database.transaction(async (manager) => {
+        const rows = await manager.query<Account[]>(
+          "SELECT * FROM staff_users WHERE username=$1 AND role='MANAGER' FOR UPDATE",
+          [body.username.trim().toLowerCase()],
+        );
+        const account = rows[0];
+        const valid = await verifyPassword(
+          body.password,
+          account?.password_hash,
+        );
+        if (!account || !account.is_active || this.locked(account)) return null;
+        if (!valid) {
+          await this.failure(manager, account);
+          return null; // Commit failed-attempt counters before returning 401.
+        }
+        await manager.query(
+          'UPDATE staff_users SET failed_attempts=0, locked_until=NULL, updated_at=now() WHERE worker_id=$1',
+          [account.worker_id],
+        );
+        return this.issue(account);
+      }),
+    );
     if (!result) throw new UnauthorizedException();
     return result;
   }
@@ -134,29 +141,36 @@ export class AuthService {
         'Use a different password with 12 to 1024 characters.',
       );
     const claims = this.tokens.verify(token);
-    const result = await this.storage(() => this.database.transaction(async (manager) => {
-      const rows = await manager.query<Account[]>(
-        'SELECT * FROM mad_manager_accounts WHERE manager_id=$1 FOR UPDATE', [claims.sub],
-      );
-      const account = rows[0];
-      if (!account) throw new UnauthorizedException();
-      this.describe(account, claims);
-      const revoked = await manager.query<{ token_hash: string }[]>(
-        'SELECT token_hash FROM mad_revoked_sessions WHERE token_hash=$1', [this.digest(token)],
-      );
-      if (revoked.length || this.locked(account)) throw new UnauthorizedException();
-      if (!(await verifyPassword(body.currentPassword, account.password_hash))) {
-        await this.failure(manager, account);
-        return null;
-      }
-      const passwordHash = await hashPassword(body.newPassword);
-      const updated = await manager.query<Account[]>(
-        'UPDATE mad_manager_accounts SET password_hash=$2, password_change_required=false, session_version=session_version+1, failed_attempts=0, locked_until=NULL, updated_at=now() WHERE manager_id=$1 RETURNING *',
-        [account.manager_id, passwordHash],
-      );
-      // The new version invalidates every older session, including concurrent logins.
-      return this.issue(updated[0]);
-    }));
+    const result = await this.storage(() =>
+      this.database.transaction(async (manager) => {
+        const rows = await manager.query<Account[]>(
+          'SELECT * FROM staff_users WHERE worker_id=$1 FOR UPDATE',
+          [claims.sub],
+        );
+        const account = rows[0];
+        if (!account) throw new UnauthorizedException();
+        this.describe(account, claims);
+        const revoked = await manager.query<{ token_hash: string }[]>(
+          'SELECT token_hash FROM mad_revoked_sessions WHERE token_hash=$1',
+          [this.digest(token)],
+        );
+        if (revoked.length || this.locked(account))
+          throw new UnauthorizedException();
+        if (
+          !(await verifyPassword(body.currentPassword, account.password_hash))
+        ) {
+          await this.failure(manager, account);
+          return null;
+        }
+        const passwordHash = await hashPassword(body.newPassword);
+        const updated = await manager.query<Account[]>(
+          'WITH updated AS (UPDATE staff_users SET password_hash=$2, password_change_required=false, session_version=session_version+1, failed_attempts=0, locked_until=NULL, updated_at=now() WHERE worker_id=$1 RETURNING *) SELECT * FROM updated',
+          [account.worker_id, passwordHash],
+        );
+        // The new version invalidates every older session, including concurrent logins.
+        return this.issue(updated[0]);
+      }),
+    );
     if (!result) throw new UnauthorizedException();
     return result;
   }

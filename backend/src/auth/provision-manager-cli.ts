@@ -1,13 +1,18 @@
 import { DataSource } from 'typeorm';
 import { hashPassword, validPassword } from './password';
+import { databaseUrl } from '../database/connection';
 
 async function main() {
-  const url = process.env.MIGRATION_DATABASE_URL;
+  const url = databaseUrl(process.env);
+  const fullName = process.env.MAD_MANAGER_FULL_NAME?.trim();
+  const email = process.env.MAD_MANAGER_EMAIL?.trim();
   const username = process.env.MAD_MANAGER_USERNAME?.trim().toLowerCase();
   const password = process.env.MAD_MANAGER_PASSWORD;
   delete process.env.MAD_MANAGER_PASSWORD;
   if (
     !url ||
+    !fullName ||
+    !email ||
     !username ||
     username.length > 100 ||
     !password ||
@@ -17,6 +22,7 @@ async function main() {
   const database = new DataSource({
     type: 'postgres',
     url,
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: true } : false,
     logging: false,
     extra: { connectionTimeoutMillis: 5000, statement_timeout: 30000 },
   });
@@ -25,8 +31,8 @@ async function main() {
   try {
     // INSERT only: never silently reset an existing manager account.
     await database.query(
-      'INSERT INTO mad_manager_accounts(username,password_hash) VALUES ($1,$2)',
-      [username, passwordHash],
+      "INSERT INTO staff_users(username,password_hash,full_name,email,vocation,role) VALUES ($1,$2,$3,$4,'Manager','MANAGER')",
+      [username, passwordHash, fullName, email],
     );
     console.log('Manager created. Password change is required on first login.');
   } finally {
@@ -34,6 +40,6 @@ async function main() {
   }
 }
 void main().catch(() => {
-  console.error('Manager provisioning failed. Check owner database access, migrations, a unique username and a 12–1024 character password. No credentials are logged.');
+  console.error('Manager provisioning failed. Check database access, the manual auth supplement, full name, unique email/username and a 12–1024 character password. No credentials are logged.');
   process.exitCode = 1;
 });

@@ -45,6 +45,8 @@ SELECT to_char(d.stay_date, 'YYYY-MM-DD') AS date,
   f.source_updated_at, statement_timestamp() AS queried_at
 FROM dates d LEFT JOIN nights n ON n.stay_date = d.stay_date
 CROSS JOIN freshness f
+-- Missing room history must not be represented as zero eligible rooms.
+WHERE NOT EXISTS (SELECT 1 FROM rooms WHERE active_from IS NULL)
 GROUP BY d.stay_date, f.source_updated_at
 ORDER BY d.stay_date ASC
 `;

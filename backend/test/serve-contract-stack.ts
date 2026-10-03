@@ -34,7 +34,7 @@ async function main() {
   runtime.username = role;
   runtime.password = 'integration-only';
   const secret = 'browser-test-only-secret-at-least-32-characters';
-  await seedLocalAuth(database, secret);
+  await seedLocalAuth(database, secret, role);
   const module = await Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({
