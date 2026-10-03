@@ -51,7 +51,7 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
     owner.password = 'integration-only';
     runtime = new DataSource({ type: 'postgres', url: owner.toString() });
     await runtime.initialize();
-    provider = await seedLocalAuth(database, secret);
+    provider = await seedLocalAuth(database, secret, role);
     const module = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({

@@ -60,6 +60,10 @@ export async function migrate(database: DataSource, role: string) {
       GRANT SELECT ON mad_manager_accounts TO "${role}";
       GRANT UPDATE (password_hash, password_change_required, session_version, failed_attempts, locked_until, updated_at)
         ON mad_manager_accounts TO "${role}";`);
+    if ((await runner.query("SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='staff_users' AND column_name='session_version'")).length) {
+      await runner.query(`GRANT SELECT ON staff_users TO "${role}";
+        GRANT UPDATE(password_hash,password_change_required,session_version,failed_attempts,locked_until,updated_at) ON staff_users TO "${role}";`);
+    }
     for (const table of [
       'bookings',
       'payments',
@@ -81,7 +85,7 @@ export async function migrate(database: DataSource, role: string) {
       IF EXISTS (
         SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'f')
-          AND c.relname NOT IN ('mad_promotion_codes', 'mad_revoked_sessions', 'mad_manager_accounts')
+          AND c.relname NOT IN ('mad_promotion_codes', 'mad_revoked_sessions', 'mad_manager_accounts', 'staff_users')
           AND (has_table_privilege('${role}', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
             OR has_any_column_privilege('${role}', c.oid, 'INSERT,UPDATE,REFERENCES'))
       ) THEN

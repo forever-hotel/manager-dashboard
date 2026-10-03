@@ -56,7 +56,9 @@ export function AuthForm({
         throw new Error(
           response.status >= 500
             ? 'Service unavailable. Please retry.'
-            : 'Unable to sign in. Check your details and try again.',
+            : changePassword
+              ? 'Unable to change password. Check your current password and use a different new password.'
+              : 'Unable to sign in. Check your details and try again.',
         );
       const result: unknown = await response.json();
       if (
@@ -93,7 +95,7 @@ export function AuthForm({
         </h1>
         <p className="mt-2 text-sm text-gray-600">
           {changePassword
-            ? 'Set a new password before accessing your dashboard.'
+            ? 'This is your first sign-in. Replace your initial password with a new password. Use the new password for future sign-ins.'
             : 'Sign in to Forever Hotel.'}
         </p>
         {expired && (
