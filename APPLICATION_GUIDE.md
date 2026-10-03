@@ -1,118 +1,107 @@
-# Manager dashboard: architecture and local development
+# Manager dashboard with Neon
 
-This guide covers the manager frontend, manager backend, shared API gateway and
-PostgreSQL in this workspace. The root Compose file runs these together for local
-development. Other hotel subsystems remain separate applications.
+## How the application works
 
-## Components and request flow
+The browser opens the Next.js frontend at http://localhost:3000. Its server-side
+adapter sends requests to the Fastify gateway at http://api-gateway:8080 inside
+Docker. The gateway forwards MAD requests to the NestJS backend at
+http://mad-backend:4000. The backend connects to hosted Neon PostgreSQL over TLS.
 
-| Component | Responsibility | Local address |
-| --- | --- | --- |
-| Next.js manager frontend | Pages, browser session cookie and server-side API calls | http://localhost:3000 |
-| Fastify API gateway | Routing, cookie transport, CORS, rate limits and timeouts | http://localhost:8080 |
-| NestJS MAD backend | Manager login, JWT/session validation, permissions and analytics APIs | http://localhost:4000 |
-| PostgreSQL | Manager accounts, revocations, MAD data and available reporting views | localhost:5432 |
-| Migration job | Applies schema changes using a separate owner connection, then exits | No HTTP port |
+The gateway only routes requests; MAD owns manager login and authorization.
+The browser keeps an HttpOnly, SameSite=Strict session cookie. The frontend sends
+its token to MAD through the gateway as a bearer header. MAD issues eight-hour
+JWTs and validates the staff account, MANAGER role, session version and revocations.
+Password changes invalidate older sessions; five failed password attempts lock an
+account for 15 minutes. New accounts must change their initial password.
 
-Browser requests go to the Next.js frontend. Its backend-for-frontend (BFF)
-calls the gateway at `http://api-gateway:8080` inside Docker. The gateway forwards
-MAD requests to `http://mad-backend:4000`; the backend accesses `postgres:5432`.
-These are Compose service names, not host-machine addresses.
+Gateway `/mad/auth/*` maps to backend `/auth/*`; business `/mad/*` paths remain
+unchanged. Root Compose enables only MAD routes. The independent gateway's
+[handoff guide](api-gateway/DEVELOPER_GUIDE.md) covers all six subsystem teams.
 
-The public backend port is available for local debugging. Ports are bound to
-127.0.0.1. This Compose file is a local development setup, without production TLS.
+## Hosted configuration
 
-| Operation | Frontend/BFF call | Gateway forwards to MAD |
-| --- | --- | --- |
-| Login | /mad/auth/login | /auth/login |
-| Session | /mad/auth/session | /auth/session |
-| Password change | /mad/auth/change-password | /auth/change-password |
-| Logout | /mad/auth/logout | /auth/logout |
-| MAD readiness | /mad/health/ready | /mad/health/ready |
-| Booking totals | /mad/analytics/bookings | Same path and query |
-| Occupancy data | /mad/analytics/occupancy | Same path and query |
+Copy `.env.example` to `.env` only if you do not already have one. Each variable
+must be on its own line. Remove Markdown backslashes and HTML `&#x20;` fragments.
+Never commit credentials. Root Compose reads root `.env`; a host-run backend uses
+`backend/.env`. The private files have been configured separately from examples.
 
-Browser authentication URLs stay on the frontend at `/api/auth/*`.
-The server transport adapter performs the gateway path mapping.
-
-## Authentication
-
-MAD authenticates managers locally. There is no central Auth service, Redis or
-shared login implementation. The gateway does not generate or verify JWTs.
-
-Manager accounts are stored in `mad_manager_accounts`. Passwords use salted
-scrypt. MAD issues eight-hour HS256 tokens with audience `mad`, a unique token ID
-and account version. Every protected request checks the current account and
-logout revocations. Password changes invalidate all older account sessions.
-New accounts must change their initial password before accessing protected data.
-Five failed password attempts lock an account for 15 minutes.
-
-The BFF stores the token in an HttpOnly `mad_session` browser cookie at Path=/,
-with SameSite=Strict and Secure when using HTTPS. It forwards the token through
-the gateway in the Authorization header. Browser JavaScript receives only public
-session fields. The BFF's origin checks protect browser writes.
-
-The gateway also supports subsystem cookies, but this dashboard currently uses
-the BFF-owned cookie/bearer pattern. MAD's backend auth endpoints require bearer
-tokens; gateway cookie support does not automatically change that contract.
-
-## Prerequisites
-
-- Docker Desktop or Docker Engine with Compose v2.
-- Gateway source at `./api-gateway`, or a separate checkout selected by
-  `API_GATEWAY_CONTEXT`.
-- Internet access for the first image builds and npm dependency downloads.
-- Available host ports 3000, 4000, 8080 and 5432, or customized port settings.
-
-Host Node/npm are not required for the all-container setup.
-The gateway folder is currently ignored by this repository. A clean clone of the
-dashboard therefore needs the gateway source supplied separately before building.
-Its handoff instructions are in `api-gateway/DEVELOPER_GUIDE.md`.
-
-## Configure the local stack
-
-From the repository root, copy the example only if a private configuration does
-not already exist:
-
-```powershell
-if (!(Test-Path .env)) { Copy-Item .env.example .env }
+```dotenv
+DB_HOST=your-branch.ap-southeast-1.aws.neon.tech
+DB_PORT=5432
+DB_USERNAME=your_database_role
+DB_PASSWORD=your-private-password
+DB_NAME=forever
+DB_SSL=true
+DB_SYNCHRONIZE=false
+DB_LOGGING=false
 ```
 
-Review these root environment variables:
+Use the direct, non-pooled endpoint supplied by your database administrator.
+DB_SSL enables TLS with certificate verification. DB_SYNCHRONIZE=true is rejected:
+this shared schema must not be changed by ORM startup. Credentials are URL-encoded
+when constructing the connection string. DATABASE_URL is also supported for
+existing tooling, takes precedence over DB_* settings, and must not contain query
+parameters; use DB_SSL for TLS. Compose uses the separate DB_* fields.
 
-| Variable | Example | Meaning |
-| --- | --- | --- |
-| API_GATEWAY_CONTEXT | ./api-gateway | Gateway source/build-context directory |
-| GATEWAY_PORT | 8080 | Host gateway port |
-| FRONTEND_PORT | 3000 | Host frontend port |
-| BACKEND_PORT | 4000 | Host MAD debugging port |
-| POSTGRES_PORT | 5432 | Host PostgreSQL port |
-| POSTGRES_PASSWORD | Local example in .env.example | Database owner password |
-| MAD_DB_PASSWORD | Local example in .env.example | Restricted runtime database password |
-| JWT_SECRET | A dedicated secret of at least 32 characters | MAD signing key; never given to gateway |
-| JWT_ISSUER | mad | MAD token issuer |
-| APP_ORIGIN | http://localhost:3000 | Browser origin and gateway allowed origin |
-| FRONTEND_URL | http://localhost:3000 | Backend CORS origin |
-| NEXT_PUBLIC_API_URL | http://localhost:8080 | Public gateway URL embedded during frontend build |
+Keep JWT_SECRET (32+ characters), JWT_ISSUER=mad, FRONTEND_URL and APP_ORIGIN
+configured. Frontend origin defaults to http://localhost:3000. Public gateway URL
+NEXT_PUBLIC_API_URL defaults to http://localhost:8080. Gateway source must exist at
+`api-gateway/` or at API_GATEWAY_CONTEXT; it is supplied separately and Git-ignored.
+The backend remains on port 4000 to avoid the frontend's port 3000.
 
-Use URL-safe database passwords in these Compose connection strings, or adapt
-the connection configuration to percent-encode special characters.
-Example secrets are intended only for isolated local development.
+## Manual schema prerequisite
 
-If changing FRONTEND_PORT, also update APP_ORIGIN and FRONTEND_URL.
-If changing GATEWAY_PORT, update NEXT_PUBLIC_API_URL. Internal container ports
-remain 3000, 4000 and 8080, so the service-to-service URLs do not change.
+The application targets the supplied `docs/forever_hotel_full_schema.sql`.
+It does not execute that file. If the base schema is already deployed, do not
+rerun its CREATE TABLE/TYPE statements.
 
-An existing root `.env` may contain obsolete AUTH_SERVICE_URL, BACKEND_API_URL
-or BACKEND_API_MODE entries. The root Compose stack now fixes its frontend to
-the internal gateway in gateway mode; these old root settings are not used.
-Remove AUTH_SERVICE_URL and set JWT_ISSUER=mad when updating the configuration.
-Do not copy this signing secret into the gateway's environment.
+Review and manually apply [neon-mad-auth.sql](deploy/neon-mad-auth.sql)
+for login/readiness, then [neon-mad-supplement.sql](deploy/neon-mad-supplement.sql)
+for analytics in Neon after the base schema. This approved supplement has NOT been executed.
+It adds:
 
-The root stack gets its gateway settings directly from Compose. It does not
-require or read `api-gateway/.env`.
+- Staff account lockout, forced password change and session version columns.
+- MAD session revocations for logout.
+- Booking/occupancy reporting views using `bookings` and `rooms`.
+- Dated room availability and maintenance tables absent from the supplied schema.
 
-## Start everything
+Login reads `staff_users.worker_id`, `username`, `password_hash`, `role` and
+`is_active`. Only MANAGER accounts can access MAD. The old mad_manager_accounts
+store is no longer used; existing accounts there are not automatically moved.
+The current password implementation uses salted scrypt; passwords created by a
+different subsystem with another hash format require an agreed compatibility
+implementation before those accounts can log in. No existing hashes are rewritten.
+
+The supplement changes no existing staff passwords. Its new forced-change flag
+starts true. Existing shared-service password/deactivation workflows must also
+increment session_version when invalidating sessions across applications.
+
+The supplied schema's normalized promotion/room-type junction is preserved.
+Promotion management is not implemented by this foundation; the application does
+not recreate the older promotion array column or run legacy migrations on Neon.
+
+The database role needs SELECT on staff_users and reporting views, UPDATE on
+password_hash/password_change_required/session_version/failed_attempts/locked_until/
+updated_at, and SELECT/INSERT on mad_revoked_sessions. Provisioning additionally
+needs INSERT on staff_users. Use a dedicated restricted application role when
+available; the supplied owner role has broader privileges.
+
+## Booking and occupancy data
+
+Booking totals count check-in DATE values in Asia/Colombo, Monday-start weeks,
+including CONFIRMED, CHECKED_IN and CHECKED_OUT. Booking enums are cast to text by
+the reporting view to match the API queries.
+
+The occupancy view uses bookings.room_number as its room identifier. Bookings
+without an assigned room do not count as occupied rooms. Supply verified
+active_from/active_to dates in mad_room_availability for every room and all known
+maintenance intervals in mad_room_maintenance. End dates are exclusive. Keep
+updated_at current when changing those records. No dates are guessed or seeded.
+Missing room availability makes occupancy return 503 rather than misleading zeros.
+An empty maintenance table means no recorded maintenance: the data owner must
+confirm completeness. Current rooms.status cannot reconstruct historical outages.
+
+## Run locally
 
 ```powershell
 docker compose config --quiet
@@ -121,131 +110,97 @@ docker compose ps --all
 docker compose logs -f mad-backend api-gateway mad-frontend
 ```
 
-Startup order is PostgreSQL readiness, successful migration, MAD backend readiness,
-then gateway startup. The frontend starts independently and can show an outage
-page while its dependencies become ready. Its health check goes through the
-gateway to MAD. The migration container exiting with code 0 is expected.
+Compose starts only mad-backend, api-gateway and mad-frontend. There is no local
+PostgreSQL service and no migration job. No schema changes run at startup.
+Gateway startup waits for backend readiness. The frontend starts independently
+and displays unavailability while dependencies are down. Open http://localhost:3000.
+Readiness checks require the manual staff auth columns and revocation table.
 
-Open **http://localhost:3000**. A new database has no manager account yet.
+If an old local postgres/migrate container remains from the previous configuration,
+stop it explicitly using its container name. The new Compose setup does not use
+or delete the previous PostgreSQL volume. Do not use `down --volumes` to switch DBs.
 
-The root stack mounts `deploy/gateway.routes.local.json` read-only into the
-gateway. It enables only MAD's routes because the other subsystem backends are
-not part of this repository. The gateway's standalone `config/routes.json`
-still contains all six enabled subsystems for the other developers.
+## Initial manager on startup
 
-Do not run the standalone gateway Compose stack on port 8080 at the same time
-as this root stack. Use one gateway for this local setup.
+Set these three values in root `.env` for Docker, or `backend/.env` for host runs:
 
-## Provision the first manager
+```dotenv
+INITIAL_MANAGER_EMAIL=manager@example.com
+INITIAL_MANAGER_USERNAME=manager
+INITIAL_MANAGER_PASSWORD=replace-with-a-private-initial-password
+```
 
-After the migration job has completed, run this from the repository root in
-PowerShell. It prompts for the password instead of writing it in shell history:
+All three blank disables provisioning. On the first startup, supply all three;
+the initial password must have 12-1024 characters. On subsequent starts, email
+identifies the existing manager and the initial credentials are ignored. Startup checks staff_users by email without
+case sensitivity. A missing account is inserted with role MANAGER and
+password_change_required=true. The display name defaults to Initial Manager.
+Existing manager accounts are never updated: passwords, username, active state
+and the password-change flag remain exactly as stored. A conflicting non-manager
+email or another account's username stops startup with a safe configuration error.
+Concurrent application starts are serialized during this check.
+
+Sign in using the configured username and initial password. The database flag
+forces the password-change screen and blocks protected APIs. Successfully changing
+the password stores its hash, sets password_change_required=false and invalidates
+older sessions. Future logins use the changed password and open the dashboard;
+restarting the application never restores the environment password.
+
+This writes an account row only, not schema changes. The manual auth schema must
+already exist. The runtime role needs INSERT on staff_users when creating the
+account; grant only required privileges, not schema ownership or superuser.
+After provisioning, you may clear all three variables and remove the runtime
+INSERT grant. Provisioning never reactivates a disabled manager.
+
+Recreate the backend after environment changes with `docker compose up --build -d`.
+No initial credentials are hard-coded, logged or added to the gateway/frontend.
+
+## Create a manager explicitly
+
+After applying the supplement, this command inserts a NEW staff account and refuses
+existing usernames/emails. It does not run migrations or reset existing accounts.
 
 ```powershell
-$env:MAD_MANAGER_USERNAME = Read-Host 'Manager username'
-$initialPassword = Read-Host 'Initial password (12 to 1024 characters)' -AsSecureString
-$managerCredential = [System.Management.Automation.PSCredential]::new($env:MAD_MANAGER_USERNAME, $initialPassword)
+$env:MAD_MANAGER_USERNAME = Read-Host 'Lowercase username'
+$env:MAD_MANAGER_FULL_NAME = Read-Host 'Full name'
+$env:MAD_MANAGER_EMAIL = Read-Host 'Unique email'
+$securePassword = Read-Host 'Initial password (12-1024 characters)' -AsSecureString
+$credential = [System.Management.Automation.PSCredential]::new($env:MAD_MANAGER_USERNAME, $securePassword)
 try {
-  $env:MAD_MANAGER_PASSWORD = $managerCredential.GetNetworkCredential().Password
-  docker compose run --rm -e MAD_MANAGER_USERNAME -e MAD_MANAGER_PASSWORD migrate node dist/auth/provision-manager-cli.js
+  $env:MAD_MANAGER_PASSWORD = $credential.GetNetworkCredential().Password
+  docker compose run --rm --no-deps -e MAD_MANAGER_USERNAME -e MAD_MANAGER_FULL_NAME -e MAD_MANAGER_EMAIL -e MAD_MANAGER_PASSWORD mad-backend node dist/auth/provision-manager-cli.js
 } finally {
   Remove-Item Env:MAD_MANAGER_PASSWORD -ErrorAction SilentlyContinue
   Remove-Item Env:MAD_MANAGER_USERNAME -ErrorAction SilentlyContinue
-  $managerCredential = $null
-  $initialPassword = $null
+  Remove-Item Env:MAD_MANAGER_FULL_NAME -ErrorAction SilentlyContinue
+  Remove-Item Env:MAD_MANAGER_EMAIL -ErrorAction SilentlyContinue
+  $credential = $null
+  $securePassword = $null
 }
 ```
 
-The migration service provides the owner database connection. The command
-inserts a new manager and refuses duplicate usernames; it never silently resets
-an existing account. Usernames are trimmed and stored lowercase.
-No manager is seeded by normal application startup.
+Sign in and change the initial password. For host development, run `npm ci`,
+`npm run build` and `npm run start:dev` in backend with backend/.env configured.
+Host provisioning uses `npm run manager:create` with the same manager variables.
+The frontend host configuration uses BACKEND_API_URL=http://localhost:8080 and
+BACKEND_API_MODE=gateway. Do not run host apps and containers on the same ports.
 
-Sign in through the frontend and choose a different password when prompted.
-The provisioning password exists temporarily in the process/container environment;
-it is not printed or committed. Protect access to the local Docker daemon.
+## Maintenance and troubleshooting
 
-For host-run tooling, the same account creation command is
-`npm run manager:create` from `backend` after a build, with the same manager
-environment variables and MIGRATION_DATABASE_URL configured in backend/.env.
+Rebuild with `docker compose up --build -d` after code changes. Recreate containers
+with `docker compose up -d` after environment changes. Restart api-gateway after
+editing the mounted local route file. Stop applications with `docker compose down`;
+this does not alter the hosted database.
 
-## Database and application scope
+A password authentication failure now refers to the hosted database role: verify
+its credentials and branch, rather than resetting a local Docker volume. TLS errors
+require checking the endpoint and certificate trust; do not disable verification.
+A healthy connection with readiness 503 usually means missing auth supplement
+columns or insufficient permissions. Analytics 503 indicates missing reporting
+views, grants or room availability data. There is no default manager password.
 
-Migration 001 supplies MAD's promotion foundation and session revocations.
-Migration 002 adds local manager accounts. Migrations run with owner credentials.
-The runtime login is a dedicated non-owner role with restricted privileges;
-manager account insertion is reserved for provisioning.
-
-DDP-009 and DDP-010 supply booking totals/trends and occupancy calendar APIs.
-Their external reporting views must be provided by the owners of booking and
-room data; see `backend/README.md` for the exact view contracts.
-An empty new database does not contain sample hotel data or those external views.
-Missing views produce a service-unavailable response, not fabricated analytics.
-Later frontend screens remain subject to their own tickets.
-
-The PostgreSQL initialization script creates the runtime role only on a fresh
-database volume. Existing installations require owner-led role/password updates.
-Changing .env passwords does not rotate an already-created PostgreSQL role.
-
-## Daily development
-
-The Compose services run built images. Source changes require a rebuild:
-
-```powershell
-docker compose up --build -d
-```
-
-For a new backend migration, build first and explicitly run the migration job
-before restarting the services that need the new schema:
-
-```powershell
-docker compose build migrate mad-backend
-docker compose run --rm migrate
-docker compose up -d mad-backend api-gateway mad-frontend
-```
-
-Route-file changes require restarting the gateway:
-
-```powershell
-docker compose restart api-gateway
-```
-
-Environment changes require `docker compose up -d` to recreate affected
-containers. Changing NEXT_PUBLIC_API_URL requires rebuilding the frontend.
-Use `docker compose down` to stop the stack while preserving database data.
-Do not add `--volumes` unless intentionally discarding that database.
-
-For hot reload, run the relevant application on the host using its README and
-stop its container to free the port. A host frontend uses
-BACKEND_API_URL=http://localhost:8080 and BACKEND_API_MODE=gateway.
-If MAD runs on the host instead, the gateway container must target
-host.docker.internal with a host-gateway mapping on Linux; that is a separate
-topology from the all-container defaults.
-
-## Troubleshooting and verification
-
-| Symptom | Check |
-| --- | --- |
-| Gateway build context missing | Supply its repository or set API_GATEWAY_CONTEXT |
-| Port already used | Stop the competing stack or adjust the host port and public URLs |
-| Migration exits nonzero | Owner credentials, runtime role privileges and existing schema |
-| Login rejected on a fresh database | Provision a manager; there is no default account |
-| Login temporarily rejected after wrong passwords | Wait for the 15-minute account lockout |
-| Frontend unavailable | Gateway health, MAD readiness, migration and database logs |
-| Analytics returns 503 | Required external reporting views and read grants |
-| Gateway 404 | Local route file and backend endpoint path |
-| Cookie disappears on HTTP/HTTPS changes | APP_ORIGIN and browser cookie security settings |
-| Healthy process but failed readiness | /health/live checks the process; /health/ready checks dependencies |
-
-Manual readiness endpoints are http://localhost:8080/health/ready,
-http://localhost:8080/mad/health/ready and http://localhost:3000/api/health.
-These checks do not establish authentication or analytics correctness.
-
-Tests were not run during this work. The Compose configuration was checked
-without starting containers. Images, migrations, account provisioning and live
-gateway login still require execution in your environment.
-Backend and frontend test commands are in their package.json files.
-
-The dashboard CI smoke job uses `deploy/compose.ci.yml` and starts only the
-dashboard services in explicit direct mode, since the gateway source has its
-own repository. That job does not prove integration with the gateway.
+CI uses `deploy/compose.ci.yml` with a disposable PostgreSQL fixture and direct
+frontend-to-backend routing. It does not connect to Neon or prove gateway integration.
+Historical migration tests remain disposable legacy coverage, not deployment steps.
+No tests, builds, live database connections or SQL execution were performed for
+this change. Configuration/static checks do not establish runtime compatibility.

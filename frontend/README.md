@@ -1,3 +1,7 @@
+> Current hosted-Neon setup: [APPLICATION_GUIDE.md](../APPLICATION_GUIDE.md).
+> Do not run the legacy migration commands below against Neon. Reporting views
+> are supplied by the manual SQL supplement; no local database is required.
+
 ﻿# Forever Hotel frontend — DDP-001–008
 
 Next.js App Router, React, TypeScript and Tailwind foundation. The existing white,
