@@ -1,4 +1,4 @@
-import { AuthForm } from '@/components/AuthForm';
+import { LoginForm } from '@/components/LoginForm';
 import { backend } from '@/lib/backend';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
@@ -31,5 +31,5 @@ export default async function LoginPage({
       </main>
     );
   }
-  return <AuthForm next={params.next} expired={params.reason === 'expired'} />;
+  return <LoginForm next={params.next} expired={params.reason === 'expired'} />;
 }

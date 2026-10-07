@@ -28,7 +28,7 @@ export function ClientLayout({
           {open ? 'Close navigation' : 'Open navigation'}
         </button>
       </header>
-      <div className="min-h-screen bg-white text-black">
+      <div className="md:flex w-full min-h-screen bg-white text-black">
         <Sidebar
           open={open}
           close={() => setOpen(false)}
@@ -37,7 +37,7 @@ export function ClientLayout({
         <div
           id="dashboard-content"
           tabIndex={-1}
-          className="min-w-0 md:pl-[220px]"
+          className="flex-1 min-w-0 md:pl-[220px]"
         >
           {children}
         </div>
