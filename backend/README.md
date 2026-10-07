@@ -205,3 +205,14 @@ No tests were run for DDP-010 at the user's request. The
 [verification register](test/README.md#ddp-010--occupancy-calendar) lists cases and
 commands. Runtime acceptance, coverage and final DDP-038 provider/policy agreement
 remain pending; the calendar UI belongs to DDP-016.
+
+## DDP-011: low-booking alerts
+
+`GET /mad/analytics/low-booking-alerts` returns low-occupancy dates for the next
+14 Colombo calendar dates including today. It reuses DDP-010 data and requires
+manager authorization. Rates strictly below LOW_BOOKING_THRESHOLD (proposed
+default 0.40) include a promotion suggestion; zero-capacity dates are explicitly
+unavailable. No promotions are created and no schema changes are required.
+
+See [the API contract and test register](DDP_011_IMPLEMENTATION.md). Verification
+is pending because the Docker build/test request was declined.
