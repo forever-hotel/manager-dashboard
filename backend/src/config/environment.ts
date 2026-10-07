@@ -1,5 +1,8 @@
+import { lowBookingThreshold } from '../analytics/low-booking-config';
+
 export function validateEnvironment(env: Record<string, unknown>) {
   env = { ...env };
+  env.LOW_BOOKING_THRESHOLD = lowBookingThreshold(env.LOW_BOOKING_THRESHOLD);
   if (!env.DATABASE_URL) {
     for (const key of ['DB_HOST', 'DB_USERNAME', 'DB_PASSWORD', 'DB_NAME']) {
       if (typeof env[key] !== 'string' || !(env[key] as string).trim())

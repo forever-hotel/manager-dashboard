@@ -6,6 +6,9 @@ describe('Startup configuration', () => {
     JWT_SECRET: 'test-secret-with-at-least-32-characters',
     JWT_ISSUER: 'mad',
   };
+  it.each(['', 'invalid', '-0.1', '1.01'])('rejects invalid alert configuration at startup: %s', (value) => {
+    expect(() => validateEnvironment({ ...valid, LOW_BOOKING_THRESHOLD: value })).toThrow('LOW_BOOKING_THRESHOLD');
+  });
   it('accepts valid local configuration and a numeric port', () => {
     expect(validateEnvironment(valid).PORT).toBe(4000);
     expect(validateEnvironment({ ...valid, PORT: '4100' }).PORT).toBe(4100);
