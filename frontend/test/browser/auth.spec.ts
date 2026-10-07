@@ -33,7 +33,7 @@ test('direct URL protection, intended destination, HttpOnly session and logout',
     await page.evaluate(() => localStorage.length + sessionStorage.length),
   ).toBe(0);
   expect(logs.join(' ')).not.toContain('contract-password');
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByRole('button', { name: 'Logout' }).click();
   await expect(page).toHaveURL(/\/login$/);
   await page.goto('/rooms');
   await expect(page).toHaveURL(/\/login/);
@@ -71,14 +71,14 @@ test('mobile and keyboard navigation keep all destinations reachable', async ({
   await page.getByRole('button', { name: 'Open navigation' }).click();
   for (const name of [
     'Analytics',
-    'Rooms',
+    'Room status',
     'Promotions',
-    'Staff',
+    'Staff accounts',
     'Notifications',
     'Complaints',
-    'Food Orders',
-    'Service Requests',
-    'Worker Performance',
+    'Food orders',
+    'Service requests',
+    'Worker performance',
     'Tasks',
     'Reports',
     'Settings',
