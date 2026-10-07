@@ -1,3 +1,4 @@
+import { BOOKING_CLOCK } from '../src/analytics/booking-analytics.service';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
@@ -73,7 +74,7 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
         }),
         AnalyticsModule,
       ],
-    }).compile();
+    }).overrideProvider(BOOKING_CLOCK).useValue(() => new Date('2026-09-26T18:30:00Z')).compile();
     app = module.createNestApplication();
     configureHttp(app);
     await app.init();
@@ -318,4 +319,45 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
       }
     },
   );
+  const alerts = (suffix = '', token = provider.issue('manager')) => request(app.getHttpServer())
+    .get('/mad/analytics/low-booking-alerts' + suffix)
+    .set('Authorization', 'Bearer ' + token);
+
+  it('TC-DDP-011-AC1/AC2: returns low dates and excludes rates exactly at the threshold', async () => {
+    const rooms = await Promise.all(Array.from({ length: 5 }, () => room()));
+    await stay(rooms[0], '2026-09-27', '2026-10-11');
+    await stay(rooms[1], '2026-09-28', '2026-10-11');
+    const response = await alerts().expect(200);
+    expect(response.body).toMatchObject({ from: '2026-09-27', to: '2026-10-10', threshold: 0.4, unavailableDates: [] });
+    expect(response.body.alerts).toEqual([expect.objectContaining({ date: '2026-09-27', rate: 0.2, promotionSuggestion: expect.any(String) })]);
+    expect(await database.query('SELECT count(*)::int AS count FROM hw_occupancy_allocations')).toEqual([{ count: 2 }]);
+  });
+  it('TC-DDP-011-AC2: marks all zero-capacity dates unavailable without promotions', async () => {
+    const response = await alerts().expect(200);
+    expect(response.body.alerts).toEqual([]);
+    expect(response.body.unavailableDates).toHaveLength(14);
+    expect(response.body.unavailableDates[0]).toMatchObject({ date: '2026-09-27', rate: null, reason: 'ZERO_ELIGIBLE_ROOMS' });
+  });
+  it('TC-DDP-011-AC3: returns 200 and an empty list when all days are fully booked', async () => {
+    await stay(await room(), '2026-09-27', '2026-10-11');
+    expect((await alerts().expect(200)).body.alerts).toEqual([]);
+  });
+  it('DDP-011 rejects parameters and unauthorized sessions without writes', async () => {
+    await request(app.getHttpServer()).get('/mad/analytics/low-booking-alerts').expect(401);
+    await alerts('', 'invalid').expect(401);
+    await alerts('', provider.issue('worker')).expect(403);
+    await alerts('', provider.issue('first-login')).expect(403);
+    await alerts('?threshold=0.9').expect(400);
+    await alerts('?from=2026-01-01').expect(400);
+    expect(await database.query('SELECT count(*)::int AS count FROM hw_occupancy_allocations')).toEqual([{ count: 0 }]);
+  });
+  it('DDP-011 fails safely when reporting permission is removed', async () => {
+    await database.query(`REVOKE SELECT ON mad_occupancy_rooms FROM "${role}"`);
+    try {
+      expect((await alerts().expect(503)).body).toEqual({ code: 'SERVICE_UNAVAILABLE', message: 'Service temporarily unavailable. Please retry.' });
+    } finally {
+      await database.query(`GRANT SELECT ON mad_occupancy_rooms TO "${role}"`);
+    }
+  });
+
 });
