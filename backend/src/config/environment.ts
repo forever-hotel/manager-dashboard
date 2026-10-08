@@ -1,16 +1,22 @@
 import { lowBookingThreshold } from '../analytics/low-booking-config';
+import { validateStaffConfig } from '../staff/staff-config';
 
 export function validateEnvironment(env: Record<string, unknown>) {
   env = { ...env };
+  validateStaffConfig(env);
   env.LOW_BOOKING_THRESHOLD = lowBookingThreshold(env.LOW_BOOKING_THRESHOLD);
   if (!env.DATABASE_URL) {
     for (const key of ['DB_HOST', 'DB_USERNAME', 'DB_PASSWORD', 'DB_NAME']) {
-      if (typeof env[key] !== 'string' || !(env[key] as string).trim())
-        throw new Error(`Configuration: ${key} is required when DATABASE_URL is absent`);
+      if (typeof env[key] !== 'string' || !env[key].trim())
+        throw new Error(
+          `Configuration: ${key} is required when DATABASE_URL is absent`,
+        );
     }
     const dbPort = Number(env.DB_PORT ?? 5432);
     if (!Number.isInteger(dbPort) || dbPort < 1 || dbPort > 65535)
-      throw new Error('Configuration: DB_PORT must be an integer from 1 to 65535');
+      throw new Error(
+        'Configuration: DB_PORT must be an integer from 1 to 65535',
+      );
     if (!/^[a-zA-Z0-9.-]+$/.test(env.DB_HOST as string))
       throw new Error('Configuration: DB_HOST must be a hostname');
     env.DATABASE_URL = `postgresql://${encodeURIComponent(env.DB_USERNAME as string)}:${encodeURIComponent(env.DB_PASSWORD as string)}@${env.DB_HOST as string}:${dbPort}/${encodeURIComponent(env.DB_NAME as string)}`;
@@ -22,7 +28,9 @@ export function validateEnvironment(env: Record<string, unknown>) {
     env[key] = value;
   }
   if (env.DB_SYNCHRONIZE === 'true')
-    throw new Error('Configuration: DB_SYNCHRONIZE must be false; the shared schema is managed externally');
+    throw new Error(
+      'Configuration: DB_SYNCHRONIZE must be false; the shared schema is managed externally',
+    );
   const required = (name: string) => {
     const value = env[name];
     if (typeof value !== 'string' || !value.trim())

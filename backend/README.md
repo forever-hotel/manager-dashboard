@@ -7,7 +7,9 @@
 NestJS API foundation with validated configuration, health/readiness, local manager
 authentication, manager authorization and versioned PostgreSQL migrations.
 Booking totals/trends and occupancy calendars are implemented by DDP-009–010.
-Staff provisioning, the calendar UI and revenue analytics remain later-ticket work.
+DDP-012 staff provisioning is described in [DDP_012_IMPLEMENTATION.md](DDP_012_IMPLEMENTATION.md),
+including manual Neon setup, SendGrid configuration and test commands.
+The staff management frontend, calendar UI and revenue analytics remain later-ticket work.
 
 Use Node 22.14.x (see `../.nvmrc`) and npm 10 or later. From this directory:
 
