@@ -32,6 +32,7 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/typeorm": "^11.0.3",
+    "bcryptjs": "3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "pg": "^8.22.0",
@@ -76,6 +77,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
+      "staff/**/*.ts",
       "analytics/**/*.ts",
       "auth/**/*.ts",
       "config/**/*.ts",
@@ -107,6 +109,12 @@
         "branches": 90
       },
       "./src/analytics/occupancy-analytics.service.ts": {
+        "branches": 90
+      },
+      "./src/staff/staff.service.ts": {
+        "branches": 90
+      },
+      "./src/staff/staff-delivery.worker.ts": {
         "branches": 90
       }
     },

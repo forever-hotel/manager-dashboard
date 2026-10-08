@@ -204,3 +204,11 @@ frontend-to-backend routing. It does not connect to Neon or prove gateway integr
 Historical migration tests remain disposable legacy coverage, not deployment steps.
 No tests, builds, live database connections or SQL execution were performed for
 this change. Configuration/static checks do not establish runtime compatibility.
+# Staff provisioning (DDP-012)
+
+Manager-authorized `POST /mad/staff` creates Receptionist, Worker, Kitchen Staff
+and Kitchen Manager accounts with queued SendGrid credential delivery.
+Before using it, manually apply `deploy/neon-mad-staff.sql` and configure
+`STAFF_CREDENTIALS_KEY`, `STAFF_EMAIL_ENABLED`, `SENDGRID_API_KEY` and
+`SENDGRID_FROM_EMAIL`. See the [DDP-012 setup and operations guide](backend/DDP_012_IMPLEMENTATION.md).
+The application does not apply this SQL at startup.

@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health/health.controller';
 import { validateEnvironment } from './config/environment';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { StaffModule } from './staff/staff.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     DatabaseModule,
     AuthModule,
     AnalyticsModule,
+    StaffModule,
   ],
   controllers: [HealthController],
 })
