@@ -11,7 +11,13 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "preinstall": "node scripts/verify-build-config.mjs",
+    "prebuild": "node scripts/verify-build-config.mjs",
+    "postbuild": "node scripts/verify-build-config.mjs",
+    "predev": "node scripts/verify-build-config.mjs",
+    "check:build-config": "node scripts/verify-build-config.mjs",
+    "test:build-config": "node --test scripts/verify-build-config.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
