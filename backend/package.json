@@ -113,6 +113,9 @@
       "./src/staff/staff.service.ts": {
         "branches": 90
       },
+      "./src/staff/staff-profiles.service.ts": {
+        "branches": 90
+      },
       "./src/staff/staff-delivery.worker.ts": {
         "branches": 90
       }
