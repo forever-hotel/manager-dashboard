@@ -75,3 +75,32 @@ Next.js and eslint-config-next are aligned at 16.4.1. Vitest and coverage-v8 are
 aligned at 4.1.11, with Vite 7.3.7. Overrides keep optional peer resolution on these
 reviewed versions instead of pulling in Vitest 5 and crashing npm's resolver.
 Security-policy regression cases are in scripts/audit-ci.test.mjs and run in CI.
+
+## DDP-016 occupancy calendar
+
+Analytics now has an additional monthly occupancy section beneath its existing
+content; existing layout, styling, cards and controls are preserved. The calendar
+uses the protected GET /api/analytics/occupancy?month=YYYY-MM BFF, which translates
+the month to inclusive from/to dates for GET /mad/analytics/occupancy. The session
+cookie remains server-side; the existing backend adapter supports direct and gateway
+routing. All responses are no-store, validated, and stripped of unknown fields.
+
+Month navigation uses Gregorian leap-year rules and Monday-first weeks. API dates
+are used directly without converting them to another timezone. Initial month is
+computed server-side for Asia/Colombo. Requests are cancelled on navigation/unmount,
+and late responses cannot replace a newer month. Complete months are required;
+empty responses display no-data, and incomplete or inconsistent responses fail safely.
+Zero bookings with known capacity, zero eligible capacity (unknown rate), loading,
+unauthenticated/forbidden access, and retryable failures have distinct states.
+
+Display-only demand bands are Low <40%, Medium 40% to <70%, High >=70%, with
+Unknown for no eligible capacity. These bands do not change the separately configured
+low-booking alert threshold. Blue/neutral/amber cells include text labels and a visible
+legend. Every date is keyboard-focusable and announces date, occupied rooms, eligible
+capacity and rate. A visible data table provides the same information without colour.
+
+Tests added: test/occupancy.test.tsx (date boundaries, classifications, accessibility,
+loading/empty/unknown/error/retry/race states) and test/occupancy-bff.test.ts (protected
+BFF contracts). Existing backend/test/occupancy.e2e-spec.ts provides disposable-database
+coverage for the unchanged backend endpoint. Tests were not run locally at the user's
+request. Run npm run test:cov and the existing backend integration suite in CI.

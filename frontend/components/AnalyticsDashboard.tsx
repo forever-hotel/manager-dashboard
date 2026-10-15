@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   AnalyticsError,
   loadAnalytics,
@@ -17,7 +17,11 @@ const localDate = (value: string) =>
     timeZone: 'Asia/Colombo',
     dateStyle: 'medium',
   }).format(new Date(value));
-export default function AnalyticsDashboard() {
+export default function AnalyticsDashboard({
+  children,
+}: {
+  children?: ReactNode;
+}) {
   const [period, setPeriod] = useState<Period>('week');
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<State>({ period: 'week' });
@@ -158,6 +162,7 @@ export default function AnalyticsDashboard() {
           </p>
         </>
       )}
+      {children}
     </main>
   );
 }
