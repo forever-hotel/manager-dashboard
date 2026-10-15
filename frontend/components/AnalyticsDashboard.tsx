@@ -208,7 +208,8 @@ function BookingTrend({ data }: { data: Overview }) {
       <div className="border border-gray-200 rounded-lg p-5">
         <svg
           role="img"
-          aria-labelledby="chart-title chart-description"
+          aria-labelledby="chart-title"
+          aria-describedby="chart-description"
           viewBox="0 0 660 220"
           className="w-full max-h-64"
         >
