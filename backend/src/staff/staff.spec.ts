@@ -229,10 +229,10 @@ describe('DDP-012 retry worker', () => {
     const query = jest.fn().mockResolvedValue([]);
     const send = jest.fn();
     const worker = new StaffDeliveryWorker(
-      { query } as unknown as DataSource,
+      { query },
       config(),
       new CredentialCipher(config()),
-      { send } as unknown as SendGridService,
+      { send },
     );
     await worker.processOnce();
     expect(query).toHaveBeenCalledTimes(1);
@@ -294,7 +294,7 @@ describe('DDP-012 retry worker', () => {
       { query } as unknown as DataSource,
       config(),
       cipher,
-      { send } as unknown as SendGridService,
+      { send },
     );
     return { worker, query, send };
   }
@@ -363,7 +363,7 @@ describe('DDP-012 retry worker', () => {
   it('does no work while delivery is disabled', async () => {
     const query = jest.fn();
     const worker = new StaffDeliveryWorker(
-      { query } as unknown as DataSource,
+      { query },
       new ConfigService(),
       new CredentialCipher(config()),
       new SendGridService(config()),

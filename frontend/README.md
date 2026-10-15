@@ -50,3 +50,28 @@ DDP-031; no nonfunctional export buttons are shown.
 
 Run `npm test -- analytics.test.tsx analytics-bff.test.ts` for component/client and
 BFF contract cases. Tests were added but not run during implementation.
+
+## Temporary security audit exception (2026-10-15)
+
+CI runs `npm run audit:ci`, which fetches the full npm audit report and rejects
+high/critical vulnerabilities. It fails closed if npm or the audit service fails.
+The only exception is [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm),
+which currently has no patched braces release. Its five affected packages are one
+chain: eslint-config-next -> @next/eslint-plugin-next -> fast-glob -> micromatch -> braces.
+The affected recursive glob parser can exhaust the stack on deeply nested input.
+Here it is development lint tooling; lint paths are repository-controlled, not
+application request input. This exception is risk acceptance, not a vulnerability fix.
+
+The exception applies only when every affected lockfile node in that chain has
+`dev: true` and every underlying advisory matches that exact URL. It expires at
+2026-11-14 00:00 UTC, after which CI fails until the dependency is fixed or the
+exception is reviewed. New advisories and production dependencies remain blocked.
+Run `npm audit` to see the unfiltered findings; it still exits nonzero for this advisory.
+When upstream fixes it, update the lockfile, remove the exception, and verify CI.
+Do not use `npm audit fix --force`: its proposed Next.js lint downgrade is incompatible
+with the application's current major version.
+
+Next.js and eslint-config-next are aligned at 16.4.1. Vitest and coverage-v8 are
+aligned at 4.1.11, with Vite 7.3.7. Overrides keep optional peer resolution on these
+reviewed versions instead of pulling in Vitest 5 and crashing npm's resolver.
+Security-policy regression cases are in scripts/audit-ci.test.mjs and run in CI.

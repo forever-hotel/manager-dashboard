@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   Logger,
   OnApplicationBootstrap,
@@ -18,6 +19,7 @@ interface Delivery {
   credential_version: number;
 }
 
+// Keep runtime provider tokens explicit and constructor metadata type-only.
 @Injectable()
 export class StaffDeliveryWorker
   implements OnApplicationBootstrap, OnApplicationShutdown
@@ -26,10 +28,14 @@ export class StaffDeliveryWorker
   private timer?: ReturnType<typeof setInterval>;
   private running?: Promise<void>;
   constructor(
-    private readonly database: DataSource,
-    private readonly config: ConfigService,
-    private readonly cipher: CredentialCipher,
-    private readonly mail: SendGridService,
+    @Inject(DataSource)
+    private readonly database: { query: DataSource['query'] },
+    @Inject(ConfigService)
+    private readonly config: { get(name: string): unknown },
+    @Inject(CredentialCipher)
+    private readonly cipher: { decrypt: CredentialCipher['decrypt'] },
+    @Inject(SendGridService)
+    private readonly mail: { send: SendGridService['send'] },
   ) {}
 
   onApplicationBootstrap() {

@@ -13,7 +13,6 @@ import { DataSource } from 'typeorm';
 import { configureHttp } from '../src/common/http';
 import { CredentialCipher } from '../src/staff/credential-cipher';
 import { STAFF_ROLES } from '../src/staff/create-staff.dto';
-import { SendGridService } from '../src/staff/sendgrid.service';
 import { StaffDeliveryWorker } from '../src/staff/staff-delivery.worker';
 import type { StaffProfile } from '../src/staff/staff-profiles.service';
 import { StaffModule } from '../src/staff/staff.module';
@@ -280,7 +279,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       runtime,
       new ConfigService({ ...config, STAFF_EMAIL_ENABLED: 'true' }),
       cipher,
-      { send } as unknown as SendGridService,
+      { send },
     );
     await worker.processOnce();
     const [failed] = await database.query<
@@ -396,7 +395,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
         runtime,
         new ConfigService({ ...config, STAFF_EMAIL_ENABLED: 'true' }),
         cipher,
-        { send } as unknown as SendGridService,
+        { send },
       );
       await worker.processOnce();
       await database.query(
@@ -568,7 +567,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       runtime,
       new ConfigService({ ...config, STAFF_EMAIL_ENABLED: 'true' }),
       cipher,
-      { send } as unknown as SendGridService,
+      { send },
     );
     await worker.processOnce();
     expect(send).toHaveBeenCalledWith({
