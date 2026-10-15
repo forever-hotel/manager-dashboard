@@ -1,3 +1,4 @@
+import { RevenueAnalyticsService } from './revenue-analytics.service';
 import { Module } from '@nestjs/common';
 import { LowBookingAlertsService } from './low-booking-alerts.service';
 import { AuthModule } from '../auth/auth.module';
@@ -13,6 +14,7 @@ import {
   controllers: [AnalyticsController],
   providers: [
     LowBookingAlertsService,
+    RevenueAnalyticsService,
     BookingAnalyticsService,
     OccupancyAnalyticsService,
     { provide: BOOKING_CLOCK, useValue: () => new Date() },

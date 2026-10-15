@@ -104,6 +104,9 @@
       "./src/auth/auth.service.ts": {
         "branches": 90
       },
+      "./src/analytics/revenue-analytics.service.ts": {
+        "branches": 90
+      },
       "./src/analytics/booking-analytics.service.ts": {
         "branches": 90
       },

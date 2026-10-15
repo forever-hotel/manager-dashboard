@@ -14,6 +14,7 @@ export default defineConfig({
         'components/**/*.tsx',
         'proxy.ts',
         'app/api/auth/**/route.ts',
+        'app/api/analytics/**/route.ts',
       ],
       exclude: ['lib/navigation.ts'],
       thresholds: {

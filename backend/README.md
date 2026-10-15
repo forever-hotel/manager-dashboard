@@ -119,3 +119,47 @@ not profile values or credentials. Retain application logs for audit history.
 Unit tests: `npm test -- --runInBand staff-profiles.spec.ts`.
 API/database tests: `npm run test:integration -- staff.e2e-spec.ts` with a disposable
 test database. These tests were added but not executed during implementation.
+
+## Revenue and combined analytics (DDP-056 / DDP-015)
+
+Manager-only GET `/mad/analytics/revenue?period=day|week|month` returns completed-
+payment revenue; GET `/mad/analytics/overview?period=day|week|month` returns
+`{bookings,revenue}` with identical calendar boundaries and reporting timestamp.
+These use the existing manager guard, including mandatory password change.
+Invalid period/unknown query fields return 400; absent/invalid auth 401; denied
+role or mandatory password change 403; missing/denied/invalid sources 503.
+
+Approved policy (2026-10-15): sum `public.payments.amount` as LKR integer cents
+where `payment_status='COMPLETED'`, grouped by `paid_at`. REFUNDED, FAILED and
+PENDING records are excluded. This is **completed-payment revenue**, not net
+cash-flow accounting: the schema has no refund event amount/date. A later status
+change to REFUNDED removes that payment from its original period's revenue.
+No booking totals, joins or foreign-currency conversion are used. Each payment
+primary key is counted once; multiple payments for one booking remain separate.
+
+Periods are whole calendar days, Monday-start weeks or months in Asia/Colombo,
+with half-open boundaries `[start,end)` serialized as UTC ISO timestamps. Compare
+the full current calendar period with the immediately preceding calendar period,
+not elapsed portions. The UI labels the current period as in progress. Revenue
+SQL uses numeric arithmetic and rounds `(current-previous)*100/previous` to two
+decimal places. When previous revenue is zero, `percentageChange` is null and
+`percentageUnavailableReason` is `PREVIOUS_REVENUE_ZERO`, including when both
+amounts are zero. Otherwise the reason is null. Zero current with positive previous
+revenue returns -100%. Fields `currentMinor` and `previousMinor` are safe integer
+cents; unsafe totals, malformed completed payments (including missing paid_at),
+and storage errors return 503 rather than fabricated zero revenue.
+
+The response also contains `period`, `timezone`, `currency: "LKR"`,
+`metric: "completed_payment_revenue"`, `comparison: "whole_calendar_period"`,
+`asOf`, `start`, `end`, `previousStart`, and `previousEnd`. The reporting timestamp
+aligns period selection across both metrics, not a transactionally frozen snapshot
+of independently changing source data.
+
+The hosted shared schema already defines payments. No migration or startup SQL
+was added. If using a limited runtime role, the database owner must manually grant
+SELECT on `public.payments` to that role (substitute its actual name):
+`GRANT SELECT ON public.payments TO your_runtime_role;`. No grant was executed.
+Existing booking reporting-view permissions are still required.
+
+Tests added, not run: `npm test -- --runInBand revenue-analytics.service.spec.ts`
+and `npm run test:integration -- bookings.e2e-spec.ts` (disposable database only).
