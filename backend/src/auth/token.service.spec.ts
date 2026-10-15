@@ -67,6 +67,11 @@ describe('Staff token policy', () => {
     const first = service.issue(claims.sub, 2);
     const second = service.issue(claims.sub, 2);
     expect(first).not.toBe(second);
-    expect(service.verify(first)).toMatchObject({ sub: claims.sub, role: 'MANAGER', ver: 2, aud: 'mad' });
+    expect(service.verify(first)).toMatchObject({
+      sub: claims.sub,
+      role: 'MANAGER',
+      ver: 2,
+      aud: 'mad',
+    });
   });
 });

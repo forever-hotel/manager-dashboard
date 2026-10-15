@@ -83,7 +83,9 @@ describe('Configuration, redirects and server transport', () => {
     vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');
     vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080');
     vi.stubEnv('BACKEND_API_MODE', 'gateway');
-    const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response('{}')));
+    const fetcher = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response('{}')));
     vi.stubGlobal('fetch', fetcher);
     for (const [path, target] of [
       ['/auth/login', '/mad/auth/login'],
@@ -91,17 +93,27 @@ describe('Configuration, redirects and server transport', () => {
       ['/auth/logout', '/mad/auth/logout'],
       ['/auth/change-password', '/mad/auth/change-password'],
       ['/health/ready', '/mad/health/ready'],
-      ['/mad/analytics/bookings?period=week', '/mad/analytics/bookings?period=week'],
+      [
+        '/mad/analytics/bookings?period=week',
+        '/mad/analytics/bookings?period=week',
+      ],
     ]) {
       await backend(path, 'GET', 'token');
-      expect(fetcher).toHaveBeenLastCalledWith('http://localhost:8080' + target,
-        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token' }) }));
+      expect(fetcher).toHaveBeenLastCalledWith(
+        'http://localhost:8080' + target,
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer token' }),
+        }),
+      );
     }
   });
   it('does not treat gateway rate limits as invalid sessions', async () => {
     vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');
     vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080');
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 429 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('{}', { status: 429 })),
+    );
     expect((await backend('/auth/session', 'GET', 'token')).status).toBe(503);
   });
   it('rejects ambiguous backend origins and transport modes', () => {

@@ -40,6 +40,8 @@ async function main() {
   }
 }
 void main().catch(() => {
-  console.error('Manager provisioning failed. Check database access, the manual auth supplement, full name, unique email/username and a 12–1024 character password. No credentials are logged.');
+  console.error(
+    'Manager provisioning failed. Check database access, the manual auth supplement, full name, unique email/username and a 12–1024 character password. No credentials are logged.',
+  );
   process.exitCode = 1;
 });

@@ -16,7 +16,8 @@ export interface StaffClaims {
 @Injectable()
 export class TokenService {
   constructor(
-    @Inject(JwtService) private readonly jwt: Pick<JwtService, 'verify' | 'sign'>,
+    @Inject(JwtService)
+    private readonly jwt: Pick<JwtService, 'verify' | 'sign'>,
     @Inject(ConfigService)
     private readonly config: { getOrThrow<T>(name: string): T },
   ) {}

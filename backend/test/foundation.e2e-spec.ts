@@ -25,7 +25,7 @@ class ProtectedFixtureController {
   }
 }
 
-describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
+describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
   let admin: DataSource;
   let database: DataSource;
   let runtime: DataSource;
@@ -126,7 +126,9 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
       runtime.query('SELECT password_hash FROM staff_users'),
     ).resolves.toHaveLength(3);
     await expect(
-      runtime.query("INSERT INTO mad_manager_accounts(username,password_hash) VALUES ('unauthorized','invalid')"),
+      runtime.query(
+        "INSERT INTO mad_manager_accounts(username,password_hash) VALUES ('unauthorized','invalid')",
+      ),
     ).rejects.toMatchObject({ driverError: { code: '42501' } });
     await expect(
       runtime.query('UPDATE staff_users SET is_active=false'),
@@ -191,7 +193,10 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
       .get('/auth/session')
       .set('Authorization', 'Bearer ' + token)
       .expect(200);
-    await database.query('UPDATE staff_users SET is_active=false WHERE username=$1', ['manager']);
+    await database.query(
+      'UPDATE staff_users SET is_active=false WHERE username=$1',
+      ['manager'],
+    );
     await http()
       .get('/protected')
       .set('Authorization', 'Bearer ' + token)
@@ -199,7 +204,10 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
   });
   it('persists local logout revocation without an external service', async () => {
     const token = provider.issue('manager');
-    await database.query('UPDATE staff_users SET is_active=true WHERE username=$1', ['manager']);
+    await database.query(
+      'UPDATE staff_users SET is_active=true WHERE username=$1',
+      ['manager'],
+    );
     await http()
       .post('/auth/logout')
       .set('Authorization', 'Bearer ' + token)
@@ -240,16 +248,31 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
       .get('/auth/session')
       .set('Authorization', 'Bearer ' + token)
       .expect(401);
-    await http().get('/auth/session')
-      .set('Authorization', 'Bearer ' + otherSession).expect(401);
+    await http()
+      .get('/auth/session')
+      .set('Authorization', 'Bearer ' + otherSession)
+      .expect(401);
   });
   it('persists account lockout and permits login again after the lock expires', async () => {
-    await database.query("UPDATE staff_users SET failed_attempts=0, locked_until=NULL WHERE username='manager'");
+    await database.query(
+      "UPDATE staff_users SET failed_attempts=0, locked_until=NULL WHERE username='manager'",
+    );
     for (let attempt = 0; attempt < 5; attempt++)
-      await http().post('/auth/login').send({ username: 'manager', password: 'wrong' }).expect(401);
-    await http().post('/auth/login').send({ username: 'manager', password: 'contract-password' }).expect(401);
-    await database.query("UPDATE staff_users SET locked_until=now()-interval '1 second' WHERE username='manager'");
-    await http().post('/auth/login').send({ username: 'manager', password: 'contract-password' }).expect(200);
+      await http()
+        .post('/auth/login')
+        .send({ username: 'manager', password: 'wrong' })
+        .expect(401);
+    await http()
+      .post('/auth/login')
+      .send({ username: 'manager', password: 'contract-password' })
+      .expect(401);
+    await database.query(
+      "UPDATE staff_users SET locked_until=now()-interval '1 second' WHERE username='manager'",
+    );
+    await http()
+      .post('/auth/login')
+      .send({ username: 'manager', password: 'contract-password' })
+      .expect(200);
   });
   it('creates a fresh schema and supports clean migration reruns', async () => {
     const fresh = 'mad_test_fresh_' + suffix;
@@ -278,29 +301,89 @@ describe('DDP-001–008 disposable PostgreSQL/API acceptance', () => {
       INITIAL_MANAGER_USERNAME: 'bootstrap-manager',
       INITIAL_MANAGER_PASSWORD: 'bootstrap-initial-password',
     };
-    const start = () => new InitialManagerService(new ConfigService(settings), database).onApplicationBootstrap();
+    const start = () =>
+      new InitialManagerService(
+        new ConfigService(settings),
+        database,
+      ).onApplicationBootstrap();
     await Promise.all([start(), start()]);
-    const accounts = await database.query("SELECT * FROM staff_users WHERE email='bootstrap@example.com'");
+    const accounts = await database.query<
+      { password_change_required: boolean; session_version: number }[]
+    >("SELECT * FROM staff_users WHERE email='bootstrap@example.com'");
     expect(accounts).toHaveLength(1);
     expect(accounts[0].password_change_required).toBe(true);
-    const login = await http().post('/auth/login').send({ username: settings.INITIAL_MANAGER_USERNAME, password: settings.INITIAL_MANAGER_PASSWORD }).expect(200);
-    expect(login.body.passwordChangeRequired).toBe(true);
-    await http().get('/protected').set('Authorization', 'Bearer ' + login.body.accessToken).expect(403);
-    const changed = await http().post('/auth/change-password')
-      .set('Authorization', 'Bearer ' + login.body.accessToken)
-      .send({ currentPassword: settings.INITIAL_MANAGER_PASSWORD, newPassword: 'bootstrap-changed-password' }).expect(200);
-    expect(changed.body.passwordChangeRequired).toBe(false);
+    const login = await http()
+      .post('/auth/login')
+      .send({
+        username: settings.INITIAL_MANAGER_USERNAME,
+        password: settings.INITIAL_MANAGER_PASSWORD,
+      })
+      .expect(200);
+    expect(
+      (login.body as { passwordChangeRequired: boolean })
+        .passwordChangeRequired,
+    ).toBe(true);
+    await http()
+      .get('/protected')
+      .set(
+        'Authorization',
+        'Bearer ' + (login.body as { accessToken: string }).accessToken,
+      )
+      .expect(403);
+    const changed = await http()
+      .post('/auth/change-password')
+      .set(
+        'Authorization',
+        'Bearer ' + (login.body as { accessToken: string }).accessToken,
+      )
+      .send({
+        currentPassword: settings.INITIAL_MANAGER_PASSWORD,
+        newPassword: 'bootstrap-changed-password',
+      })
+      .expect(200);
+    expect(
+      (changed.body as { passwordChangeRequired: boolean })
+        .passwordChangeRequired,
+    ).toBe(false);
     settings.INITIAL_MANAGER_PASSWORD = 'different-environment-password';
     await Promise.all([start(), start()]);
-    const saved = await database.query("SELECT * FROM staff_users WHERE email='bootstrap@example.com'");
+    const saved = await database.query<
+      { password_change_required: boolean; session_version: number }[]
+    >("SELECT * FROM staff_users WHERE email='bootstrap@example.com'");
     expect(saved).toHaveLength(1);
     expect(saved[0].password_change_required).toBe(false);
     expect(saved[0].session_version).toBe(1);
-    await http().post('/auth/login').send({ username: settings.INITIAL_MANAGER_USERNAME, password: 'bootstrap-initial-password' }).expect(401);
-    await http().post('/auth/login').send({ username: settings.INITIAL_MANAGER_USERNAME, password: settings.INITIAL_MANAGER_PASSWORD }).expect(401);
-    const returning = await http().post('/auth/login').send({ username: settings.INITIAL_MANAGER_USERNAME, password: 'bootstrap-changed-password' }).expect(200);
-    expect(returning.body.passwordChangeRequired).toBe(false);
-    await http().get('/protected').set('Authorization', 'Bearer ' + returning.body.accessToken).expect(200);
+    await http()
+      .post('/auth/login')
+      .send({
+        username: settings.INITIAL_MANAGER_USERNAME,
+        password: 'bootstrap-initial-password',
+      })
+      .expect(401);
+    await http()
+      .post('/auth/login')
+      .send({
+        username: settings.INITIAL_MANAGER_USERNAME,
+        password: settings.INITIAL_MANAGER_PASSWORD,
+      })
+      .expect(401);
+    const returning = await http()
+      .post('/auth/login')
+      .send({
+        username: settings.INITIAL_MANAGER_USERNAME,
+        password: 'bootstrap-changed-password',
+      })
+      .expect(200);
+    expect(
+      (returning.body as { passwordChangeRequired: boolean })
+        .passwordChangeRequired,
+    ).toBe(false);
+    await http()
+      .get('/protected')
+      .set(
+        'Authorization',
+        'Bearer ' + (returning.body as { accessToken: string }).accessToken,
+      )
+      .expect(200);
   });
-
 });
