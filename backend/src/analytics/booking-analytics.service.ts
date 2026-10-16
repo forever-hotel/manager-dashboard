@@ -33,9 +33,9 @@ export class BookingAnalyticsService {
     @Inject(BOOKING_CLOCK) private readonly now: () => Date,
   ) {}
 
-  async summary(period: BookingPeriod) {
+  async summary(period: BookingPeriod, asOf?: string) {
     try {
-      const asOf = this.now().toISOString();
+      asOf ??= this.now().toISOString();
       const rows = await this.database.query<BookingBucketRow[]>(BOOKINGS_SQL, [
         period,
         BOOKING_TIMEZONE,

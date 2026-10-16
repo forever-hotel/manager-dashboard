@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 export default defineConfig({
   testDir: './test/browser',
   fullyParallel: false,
@@ -19,7 +19,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'npm run test:serve',
-      cwd: fileURLToPath(new URL('../backend', import.meta.url)),
+      cwd: resolve(__dirname, '../backend'),
       url: 'http://127.0.0.1:4401/health/ready',
       timeout: 120000,
       reuseExistingServer: false,

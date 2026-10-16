@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 export default function WorkerPerformancePage() {
   return (
@@ -84,28 +84,28 @@ export default function WorkerPerformancePage() {
           <div className="space-y-4">
             {[
               {
-                initials: "SK",
-                name: "S. Kumari",
-                detail: "Housekeeping · 9 tasks completed · avg 10 min",
-                tag: "Top",
+                initials: 'SK',
+                name: 'S. Kumari',
+                detail: 'Housekeeping · 9 tasks completed · avg 10 min',
+                tag: 'Top',
               },
               {
-                initials: "PR",
-                name: "P. Ratna",
-                detail: "Maintenance · 7 tasks · avg 13 min",
-                tag: "Good",
+                initials: 'PR',
+                name: 'P. Ratna',
+                detail: 'Maintenance · 7 tasks · avg 13 min',
+                tag: 'Good',
               },
               {
-                initials: "NP",
-                name: "N. Peris",
-                detail: "Housekeeping · 5 tasks · avg 14 min",
-                tag: "Avg",
+                initials: 'NP',
+                name: 'N. Peris',
+                detail: 'Housekeeping · 5 tasks · avg 14 min',
+                tag: 'Avg',
               },
               {
-                initials: "KF",
-                name: "K. Fernando",
-                detail: "Maintenance · 3 tasks · avg 18 min · 1 complaint",
-                tag: "Low",
+                initials: 'KF',
+                name: 'K. Fernando',
+                detail: 'Maintenance · 3 tasks · avg 18 min · 1 complaint',
+                tag: 'Low',
               },
             ].map((w) => (
               <div key={w.initials} className="flex items-center gap-3">
@@ -138,7 +138,7 @@ export default function WorkerPerformancePage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-gray-200">
-                {["Task ID", "Room", "Type", "Waiting", "Worker", "Status"].map(
+                {['Task ID', 'Room', 'Type', 'Waiting', 'Worker', 'Status'].map(
                   (h) => (
                     <th
                       key={h}
@@ -153,42 +153,42 @@ export default function WorkerPerformancePage() {
             <tbody>
               {[
                 {
-                  id: "#T-291",
-                  room: "204",
-                  type: "Extra towels",
-                  waiting: "4 min",
-                  worker: "S. Kumari",
-                  status: "In progress",
+                  id: '#T-291',
+                  room: '204',
+                  type: 'Extra towels',
+                  waiting: '4 min',
+                  worker: 'S. Kumari',
+                  status: 'In progress',
                 },
                 {
-                  id: "#T-290",
-                  room: "108",
-                  type: "Maintenance",
-                  waiting: "18 min",
-                  worker: "—",
-                  status: "Escalated",
+                  id: '#T-290',
+                  room: '108',
+                  type: 'Maintenance',
+                  waiting: '18 min',
+                  worker: '—',
+                  status: 'Escalated',
                 },
                 {
-                  id: "#T-289",
-                  room: "306",
-                  type: "Cleaning",
-                  waiting: "7 min",
-                  worker: "N. Peris",
-                  status: "In progress",
+                  id: '#T-289',
+                  room: '306',
+                  type: 'Cleaning',
+                  waiting: '7 min',
+                  worker: 'N. Peris',
+                  status: 'In progress',
                 },
                 {
-                  id: "#T-288",
-                  room: "101",
-                  type: "Delivery",
-                  waiting: "2 min",
-                  worker: "P. Ratna",
-                  status: "Assigned",
+                  id: '#T-288',
+                  room: '101',
+                  type: 'Delivery',
+                  waiting: '2 min',
+                  worker: 'P. Ratna',
+                  status: 'Assigned',
                 },
               ].map((row, i, arr) => (
                 <tr
                   key={row.id}
                   className={
-                    i < arr.length - 1 ? "border-b border-gray-100" : ""
+                    i < arr.length - 1 ? 'border-b border-gray-100' : ''
                   }
                 >
                   <td className="text-[10px] text-black py-2">{row.id}</td>

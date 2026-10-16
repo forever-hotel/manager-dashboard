@@ -43,7 +43,9 @@ test('wrong credentials do not open the dashboard', async ({ page }) => {
   await page.getByLabel('Username').fill('manager');
   await page.getByLabel('Password', { exact: true }).fill('wrong');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Unable to sign in');
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Unable to sign in' }),
+  ).toBeVisible();
   await expect(page).toHaveURL(/\/login$/);
 });
 test('first-login password change must finish before dashboard access', async ({

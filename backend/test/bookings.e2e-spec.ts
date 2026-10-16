@@ -50,6 +50,9 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       readFileSync('test/fixtures/booking-reporting.sql', 'utf8'),
     );
     await migrate(database, role);
+    await database.query(`CREATE TABLE payments(payment_id uuid PRIMARY KEY,booking_id uuid NOT NULL,
+      amount integer NOT NULL CHECK(amount>0),payment_status text NOT NULL,paid_at timestamptz);
+      GRANT SELECT ON payments TO "${role}"`);
     owner.username = role;
     owner.password = 'integration-only';
     runtime = new DataSource({ type: 'postgres', url: owner.toString() });
@@ -87,7 +90,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
 
   beforeEach(async () => {
     clock = new Date('2026-09-27T04:00:00Z');
-    await database.query('TRUNCATE hw_booking_snapshots');
+    await database.query('TRUNCATE hw_booking_snapshots, payments');
   });
 
   afterAll(async () => {
@@ -291,6 +294,133 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       await database.query(
         'ALTER VIEW booking_view_unavailable RENAME TO mad_booking_analytics',
       );
+    }
+  });
+  function analytics(
+    path: string,
+    period = 'day',
+    session = provider.issue('manager'),
+  ) {
+    return request(app.getHttpServer())
+      .get('/mad/analytics/' + path + '?period=' + period)
+      .set('Authorization', 'Bearer ' + session);
+  }
+  async function payment(
+    amount: number,
+    paidAt: string | null,
+    status = 'COMPLETED',
+    booking = randomUUID(),
+  ) {
+    await database.query('INSERT INTO payments VALUES ($1,$2,$3,$4,$5)', [
+      randomUUID(),
+      booking,
+      amount,
+      status,
+      paidAt,
+    ]);
+  }
+  it('TC-DDP-056-AC1/AC3: counts LKR cents once by paid_at and excludes refunded/failed/pending payments', async () => {
+    clock = new Date('2026-09-27T04:00:00Z');
+    const booking = randomUUID();
+    await payment(10001, '2026-09-25T18:30:00Z');
+    await payment(10001, '2026-09-26T18:30:00Z', 'COMPLETED', booking);
+    await payment(10001, '2026-09-27T18:29:59Z', 'COMPLETED', booking);
+    await payment(99999, '2026-09-27T18:30:00Z');
+    for (const status of ['REFUNDED', 'FAILED', 'PENDING'])
+      await payment(99999, '2026-09-27T04:00:00Z', status);
+    const response = await analytics('revenue').expect(200);
+    expect(response.body).toMatchObject({
+      currency: 'LKR',
+      currentMinor: 20002,
+      previousMinor: 10001,
+      percentageChange: 100,
+      start: '2026-09-26T18:30:00.000Z',
+      end: '2026-09-27T18:30:00.000Z',
+    });
+  });
+  it.each(['day', 'week', 'month'])(
+    'TC-DDP-015-AC1: overview shares %s boundaries and timestamp',
+    async (period) => {
+      const response = await analytics('overview', period).expect(200);
+      const result = response.body as {
+        bookings: Summary;
+        revenue: { start: string; end: string; asOf: string };
+      };
+      expect(result.bookings.start).toBe(result.revenue.start);
+      expect(result.bookings.end).toBe(result.revenue.end);
+      expect(result.bookings.asOf).toBe(result.revenue.asOf);
+    },
+  );
+  it('TC-DDP-056-AC2: empty source returns zero with an unavailable comparison, not an error', async () => {
+    expect((await analytics('revenue').expect(200)).body).toMatchObject({
+      currentMinor: 0,
+      previousMinor: 0,
+      percentageChange: null,
+      percentageUnavailableReason: 'PREVIOUS_REVENUE_ZERO',
+    });
+    await payment(123, '2026-09-27T04:00:00Z');
+    expect((await analytics('revenue').expect(200)).body).toMatchObject({
+      currentMinor: 123,
+      percentageChange: null,
+    });
+  });
+  it.each([
+    [
+      'week',
+      '2026-01-01T00:00:00Z',
+      '2025-12-28T18:30:00.000Z',
+      '2025-12-21T18:30:00.000Z',
+      '2026-01-04T18:30:00.000Z',
+    ],
+    [
+      'month',
+      '2028-02-20T00:00:00Z',
+      '2028-01-31T18:30:00.000Z',
+      '2027-12-31T18:30:00.000Z',
+      '2028-02-29T18:30:00.000Z',
+    ],
+  ])(
+    'TC-DDP-056-AC3: respects %s calendar boundaries across years/leap months',
+    async (period, now, start, previousStart, end) => {
+      clock = new Date(now);
+      await payment(100, previousStart);
+      await payment(125, start);
+      expect(
+        (await analytics('revenue', period).expect(200)).body,
+      ).toMatchObject({
+        start,
+        end,
+        previousStart,
+        currentMinor: 125,
+        previousMinor: 100,
+        percentageChange: 25,
+      });
+    },
+  );
+  it.each(['revenue', 'overview'])(
+    'protects and validates %s without writing payment data',
+    async (path) => {
+      await request(app.getHttpServer())
+        .get('/mad/analytics/' + path + '?period=day')
+        .expect(401);
+      await analytics(path, 'day', 'invalid').expect(401);
+      await analytics(path, 'day', provider.issue('worker')).expect(403);
+      await analytics(path, 'day', provider.issue('first-login')).expect(403);
+      await analytics(path, 'year').expect(400);
+      await analytics(path, 'day&extra=true').expect(400);
+      expect(await database.query('SELECT * FROM payments')).toEqual([]);
+    },
+  );
+  it('rejects incomplete completed payments and denied source access instead of displaying zero', async () => {
+    await payment(100, null);
+    await analytics('revenue').expect(503);
+    await database.query('TRUNCATE payments');
+    await database.query(`REVOKE SELECT ON payments FROM "${role}"`);
+    try {
+      await analytics('revenue').expect(503);
+      await analytics('overview').expect(503);
+    } finally {
+      await database.query(`GRANT SELECT ON payments TO "${role}"`);
     }
   });
 });

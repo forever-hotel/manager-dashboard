@@ -20,7 +20,6 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "lint:fix": "npm run lint -- --fix",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
-    "migration:run": "node --env-file-if-exists=.env dist/database/migrate-cli.js",
     "manager:create": "node --env-file-if-exists=.env dist/auth/provision-manager-cli.js",
     "test:integration": "jest --config ./test/jest-e2e.json --runInBand",
     "test:serve": "ts-node test/serve-contract-stack.ts"
@@ -77,6 +76,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
+      "promotions/**/*.ts",
       "staff/**/*.ts",
       "analytics/**/*.ts",
       "auth/**/*.ts",
@@ -105,6 +105,9 @@
       "./src/auth/auth.service.ts": {
         "branches": 90
       },
+      "./src/analytics/revenue-analytics.service.ts": {
+        "branches": 90
+      },
       "./src/analytics/booking-analytics.service.ts": {
         "branches": 90
       },
@@ -114,7 +117,13 @@
       "./src/staff/staff.service.ts": {
         "branches": 90
       },
+      "./src/staff/staff-profiles.service.ts": {
+        "branches": 90
+      },
       "./src/staff/staff-delivery.worker.ts": {
+        "branches": 90
+      },
+      "./src/promotions/promotions.service.ts": {
         "branches": 90
       }
     },

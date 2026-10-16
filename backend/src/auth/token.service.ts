@@ -13,10 +13,15 @@ export interface StaffClaims {
   ver: number;
   jti: string;
 }
+// Explicit injection tokens avoid runtime metadata for type-only contracts.
 @Injectable()
 export class TokenService {
   constructor(
-    @Inject(JwtService) private readonly jwt: Pick<JwtService, 'verify' | 'sign'>,
+    @Inject(JwtService)
+    private readonly jwt: {
+      verify: JwtService['verify'];
+      sign: JwtService['sign'];
+    },
     @Inject(ConfigService)
     private readonly config: { getOrThrow<T>(name: string): T },
   ) {}
