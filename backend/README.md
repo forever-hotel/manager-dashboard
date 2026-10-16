@@ -310,3 +310,57 @@ Delivery confirmation and retry processing remain DDP-040 work, not inferred by
 this UI. This uses existing outbox columns, with no new SQL or environment changes.
 Draft creation and safe failure visibility have additional unit and disposable-DB
 integration cases, authored but not run locally.
+
+## DDP-021 complaint register and resolution
+
+Manager-only endpoints (completed first-login password change required):
+
+| Endpoint                    | Contract                                                                                                                                                                            |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /mad/complaints`       | Paginated register; `page` defaults to 1, `pageSize` to 20 (maximum 100). Optional exact `status`, trimmed case-sensitive `category`, and UUID `workerId` filters combine with AND. |
+| `GET /mad/complaints/:id`   | Complaint plus private, version-ordered manager history.                                                                                                                            |
+| `PATCH /mad/complaints/:id` | `{ "version": 0, "status": "UNDER_REVIEW", "note": "Investigation started" }`; returns the saved complaint object and incremented version.                                          |
+
+Register and PATCH responses contain `id`, `category`, `description`, nullable
+`referencedWorkerId`, `submittedAt`, `status`, nullable `resolvedAt`, and `version`.
+Dates are UTC ISO timestamps. Detail adds `history` entries containing `version`,
+`fromStatus`, `status`, `note`, `actorId`, and `recordedAt`. List and PATCH responses
+never contain notes. All endpoints require manager authentication and are no-store.
+Unknown records return 404, invalid input/transitions 400, and stale versions 409.
+Unauthorized/forbidden access returns 401/403 with the existing error envelope.
+
+Approved transitions are strictly SUBMITTED -> UNDER_REVIEW -> RESOLVED, with a
+nonblank trimmed internal note (1–4000 characters) and current integer version on
+each transition. No skipping, reopening, repeating a state or note-only updates.
+Unmanaged/legacy records start at version 0; no history is fabricated. Actor comes
+from the authenticated session and time from the server, never from request fields.
+
+FOSS owns creation and guest fields. The approved field-level contract permits MAD
+to update only `foss_complaints.status` and `resolved_at`. Shared `resolution_notes`
+is neither read nor written. New notes and audit history reside in private
+`mad_complaint_history`; versions in `mad_complaint_state`. An owner-row lock followed
+by a fresh version read serializes concurrent writers. Status/version/history and
+the durable event insert commit atomically; failures roll everything back.
+
+`mad_complaint_outbox` carries note-free `complaint.status_changed` events:
+`complaintId`, `version`, `previousStatus`, `status`, nullable `referencedWorkerId`,
+and `occurredAt`. Later notification/worker-count consumers must use event ID for
+idempotency and version ordering. Publishing and consumer delivery are not added
+by this ticket; the owner table already exposes current status to authorized readers.
+Worker open-complaint counts should count SUBMITTED/UNDER_REVIEW, excluding RESOLVED.
+
+Before deployment, the database owner must review/apply
+`deploy/neon-mad-complaints.sql` after the shared schema and apply its grants to a
+dedicated MAD runtime role. Coordinate exclusive resolution-field ownership with
+FOSS. Guest/FOSS runtime roles must not own or inherit privileges on MAD's private
+tables. A shared owner/superuser connection cannot provide this isolation. Do not
+copy internal notes into shared notes, guest responses or events. Existing legacy
+shared notes are untouched; their visibility remains the FOSS owner's responsibility.
+No SQL runs at startup, and no hosted SQL was applied during implementation.
+
+Tests: `src/complaints/complaints.spec.ts` and `test/complaints.e2e-spec.ts` cover
+validation, transitions, filters, history, concurrency, permissions, privacy and
+rollback. Integration uses an isolated PostgreSQL database and a restricted runtime
+role, plus a separate guest-like role to verify private-table access denial. No
+FOSS application is mocked as proven compatible: real FOSS staging verification
+and CI test/coverage results remain required. Existing UI is unchanged (DDP-022).
