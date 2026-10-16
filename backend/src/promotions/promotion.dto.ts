@@ -79,3 +79,18 @@ export class PromotionPageDto {
   @Max(100)
   pageSize = 20;
 }
+
+export class PromotionVersionDto {
+  @IsInt()
+  @Min(0)
+  @Max(2147483647)
+  version!: number;
+}
+
+// PUT replaces editable fields; redemption counts and status are never client-writable.
+export class EditPromotionDto extends CreatePromotionDto {
+  @IsInt()
+  @Min(0)
+  @Max(2147483647)
+  version!: number;
+}

@@ -5,6 +5,8 @@ import {
   CreatePromotionDto,
   normalizeCode,
   PromotionPageDto,
+  PromotionVersionDto,
+  EditPromotionDto,
 } from './promotion.dto';
 import {
   promotionView,
@@ -24,6 +26,9 @@ const input: CreatePromotionDto = {
 };
 const now = new Date('2026-10-16T00:00:00Z');
 const row: PromotionRow = {
+  version: 0,
+  deleted_at: null,
+  publication_pending: false,
   promo_id: roomId,
   code_string: input.code,
   discount_type: input.discountType,
@@ -62,12 +67,12 @@ describe('DDP-018 promotion validation', () => {
     expect(dto.code).toBe('SUMMER');
     expect(await validate(dto)).toHaveLength(0);
     expect(normalizeCode(3)).toBe(3);
-    expect(normalizeCode('ß')).toBe('ß');
+    expect(normalizeCode('ÃƒÅ¸')).toBe('ÃƒÅ¸');
   });
   it.each([
     { code: '' },
     { code: 'a b' },
-    { code: 'ß' },
+    { code: 'ÃƒÅ¸' },
     { code: 'X'.repeat(51) },
     { discountType: 'OTHER' },
     { discountValue: 0 },
@@ -230,5 +235,138 @@ describe('DDP-018 service', () => {
       currency: 'LKR',
       items: [expect.objectContaining({ id: roomId })],
     });
+  });
+});
+
+describe('DDP-019 versioned promotion lifecycle', () => {
+  it('validates mandatory integer versions and complete edit fields', async () => {
+    for (const version of [undefined, null, -1, 1.5, '0', 2147483648]) {
+      expect(
+        (await validate(plainToInstance(PromotionVersionDto, { version })))
+          .length,
+      ).toBeGreaterThan(0);
+    }
+    expect(
+      await validate(plainToInstance(PromotionVersionDto, { version: 0 })),
+    ).toHaveLength(0);
+    expect(
+      await validate(
+        plainToInstance(EditPromotionDto, { ...input, version: 0 }),
+      ),
+    ).toHaveLength(0);
+    expect(
+      (await validate(plainToInstance(EditPromotionDto, { version: 0 })))
+        .length,
+    ).toBeGreaterThan(0);
+  });
+  it('keeps deleted state distinct from inactive and reports publication work', () => {
+    expect(
+      promotionView(
+        { ...row, deleted_at: now, publication_pending: true },
+        now,
+      ),
+    ).toMatchObject({
+      lifecycleState: 'DELETED',
+      deletedAt: now.toISOString(),
+      publicationStatus: 'PENDING',
+    });
+  });
+  it.each(['activate', 'deactivate', 'delete'] as const)(
+    'persists %s and queues an event with the resulting version',
+    async (action) => {
+      const { service, query } = setup();
+      const updated = {
+        ...row,
+        version: 1,
+        status:
+          action === 'activate' ? ('ACTIVE' as const) : ('INACTIVE' as const),
+        deleted_at: action === 'delete' ? now : null,
+      };
+      query
+        .mockResolvedValueOnce([row])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([updated])
+        .mockResolvedValueOnce([]);
+      expect(await service.changeState(roomId, 0, action)).toMatchObject({
+        version: 1,
+        publicationStatus: 'PENDING',
+      });
+      expect(query.mock.calls[0][0]).toContain('FOR UPDATE OF p');
+      expect(query.mock.calls[3][1]).toEqual([
+        expect.any(String),
+        roomId,
+        1,
+        action === 'delete' ? 'promotion.deleted' : 'promotion.upsert',
+        expect.any(String),
+      ]);
+    },
+  );
+  it.each([
+    [[], 0, 404],
+    [[{ ...row, version: 1 }], 0, 409],
+    [[{ ...row, deleted_at: now }], 0, 409],
+    [[{ ...row, version: 2147483647 }], 2147483647, 409],
+    [[{ ...row, valid_until: now }], 0, 409],
+    [[{ ...row, current_redemptions: 10 }], 0, 409],
+  ] as const)(
+    'rejects ineligible or stale transitions without writes',
+    async (rows, version, status) => {
+      const { service, query } = setup();
+      query.mockResolvedValueOnce([...rows]);
+      await expect(
+        service.changeState(roomId, version, 'activate'),
+      ).rejects.toMatchObject({ status });
+      expect(query).toHaveBeenCalledTimes(1);
+    },
+  );
+  it('replaces editable fields and room associations, retaining redemptions', async () => {
+    const { service, query } = setup();
+    query
+      .mockResolvedValueOnce([row])
+      .mockResolvedValueOnce([{ room_type_id: roomId }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ ...row, version: 1 }])
+      .mockResolvedValueOnce([]);
+    expect(await service.edit(roomId, { ...input, version: 0 })).toMatchObject({
+      version: 1,
+    });
+    expect(query.mock.calls[3][0]).not.toContain('current_redemptions=');
+    expect(query.mock.calls[7][0]).toContain('mad_promotion_outbox');
+  });
+  it('rejects limits below redeemed count, unknown types and conflicting codes', async () => {
+    for (const scenario of ['limit', 'room', 'code']) {
+      const { service, query } = setup();
+      query.mockResolvedValueOnce([{ ...row, current_redemptions: 5 }]);
+      if (scenario !== 'limit')
+        query.mockResolvedValueOnce(
+          scenario === 'room' ? [] : [{ room_type_id: roomId }],
+        );
+      if (scenario === 'code')
+        query.mockResolvedValueOnce([{ promo_id: 'other' }]);
+      await expect(
+        service.edit(roomId, {
+          ...input,
+          version: 0,
+          maxRedemptions: scenario === 'limit' ? 1 : 10,
+        }),
+      ).rejects.toMatchObject({ status: scenario === 'code' ? 409 : 400 });
+      expect(query.mock.calls.every(([sql]) => sql.startsWith('SELECT'))).toBe(
+        true,
+      );
+    }
+  });
+  it('surfaces publication failure so the enclosing transaction rolls back', async () => {
+    const { service, query } = setup();
+    query
+      .mockResolvedValueOnce([row])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ ...row, version: 1 }])
+      .mockRejectedValueOnce(new Error('private queue error'));
+    await expect(
+      service.changeState(roomId, 0, 'delete'),
+    ).rejects.toMatchObject({ status: 503 });
   });
 });

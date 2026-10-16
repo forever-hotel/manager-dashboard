@@ -213,7 +213,7 @@ EXHAUSTED, EXPIRED, SCHEDULED, ACTIVE; comparisons use one clock instant per res
 A future promotion is SCHEDULED even though its stored enabled status is ACTIVE.
 Fixed discounts must floor the final payable amount at zero in redemption consumers;
 this ticket only creates and reads promotions, and does not redeem or price bookings.
-Lifecycle editing, deletion and redemption remain separate tickets. Existing frontend
+Lifecycle editing and logical deletion are implemented by DDP-019 below; redemption remains a separate ticket. Existing frontend
 mock content and styling are unchanged; these endpoints are ready for later UI wiring.
 
 ### Manual database prerequisite
@@ -234,3 +234,64 @@ not Neon. CI discovers both files automatically. Promotion service branch covera
 required at 90%; existing overall 80% line/branch requirements are retained. Tests
 were authored but not run locally at the user's request. Run npm run test:cov and
 npm run test:integration in CI before marking the ticket verified.
+
+## DDP-019: versioned promotion lifecycle and durable publication
+
+The UI is unchanged. Manager-only mutation endpoints return HTTP 200 and the saved
+promotion including `version`, `deletedAt`, `lifecycleState` and `publicationStatus`:
+
+| Method | Path                           | Body                                                     |
+| ------ | ------------------------------ | -------------------------------------------------------- |
+| PUT    | /mad/promotions/:id            | All DDP-018 editable fields plus current integer version |
+| POST   | /mad/promotions/:id/activate   | { "version": 0 }                                         |
+| POST   | /mad/promotions/:id/deactivate | { "version": 0 }                                         |
+| DELETE | /mad/promotions/:id            | { "version": 0 }                                         |
+
+Fetch the current promotion first. New promotions start at version 0; every successful
+mutation increments it once. A transaction locks the row before checking the supplied
+version. Concurrent requests using the same version have one winner; stale versions
+return 409 without overwriting it. Unknown IDs return 404; invalid fields return 400.
+Missing/invalid sessions return 401; unauthorized/first-login managers return 403.
+PUT is a complete replacement of editable fields, not a partial PATCH. It preserves
+current redemptions and status. A redemption limit cannot be lowered below completed
+redemptions. Activation of an expired or exhausted offer returns 409; future valid
+offers can be enabled but remain SCHEDULED until their start. Repeated actions need
+the new version. Version overflow is rejected rather than wrapping.
+
+Approved logical deletion policy: all deletions preserve the promotion, room-type
+links, redemption count, booking references and saved booking amounts. Deletion
+sets INACTIVE plus deletedAt, returns DELETED, and permanently reserves the code.
+Deleted offers are omitted from the default list but remain readable by ID for audit;
+edit/reactivation/repeated deletion return 409. No booking/history rows are rewritten.
+The database constraint also prevents an inactive tombstone being marked ACTIVE.
+
+Creation and every lifecycle mutation atomically insert an immutable snapshot into
+mad_promotion_outbox. Keys are event_id (UUID) and unique (promo_id,promotion_version).
+Events are promotion.upsert or promotion.deleted; deletion snapshots explicitly carry
+INACTIVE and deletedAt. A failed outbox insert rolls back the entire mutation, including
+room-type replacement. No network call takes place inside the transaction.
+
+PENDING means unacknowledged publication work exists; NO_PENDING_WORK only means the
+queue has no unacknowledged rows for this promotion, not proof of website delivery.
+Existing promotions without historical outbox events also report NO_PENDING_WORK.
+DDP-040 must deliver/retry these events, use event_id for idempotency, reject older
+versions (including late upserts after a tombstone), acknowledge only successful
+applications, and reconcile legacy offers. This ticket does not claim that HW has
+already removed an offer. Consumers must validate live eligibility before redemption.
+No publisher, automatic expiry scheduler or redemption logic is added here.
+
+### Manual rollout
+
+Before running this backend version, have the database owner review/apply
+`deploy/neon-mad-promotion-lifecycle.sql` after the DDP-018 schema/index prerequisites.
+It adds version/deleted_at, the tombstone invariant and the durable outbox. Use its
+commented grant examples with the actual runtime role. Never run the full shared
+schema over an existing database. No SQL is applied automatically at startup and no
+Neon changes were executed during implementation. The publisher's acknowledgement
+permissions belong to its own role/configuration under DDP-040.
+
+Unit tests extend src/promotions/promotions.spec.ts. Disposable-PostgreSQL integration
+cases in test/promotions.e2e-spec.ts cover all mutations, stale concurrent requests,
+history preservation, authorization, validation, eligibility and queue-failure rollback.
+Tests are authored but not run locally; CI coverage and staging verification remain
+required. The existing 90% promotion-service branch threshold is unchanged.

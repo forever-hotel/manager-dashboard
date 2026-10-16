@@ -61,6 +61,12 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
     await database.query(
       `GRANT SELECT,INSERT ON mad_promotion_room_types TO "${role}"`,
     );
+    await database.query(
+      readFileSync('../deploy/neon-mad-promotion-lifecycle.sql', 'utf8'),
+    );
+    await database.query(`GRANT SELECT,INSERT ON mad_promotion_outbox TO "${role}";
+      GRANT DELETE ON mad_promotion_room_types TO "${role}";
+      CREATE TABLE bookings(booking_id uuid PRIMARY KEY,promo_id uuid REFERENCES mad_promotion_codes(promo_id) ON DELETE SET NULL,total_amount integer NOT NULL)`);
     provider = await seedLocalAuth(database, secret, role);
     owner.username = role;
     owner.password = 'integration-only';
@@ -88,7 +94,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   }, 60000);
   beforeEach(async () => {
     await database.query(
-      'TRUNCATE mad_promotion_room_types,mad_promotion_codes,room_types',
+      'TRUNCATE bookings,mad_promotion_outbox,mad_promotion_room_types,mad_promotion_codes,room_types',
     );
     await database.query(
       `INSERT INTO room_types(room_type_id,type_name,price_per_night,max_guests) VALUES ($1,'Suite',15000,2),($2,'Double',9000,2)`,
@@ -271,5 +277,246 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         `GRANT INSERT ON mad_promotion_room_types TO "${role}"`,
       );
     }
+  });
+  function action(
+    id: string,
+    version: number,
+    kind: 'activate' | 'deactivate' | 'delete',
+  ) {
+    const req =
+      kind === 'delete'
+        ? request(app.getHttpServer()).delete('/mad/promotions/' + id)
+        : request(app.getHttpServer()).post(`/mad/promotions/${id}/${kind}`);
+    return req
+      .set('Authorization', 'Bearer ' + provider.issue('manager'))
+      .send({ version });
+  }
+  function edit(id: string, body: object) {
+    return request(app.getHttpServer())
+      .put('/mad/promotions/' + id)
+      .set('Authorization', 'Bearer ' + provider.issue('manager'))
+      .send(body);
+  }
+  async function events(id: string) {
+    return database.query<
+      { promotion_version: number; event_type: string; payload: Promotion }[]
+    >(
+      'SELECT promotion_version,event_type,payload FROM mad_promotion_outbox WHERE promo_id=$1 ORDER BY promotion_version',
+      [id],
+    );
+  }
+  it('TC-MAD-019-AC1: edits and toggles activation with monotonic versions and durable events', async () => {
+    const created = (await post().expect(201)).body as Promotion;
+    expect(created.version).toBe(0);
+    const updated = (
+      await edit(created.id, {
+        ...payload,
+        code: 'REVISED',
+        roomTypeIds: [otherRoomId],
+        version: 0,
+      }).expect(200)
+    ).body as Promotion;
+    expect(updated).toMatchObject({
+      code: 'REVISED',
+      roomTypeIds: [otherRoomId],
+      version: 1,
+      publicationStatus: 'PENDING',
+    });
+    expect(
+      (
+        (await action(created.id, 1, 'deactivate').expect(200))
+          .body as Promotion
+      ).lifecycleState,
+    ).toBe('INACTIVE');
+    expect(
+      ((await action(created.id, 2, 'activate').expect(200)).body as Promotion)
+        .lifecycleState,
+    ).toBe('ACTIVE');
+    expect(
+      (await events(created.id)).map((event) => event.promotion_version),
+    ).toEqual([0, 1, 2, 3]);
+    expect(
+      (await get('/mad/promotions/' + created.id).expect(200))
+        .body as Promotion,
+    ).toMatchObject({ version: 3 });
+  });
+  it('TC-MAD-019-AC2: concurrent same-version changes produce one winner and one conflict', async () => {
+    const created = (await post().expect(201)).body as Promotion;
+    const results = await Promise.all([
+      action(created.id, 0, 'activate'),
+      action(created.id, 0, 'deactivate'),
+    ]);
+    expect(results.map((result) => result.status).sort()).toEqual([200, 409]);
+    expect(
+      (await events(created.id)).map((event) => event.promotion_version),
+    ).toEqual([0, 1]);
+    await edit(created.id, { ...payload, version: 0 }).expect(409);
+    expect(await events(created.id)).toHaveLength(2);
+  });
+  it('TC-MAD-019-AC2: rejects invalid edits and unknown/stale targets without changing state', async () => {
+    const created = (await post().expect(201)).body as Promotion;
+    for (const change of [
+      { discountValue: 101 },
+      { maxRedemptions: 0 },
+      { roomTypeIds: [randomUUID()] },
+      { validUntil: payload.validFrom },
+      { version: -1 },
+      { version: '0' },
+      { status: 'ACTIVE' },
+    ]) {
+      await edit(created.id, { ...payload, version: 0, ...change }).expect(400);
+    }
+    await edit(randomUUID(), { ...payload, version: 0 }).expect(404);
+    for (const kind of ['activate', 'deactivate', 'delete'] as const)
+      await action(randomUUID(), 0, kind).expect(404);
+    await post({ ...payload, code: 'OTHER' }).expect(201);
+    await edit(created.id, { ...payload, code: 'OTHER', version: 0 }).expect(
+      409,
+    );
+    expect(
+      (await get('/mad/promotions/' + created.id).expect(200))
+        .body as Promotion,
+    ).toMatchObject({ version: 0, code: 'AUTUMN_26' });
+    expect(await events(created.id)).toHaveLength(1);
+  });
+  it('TC-MAD-019-AC3: logical deletion retains booking history and associations, blocks reuse/reactivation and queues removal', async () => {
+    const created = (await post().expect(201)).body as Promotion;
+    const bookingId = randomUUID();
+    await database.query(
+      'INSERT INTO bookings(booking_id,promo_id,total_amount) VALUES ($1,$2,7500)',
+      [bookingId, created.id],
+    );
+    const removed = (await action(created.id, 0, 'delete').expect(200))
+      .body as Promotion;
+    expect(removed).toMatchObject({
+      status: 'INACTIVE',
+      lifecycleState: 'DELETED',
+      version: 1,
+      publicationStatus: 'PENDING',
+    });
+    expect(removed.deletedAt).not.toBeNull();
+    const history = await database.query<
+      { promo_id: string; total_amount: number }[]
+    >('SELECT promo_id,total_amount FROM bookings WHERE booking_id=$1', [
+      bookingId,
+    ]);
+    expect(history).toEqual([{ promo_id: created.id, total_amount: 7500 }]);
+    expect(await counts()).toEqual({ promotions: 1, links: 1 });
+    expect(
+      (await get('/mad/promotions').expect(200)).body as {
+        items: Promotion[];
+        total: number;
+      },
+    ).toMatchObject({ items: [], total: 0 });
+    expect(
+      (await get('/mad/promotions/' + created.id).expect(200))
+        .body as Promotion,
+    ).toMatchObject({ lifecycleState: 'DELETED' });
+    await action(created.id, 1, 'activate').expect(409);
+    await edit(created.id, { ...payload, version: 1 }).expect(409);
+    await action(created.id, 1, 'delete').expect(409);
+    await post().expect(409);
+    expect((await events(created.id))[1]).toMatchObject({
+      promotion_version: 1,
+      event_type: 'promotion.deleted',
+      payload: {
+        id: created.id,
+        lifecycleState: 'DELETED',
+        status: 'INACTIVE',
+      },
+    });
+  });
+  it('TC-DDP-019-ATOMIC: an outbox failure rolls back edit, deletion and creation', async () => {
+    const created = (await post().expect(201)).body as Promotion;
+    await database.query(
+      `REVOKE INSERT ON mad_promotion_outbox FROM "${role}"`,
+    );
+    try {
+      await edit(created.id, {
+        ...payload,
+        code: 'CHANGED',
+        roomTypeIds: [otherRoomId],
+        version: 0,
+      }).expect(503);
+      await action(created.id, 0, 'delete').expect(503);
+      await post({ ...payload, code: 'NEW' }).expect(503);
+      expect(
+        (await get('/mad/promotions/' + created.id).expect(200))
+          .body as Promotion,
+      ).toMatchObject({
+        code: 'AUTUMN_26',
+        roomTypeIds: [roomId],
+        version: 0,
+        deletedAt: null,
+      });
+      expect(await counts()).toEqual({ promotions: 1, links: 1 });
+      expect(await events(created.id)).toHaveLength(1);
+    } finally {
+      await database.query(`GRANT INSERT ON mad_promotion_outbox TO "${role}"`);
+    }
+  });
+  it('TC-DDP-019-AUTH: all mutation endpoints enforce auth, version validation and preserve rows', async () => {
+    const created = (await post().expect(201)).body as Promotion;
+    for (const method of [
+      'edit',
+      'activate',
+      'deactivate',
+      'delete',
+    ] as const) {
+      const make = () =>
+        method === 'edit'
+          ? request(app.getHttpServer()).put('/mad/promotions/' + created.id)
+          : method === 'delete'
+            ? request(app.getHttpServer()).delete(
+                '/mad/promotions/' + created.id,
+              )
+            : request(app.getHttpServer()).post(
+                `/mad/promotions/${created.id}/${method}`,
+              );
+      for (const [token, status] of [
+        [null, 401],
+        ['invalid', 401],
+        [provider.issue('worker'), 403],
+        [provider.issue('first-login'), 403],
+      ] as const) {
+        let req = make();
+        if (token) req = req.set('Authorization', 'Bearer ' + token);
+        await req
+          .send(method === 'edit' ? { ...payload, version: 0 } : { version: 0 })
+          .expect(status);
+      }
+      await make()
+        .set('Authorization', 'Bearer ' + provider.issue('manager'))
+        .send(method === 'edit' ? payload : {})
+        .expect(400);
+    }
+    expect(
+      (await get('/mad/promotions/' + created.id).expect(200))
+        .body as Promotion,
+    ).toMatchObject({ version: 0 });
+    expect(await events(created.id)).toHaveLength(1);
+  });
+  it('TC-DDP-019-ELIGIBILITY: refuses expired/exhausted activation and preserves redeemed capacity on edit', async () => {
+    const created = (await post().expect(201)).body as Promotion;
+    await database.query(
+      'UPDATE mad_promotion_codes SET current_redemptions=10 WHERE promo_id=$1',
+      [created.id],
+    );
+    await action(created.id, 0, 'activate').expect(409);
+    await edit(created.id, {
+      ...payload,
+      maxRedemptions: 9,
+      version: 0,
+    }).expect(400);
+    await database.query(
+      "UPDATE mad_promotion_codes SET current_redemptions=0,valid_from='2025-01-01T00:00:00Z',valid_until='2025-02-01T00:00:00Z' WHERE promo_id=$1",
+      [created.id],
+    );
+    await action(created.id, 0, 'activate').expect(409);
+    expect(await events(created.id)).toHaveLength(1);
+    await action(created.id, 0, 'deactivate').expect(200);
+    for (const kind of ['activate', 'deactivate', 'delete'] as const)
+      await action(created.id, 0, kind).expect(409);
+    expect(await events(created.id)).toHaveLength(2);
   });
 });
