@@ -96,7 +96,8 @@ export class StaffProfilesService {
         const next = { ...current, version: current.version + 1 };
         for (const field of fields)
           Object.assign(next, { [field]: patch[field] });
-        const saved = await manager.query<StaffProfile[]>(
+        // PostgreSQL UPDATE returns [rows, affectedCount], unlike SELECT.
+        const [saved] = await manager.query<[StaffProfile[], number]>(
           `UPDATE public.staff_users SET full_name=$2,vocation=$3,email=$4,age=$5,phone=$6,nic=$7,
            role=$8,is_active=$9,session_version=$10,updated_at=now() WHERE worker_id=$1 RETURNING ${columns}`,
           [
@@ -112,8 +113,9 @@ export class StaffProfilesService {
             next.version,
           ],
         );
-        await this.reconcileDelivery(manager, current, saved[0]);
-        return saved[0];
+        const profile = this.requireStaff(saved[0]);
+        await this.reconcileDelivery(manager, current, profile);
+        return profile;
       });
       this.logger.log({
         event: 'staff.profile_updated',

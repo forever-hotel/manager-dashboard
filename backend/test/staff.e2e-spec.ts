@@ -528,6 +528,9 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
         nic: '199912345678',
       }).expect(200)
     ).body as StaffProfile;
+    expect(Array.isArray(changed)).toBe(false);
+    expect(Object.keys(changed).sort()).toEqual(Object.keys(original).sort());
+    expect((await readProfile(staffId).expect(200)).body).toEqual(changed);
     expect(changed).toMatchObject({
       name: 'Updated Name',
       email: 'updated@example.com',

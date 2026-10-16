@@ -33,7 +33,7 @@ function setup(
   const query = jest
     .fn<Promise<unknown[]>, [string, unknown[]]>()
     .mockResolvedValueOnce(rows)
-    .mockResolvedValueOnce([after])
+    .mockResolvedValueOnce([[after], 1])
     .mockResolvedValue([]);
   const transaction = jest.fn(
     async (work: (manager: { query: typeof query }) => Promise<unknown>) =>
@@ -179,7 +179,7 @@ describe('DDP-014 profile service', () => {
     query
       .mockReset()
       .mockResolvedValueOnce([profile])
-      .mockResolvedValueOnce([after])
+      .mockResolvedValueOnce([[after], 1])
       .mockResolvedValueOnce([
         {
           delivery_id: 'old',
@@ -213,7 +213,7 @@ describe('DDP-014 profile service', () => {
       query
         .mockReset()
         .mockResolvedValueOnce([profile])
-        .mockResolvedValueOnce([after])
+        .mockResolvedValueOnce([[after], 1])
         .mockResolvedValueOnce([
           {
             delivery_id: 'old',
@@ -235,7 +235,7 @@ describe('DDP-014 profile service', () => {
     query
       .mockReset()
       .mockResolvedValueOnce([profile])
-      .mockResolvedValueOnce([{ ...profile, version: 1 }])
+      .mockResolvedValueOnce([[{ ...profile, version: 1 }], 1])
       .mockResolvedValueOnce([
         {
           delivery_id: 'old',
