@@ -149,3 +149,48 @@ Tests are authored in `test/promotions.test.tsx` and `test/promotions-bff.test.t
 real disposable-database cases remain in `backend/test/promotions.e2e-spec.ts`.
 Coverage includes the new BFF and component under the existing thresholds. Tests
 were not run locally as requested; CI coverage and staging evidence are pending.
+
+## DDP-022 complaint register
+
+The existing Complaints layout and styles now use live DDP-021 data. Search uses
+exact category, status and optional worker UUID filters; pagination is server-side
+(20 rows). Descriptions, submission times and optional worker references are shown.
+Times use Asia/Colombo. An absent worker is labelled explicitly.
+
+View / update opens a labelled, keyboard-focusable detail section with manager-only
+history. Closing restores focus; switching/closing with an unsaved note requires
+confirmation. Status progresses only SUBMITTED -> UNDER_REVIEW -> RESOLVED. Each
+save sends the current version and a trimmed internal note (1–4000 characters).
+Repeated saves are locked while pending. Failure preserves editable input and shows
+no success message. Conflict requires Reload latest version (keep note), review and
+an explicit new save. No automatic retry or silent overwriting occurs.
+
+Successful PATCH confirms persistence, clears the submitted note, and refreshes
+detail, register and global status counts. If a subsequent read fails, the confirmed
+save message remains alongside a read error; no second write is attempted. Requests
+for obsolete filters/details are cancelled and their late results are ignored.
+Draft notes remain in component memory only, not URLs, storage or analytics events.
+
+The protected `/api/complaints` BFF forwards GET list/detail and PATCH by UUID through
+the existing gateway adapter. It validates routes, filters, payloads and response
+shapes, forwards the HttpOnly session only server-side, rejects cross-origin JSON
+mutations and strips provider internals. Every response is no-store. Backend guards
+remain authoritative for manager/first-login permissions. Guest access is not added.
+
+Global open count is SUBMITTED + UNDER_REVIEW; review count is UNDER_REVIEW. Existing
+room/severity cells and monthly/average-resolution cards display unavailable values
+because DDP-021 does not provide those fields/metrics. The inherited Day/Week/Month
+controls stay visible but disabled; no date-filter contract exists. No fabricated
+records or analytics remain. Count requests are separate live snapshots, not a
+transactional analytics report.
+
+DDP-043 integration hook: listen on window for `mad:complaint-status-changed` after
+a confirmed update, with detail `{ id, status, version }`, and refetch unresolved
+counts. No note or guest content is included. This is a local invalidation event,
+not cross-service notification delivery; the notification feature remains DDP-043.
+
+No new SQL or environment variables. Apply DDP-021's manual schema/role grants before
+deployment if not already done. Tests are in `test/complaints.test.tsx` and
+`test/complaints-bff.test.ts`, with existing backend disposable-DB tests for DDP-021.
+Coverage collection includes the complaint BFF. Tests were authored but not run
+locally; CI coverage and staging acceptance remain pending.

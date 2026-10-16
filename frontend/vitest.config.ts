@@ -16,6 +16,7 @@ export default defineConfig({
         'app/api/auth/**/route.ts',
         'app/api/analytics/**/route.ts',
         'app/api/promotions/**/route.ts',
+        'app/api/complaints/**/route.ts',
       ],
       exclude: ['lib/navigation.ts'],
       thresholds: {
