@@ -10,7 +10,9 @@ function derive(password: string, salt: string): Promise<Buffer> {
   });
 }
 export function validPassword(password: string) {
-  return password.length >= 12 && password.length <= 1024 && /\S/.test(password);
+  return (
+    password.length >= 12 && password.length <= 1024 && /\S/.test(password)
+  );
 }
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');

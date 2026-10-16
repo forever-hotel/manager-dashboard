@@ -1,42 +1,151 @@
-> Current hosted-Neon setup: [APPLICATION_GUIDE.md](../APPLICATION_GUIDE.md).
-> Do not run the legacy migration commands below against Neon. Reporting views
-> are supplied by the manual SQL supplement; no local database is required.
+# Manager dashboard frontend
 
-﻿# Forever Hotel frontend — DDP-001–008
+Next.js uses Tailwind, server-side API forwarding and HttpOnly authentication
+cookies. The current UI and login/password-change/logout behavior are retained.
 
-Next.js App Router, React, TypeScript and Tailwind foundation. The existing white,
-gray-bordered design is retained. Login, password change, sign out and responsive
-protected navigation are implemented. All 12 navigation destinations are shells;
-later-ticket charts, forms and sample records have been removed.
-
-Use Node 22.14.x (see `../.nvmrc`) and npm 10 or later. From this directory:
+Use Node 22 and configure `.env.local` from `.env.example`. From this directory:
 
 ```powershell
-Copy-Item .env.example .env.local
-npm ci
+node scripts/verify-build-config.mjs
+npm ci --ignore-scripts
+node scripts/verify-build-config.mjs
 npm run dev
 ```
 
-| Setting               | Purpose                                                                                                 |
-| --------------------- | ------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_API_URL` | Required public API/gateway URL, validated when Next.js loads its configuration; embedded at build time |
-| `BACKEND_API_URL`     | Server-only reachable API/gateway base URL; BFF requests use this address                               |
-| `BACKEND_API_MODE`    | `gateway` (default) maps auth/health through `/mad`; `direct` targets MAD directly                       |
-| `APP_ORIGIN`          | Exact browser origin, without a path; used for CSRF checks and cookie security                          |
+Use `npm run build` then `npm start` for a production server, or root
+`docker compose up -d --build` for the whole application.
 
-Browser authentication requests go to same-origin `/api/auth/*` routes. The BFF
-keeps tokens in HttpOnly, SameSite=Strict cookies (Secure on HTTPS), forwards bearer
-tokens on the server and returns only safe session fields. It never stores tokens
-or passwords in localStorage/sessionStorage. Set an HTTPS origin for shared hosts.
+Keep the build-config integrity checker and manifest. They detect unexpected
+changes to executable configuration before builds. Do not regenerate hashes to
+bypass a failure. Review intentional configuration edits and manifest changes
+together.
 
-`npm run build` produces a standalone build. `npm run start` serves the local
-production build. Docker starts `.next/standalone/server.js`. `npm run lint` and
-`npm run format:check` are read-only; `npm run format` explicitly formats files.
-`npm run test:cov` and `npm run test:e2e` are the existing CI verification commands.
+Quality commands: `npm run lint`, `npm run format:check`, `npm run test:cov`,
+`npm run test:e2e`, and `npm run test:build-config`. Browser tests need the
+disposable backend test database described in `../backend/README.md`.
 
-`GET /api/health` reports readiness only when the backend reports database
-readiness. The login page displays service unavailability and a retry link during
-an outage. MAD authenticates managers locally; provision an account before signing in.
+Detailed local references and investigation evidence are in `../docs/guides/`,
+`../docs/reviews/` and `../docs/security/`. These folders are Git-ignored.
 
-See the [application guide](../APPLICATION_GUIDE.md) for the complete local
-Compose stack, gateway routing, manager provisioning and troubleshooting.
+## Analytics (DDP-015)
+
+The analytics page fetches `/api/analytics?period=day|week|month` through one client.
+The server-side route reads the HttpOnly session cookie and forwards it as a bearer
+token to `/mad/analytics/overview` through the existing direct/gateway transport.
+Tokens stay out of browser JavaScript. Responses are validated, stripped of unknown
+fields and not cached. Backend errors are sanitized. Period changes cancel old
+requests and ignore obsolete responses, including transports that ignore aborts.
+
+Booking totals, line/bar charts, revenue and prior-period revenue share the selected
+calendar period. An always-visible table provides exact daily booking values.
+Native buttons support keyboard access, pressed states identify the selection,
+and loading/errors/empty data have status messages. Failed loads can be retried.
+Zero previous revenue displays N/A; unavailable API data displays an error, not zero.
+Revenue follows the approved completed-payment policy in backend/README.md.
+
+The previous mock occupancy, stay-length, alert and recent-booking content was
+removed from this page to avoid presenting invented live metrics. Existing fonts,
+neutral colors, cards and chart styling are retained. Export controls remain in
+DDP-031; no nonfunctional export buttons are shown.
+
+Run `npm test -- analytics.test.tsx analytics-bff.test.ts` for component/client and
+BFF contract cases. Tests were added but not run during implementation.
+
+## Temporary security audit exception (2026-10-15)
+
+CI runs `npm run audit:ci`, which fetches the full npm audit report and rejects
+high/critical vulnerabilities. It fails closed if npm or the audit service fails.
+The only exception is [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm),
+which currently has no patched braces release. Its five affected packages are one
+chain: eslint-config-next -> @next/eslint-plugin-next -> fast-glob -> micromatch -> braces.
+The affected recursive glob parser can exhaust the stack on deeply nested input.
+Here it is development lint tooling; lint paths are repository-controlled, not
+application request input. This exception is risk acceptance, not a vulnerability fix.
+
+The exception applies only when every affected lockfile node in that chain has
+`dev: true` and every underlying advisory matches that exact URL. It expires at
+2026-11-14 00:00 UTC, after which CI fails until the dependency is fixed or the
+exception is reviewed. New advisories and production dependencies remain blocked.
+Run `npm audit` to see the unfiltered findings; it still exits nonzero for this advisory.
+When upstream fixes it, update the lockfile, remove the exception, and verify CI.
+Do not use `npm audit fix --force`: its proposed Next.js lint downgrade is incompatible
+with the application's current major version.
+
+Next.js and eslint-config-next are aligned at 16.4.1. Vitest and coverage-v8 are
+aligned at 4.1.11, with Vite 7.3.7. Overrides keep optional peer resolution on these
+reviewed versions instead of pulling in Vitest 5 and crashing npm's resolver.
+Security-policy regression cases are in scripts/audit-ci.test.mjs and run in CI.
+
+## DDP-016 occupancy calendar
+
+Analytics now has an additional monthly occupancy section beneath its existing
+content; existing layout, styling, cards and controls are preserved. The calendar
+uses the protected GET /api/analytics/occupancy?month=YYYY-MM BFF, which translates
+the month to inclusive from/to dates for GET /mad/analytics/occupancy. The session
+cookie remains server-side; the existing backend adapter supports direct and gateway
+routing. All responses are no-store, validated, and stripped of unknown fields.
+
+Month navigation uses Gregorian leap-year rules and Monday-first weeks. API dates
+are used directly without converting them to another timezone. Initial month is
+computed server-side for Asia/Colombo. Requests are cancelled on navigation/unmount,
+and late responses cannot replace a newer month. Complete months are required;
+empty responses display no-data, and incomplete or inconsistent responses fail safely.
+Zero bookings with known capacity, zero eligible capacity (unknown rate), loading,
+unauthenticated/forbidden access, and retryable failures have distinct states.
+
+Display-only demand bands are Low <40%, Medium 40% to <70%, High >=70%, with
+Unknown for no eligible capacity. These bands do not change the separately configured
+low-booking alert threshold. Blue/neutral/amber cells include text labels and a visible
+legend. Every date is keyboard-focusable and announces date, occupied rooms, eligible
+capacity and rate. A visible data table provides the same information without colour.
+
+Tests added: test/occupancy.test.tsx (date boundaries, classifications, accessibility,
+loading/empty/unknown/error/retry/race states) and test/occupancy-bff.test.ts (protected
+BFF contracts). Existing backend/test/occupancy.e2e-spec.ts provides disposable-database
+coverage for the unchanged backend endpoint. Tests were not run locally at the user's
+request. Run npm run test:cov and the existing backend integration suite in CI.
+
+## DDP-020 promotion management
+
+The Promotions page now reads real records and room types, with paginated listing,
+creation, editing, activation, deactivation and confirmed logical deletion. The
+existing page layout, typography and styles are reused; mock text is replaced with
+labelled form controls. The inherited Day/Week/Month decoration is disabled because
+the promotion API lists all validity periods and defines no period filter.
+
+All MD-05 fields are editable. Fixed discounts use integer LKR cents; percentages
+are integers from 1 to 100. Dates are entered in Asia/Colombo (+05:30), with inclusive
+start and exclusive end. Select one or more room types (up to 100). Save as draft
+creates an INACTIVE promotion atomically; editing preserves its lifecycle status.
+Activation and deactivation remain explicit actions. Historical redemption counts
+and deleted codes are preserved by the backend.
+
+The browser uses `/api/promotions` and its detail/action/room-types paths. This BFF
+validates routes, queries, bodies and response shapes, enforces same-origin JSON
+mutations, and forwards the HttpOnly session as a server-side bearer token through
+the existing gateway adapter. Nest remains responsible for manager authorization.
+Responses are no-store and internal errors/extra response fields are not exposed.
+
+Every existing-record mutation sends its version. A conflict preserves entered
+fields and offers Reload latest version. Review changes in the refreshed table
+before saving; this explicitly adopts the latest version without silently retrying.
+For a duplicate new code, change the code after refreshing. Deleted promotions
+cannot be edited again. Failed saves keep input; after a network failure refresh
+before retrying because the original write may have committed.
+
+Saved lifecycle and website publication are displayed separately. PENDING means
+queued, FAILED means unacknowledged work has a recorded error, and NO_PENDING_WORK
+does not prove delivery (including legacy records). None claims website availability.
+Refresh reads current publication state. Actual delivery/retry/acknowledgement and
+real HW staging verification depend on DDP-040; there is no pretend publish button
+or client-triggered redelivery.
+
+No new environment variables or SQL are needed for DDP-020. The DDP-018/019 manual
+schema prerequisites must already be applied. Deploy the updated backend before
+this frontend so inactive creation and FAILED publication state are supported.
+No hosted SQL is executed automatically.
+
+Tests are authored in `test/promotions.test.tsx` and `test/promotions-bff.test.ts`;
+real disposable-database cases remain in `backend/test/promotions.e2e-spec.ts`.
+Coverage includes the new BFF and component under the existing thresholds. Tests
+were not run locally as requested; CI coverage and staging evidence are pending.

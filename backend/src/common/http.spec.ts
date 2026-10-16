@@ -43,12 +43,30 @@ describe('Stable error envelope', () => {
   );
   it('applies identical global validation and filters to production and tests', () => {
     const app = {
+      use: jest.fn<
+        void,
+        [
+          (
+            request: unknown,
+            response: { setHeader: (name: string, value: string) => void },
+            next: () => void,
+          ) => void,
+        ]
+      >(),
       useGlobalPipes: jest.fn(),
       useGlobalFilters: jest.fn(),
       enableCors: jest.fn(),
       enableShutdownHooks: jest.fn(),
     };
     configureHttp(app as unknown as INestApplication);
+    const response = { setHeader: jest.fn() };
+    const next = jest.fn();
+    app.use.mock.calls[0][0]({}, response, next);
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Cache-Control',
+      'no-store',
+    );
+    expect(next).toHaveBeenCalledTimes(1);
     expect(app.useGlobalPipes).toHaveBeenCalled();
     expect(app.useGlobalFilters).toHaveBeenCalledWith(
       expect.any(ApiExceptionFilter),

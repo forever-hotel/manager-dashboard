@@ -1,3 +1,5 @@
+import { Logger } from '@nestjs/common';
+import { compare, getRounds } from 'bcryptjs';
 import { ConfigService } from '@nestjs/config';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -158,7 +160,6 @@ describe('DDP-012 transactional creation', () => {
       result.deliveryId,
       deliveryParams[2],
     );
-    const { compare, getRounds } = await import('bcryptjs');
     expect(getRounds(staffParams[8] as string)).toBe(12);
     expect(await compare(payload.password, staffParams[8] as string)).toBe(
       true,
@@ -228,10 +229,10 @@ describe('DDP-012 retry worker', () => {
     const query = jest.fn().mockResolvedValue([]);
     const send = jest.fn();
     const worker = new StaffDeliveryWorker(
-      { query } as unknown as DataSource,
+      { query },
       config(),
       new CredentialCipher(config()),
-      { send } as unknown as SendGridService,
+      { send },
     );
     await worker.processOnce();
     expect(query).toHaveBeenCalledTimes(1);
@@ -265,7 +266,11 @@ describe('DDP-012 retry worker', () => {
     }
   });
   function setup(
-    account = {
+    account: {
+      is_active: boolean;
+      password_change_required: boolean;
+      session_version: number;
+    } | null = {
       is_active: true,
       password_change_required: true,
       session_version: 0,
@@ -282,14 +287,14 @@ describe('DDP-012 retry worker', () => {
     const query = jest
       .fn<Promise<unknown[]>, [string, unknown[]]>()
       .mockResolvedValueOnce([delivery])
-      .mockResolvedValueOnce([account])
+      .mockResolvedValueOnce(account ? [account] : [])
       .mockResolvedValue([]);
     const send = jest.fn().mockResolvedValue(undefined);
     const worker = new StaffDeliveryWorker(
       { query } as unknown as DataSource,
       config(),
       cipher,
-      { send } as unknown as SendGridService,
+      { send },
     );
     return { worker, query, send };
   }
@@ -322,6 +327,7 @@ describe('DDP-012 retry worker', () => {
     );
   });
   it.each([
+    null,
     { is_active: false, password_change_required: true, session_version: 0 },
     { is_active: true, password_change_required: false, session_version: 0 },
     { is_active: true, password_change_required: true, session_version: 1 },
@@ -331,10 +337,33 @@ describe('DDP-012 retry worker', () => {
     expect(send).not.toHaveBeenCalled();
     expect(query.mock.calls[2][1][2]).toBe('cancelled');
   });
+  it('recovers on the next tick after a database outage', async () => {
+    jest.useFakeTimers();
+    const error = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    const { worker } = setup();
+    const process = jest
+      .spyOn(worker, 'processOnce')
+      .mockRejectedValueOnce(new Error('private database details'))
+      .mockResolvedValue(undefined);
+    try {
+      worker.onApplicationBootstrap();
+      await jest.advanceTimersByTimeAsync(15000);
+      expect(process).toHaveBeenCalledTimes(2);
+      expect(error).toHaveBeenCalledWith(
+        'Staff delivery processing unavailable',
+      );
+    } finally {
+      await worker.onApplicationShutdown();
+      error.mockRestore();
+      jest.useRealTimers();
+    }
+  });
   it('does no work while delivery is disabled', async () => {
     const query = jest.fn();
     const worker = new StaffDeliveryWorker(
-      { query } as unknown as DataSource,
+      { query },
       new ConfigService(),
       new CredentialCipher(config()),
       new SendGridService(config()),

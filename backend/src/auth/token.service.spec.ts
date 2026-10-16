@@ -9,7 +9,12 @@ describe('Staff token policy', () => {
     jwt,
     new ConfigService({ JWT_SECRET: secret, JWT_ISSUER: 'mad' }),
   );
-  const now = Math.floor(Date.now() / 1000);
+  const now = Date.parse('2026-10-15T00:00:00Z') / 1000;
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(now * 1000);
+  });
+  afterEach(() => jest.useRealTimers());
   const claims = {
     sub: '11111111-1111-4111-8111-111111111111',
     role: 'MANAGER',
@@ -63,10 +68,27 @@ describe('Staff token policy', () => {
     ).toThrow();
     expect(() => service.verify('garbage')).toThrow();
   });
+  it('rejects a token that expires between signature verification and claim validation', () => {
+    const verify = jest.spyOn(jwt, 'verify').mockImplementationOnce(() => ({
+      ...claims,
+      iat: now - 28800,
+      exp: now,
+    }));
+    try {
+      expect(() => service.verify('verified-token')).toThrow('Unauthorized');
+    } finally {
+      verify.mockRestore();
+    }
+  });
   it('issues distinct manager tokens scoped to MAD', () => {
     const first = service.issue(claims.sub, 2);
     const second = service.issue(claims.sub, 2);
     expect(first).not.toBe(second);
-    expect(service.verify(first)).toMatchObject({ sub: claims.sub, role: 'MANAGER', ver: 2, aud: 'mad' });
+    expect(service.verify(first)).toMatchObject({
+      sub: claims.sub,
+      role: 'MANAGER',
+      ver: 2,
+      aud: 'mad',
+    });
   });
 });

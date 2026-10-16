@@ -8,7 +8,10 @@ import { verifyBuildConfig } from './verify-build-config.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const manifest = JSON.parse(
-  readFileSync(new URL('./build-config-integrity.json', import.meta.url), 'utf8'),
+  readFileSync(
+    new URL('./build-config-integrity.json', import.meta.url),
+    'utf8',
+  ),
 );
 
 test('reviewed configuration passes and Windows line endings are accepted', () => {

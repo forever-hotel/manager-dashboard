@@ -1,220 +1,312 @@
-> Current hosted-Neon setup: [APPLICATION_GUIDE.md](../APPLICATION_GUIDE.md).
-> Do not run the legacy migration commands below against Neon. Reporting views
-> are supplied by the manual SQL supplement; no local database is required.
+# Manager dashboard backend
 
-# Forever Hotel backend — DDP-001–010
+NestJS provides manager login, forced first-password change, session revocation,
+staff account provisioning with SendGrid delivery, and booking/occupancy analytics.
 
-NestJS API foundation with validated configuration, health/readiness, local manager
-authentication, manager authorization and versioned PostgreSQL migrations.
-Booking totals/trends and occupancy calendars are implemented by DDP-009–010.
-DDP-012 staff provisioning is described in [DDP_012_IMPLEMENTATION.md](DDP_012_IMPLEMENTATION.md),
-including manual Neon setup, SendGrid configuration and test commands.
-The staff management frontend, calendar UI and revenue analytics remain later-ticket work.
-
-Use Node 22.14.x (see `../.nvmrc`) and npm 10 or later. From this directory:
+Use Node 22 and configure `backend/.env` from `.env.example` for direct development.
+From this directory:
 
 ```powershell
-Copy-Item .env.example .env
 npm ci
 npm run build
 npm run start:dev
 ```
 
-First provision the database and restricted `mad_app` role using the
-[application guide](../APPLICATION_GUIDE.md). Configure MAD's JWT issuer and
-signing key, apply the manual Neon supplement, then provision a manager using the guide's account
-creation command, or configure INITIAL_MANAGER_EMAIL, INITIAL_MANAGER_USERNAME and
-INITIAL_MANAGER_PASSWORD for startup provisioning. Existing accounts are never reset.
-No central Auth service is needed.
+For a compiled production start, use `npm run start:prod` after building.
+For the whole local application, use root `docker compose up -d --build` instead.
 
-| Command                               | Purpose                                                  |
-| ------------------------------------- | -------------------------------------------------------- |
-| `npm run build`                       | Compile application TypeScript                           |
-| `npm run start:dev`                   | Start with file watching                                 |
-| `npm run start:prod`                  | Start the compiled API                                   |
-| `npm run migration:run`               | Apply missing migrations with separate owner credentials |
-| `npm run lint`                        | Read-only lint; warnings fail                            |
-| `npm run format:check`                | Read-only formatting check                               |
-| `npm run format` / `npm run lint:fix` | Explicit formatting/lint edits                           |
-| `npm run test:cov`                    | Unit coverage with enforced thresholds                   |
-| `npm run test:integration`            | Disposable PostgreSQL integration suite                  |
+Neon schema changes are managed externally. Keep `DB_SYNCHRONIZE=false` and
+`DB_LOGGING=false`. The SQL files in `../deploy/` describe manual MAD prerequisites.
+Existing manager accounts are never reset by initial-account provisioning.
 
-The integration suite requires `TEST_DATABASE_URL` pointing to a disposable test
-database and an account allowed to create/drop test databases and test roles.
-It does not use `DATABASE_URL`. `test:serve` is a test-only browser fixture.
+Run `npm run lint`, `npm run format:check` and `npm run test:cov` for quality checks.
+`npm run test:integration` requires `TEST_DATABASE_URL` pointing to a disposable
+test database; never use the application's Neon database. Legacy migration helpers
+under `src/database/` are retained because these test fixtures import them; the
+standalone migration CLI and its npm command have been removed.
 
-`GET /health/live` reports process liveness; `GET /health/ready` requires access
-to the migrated database. Database loss prevents readiness. Protected requests
-fail closed when authentication or database checks cannot complete.
+Detailed local references are in `../docs/guides/`, `../docs/implementation/`,
+`../docs/testing/` and `../docs/schema-review/`. These folders are Git-ignored.
 
-MAD owns login, session validation, logout and password change. The gateway routes
-requests; MAD verifies tokens and checks account state and revocations.
-Database migrations use separate owner credentials, preserve existing
-supported records and restrict the runtime role to its permitted tables. Failed
-migrations roll back; committed schema changes require a reviewed forward migration
-or backup recovery.
+## Staff password reset (DDP-013)
 
-## DDP-009: booking totals and trends
+`POST /mad/staff/:id/reset-password` requires a manager bearer token after the
+manager's first password change. Send no body. Success is HTTP 200 with
+`{staffId, deliveryId, deliveryStatus: "pending"}`; credentials are never returned.
+Unknown/non-staff IDs return 404, malformed UUIDs 400, inactive staff 409, missing
+or invalid sessions 401, and unauthorized/first-login managers 403. Storage or
+credential-encryption failures return 503 without committing a partial reset.
 
-`GET /mad/analytics/bookings?period=day|week|month` requires an active MANAGER
-bearer session with first-password-change complete. Omitted `period` defaults to
-`day`; invalid, repeated or unknown query parameters return `400 VALIDATION_ERROR`.
-Missing/invalid sessions return `401 UNAUTHENTICATED`; other roles return
-`403 FORBIDDEN`. The response is not cached.
+Reset generates a bcrypt temporary password, requires a first-login change,
+increments `session_version`, clears lockout, and atomically replaces the account's
+encrypted SendGrid delivery. Email retries reuse that password. Repeating the reset
+request deliberately generates another password; after a network timeout, avoid
+blindly retrying the POST. Failed email delivery alone is not a reason to reset again.
 
-The counting policy uses **check-in date**, as requested, with Asia/Colombo local
-calendar boundaries and Monday-start weeks. A day has one daily bucket, a week
-seven, and a month its actual number of dates, including leap days. Periods are
-start-inclusive and end-exclusive. All scheduled check-ins within the current
-period count, including dates later in the week/month. This is a count of bookings,
-not room-nights, occupancy or revenue; multi-night bookings count once on check-in.
+No new schema is required beyond the existing auth/staff SQL prerequisites.
+A separate runtime database role needs UPDATE on `staff_users`, plus existing
+SELECT/INSERT/UPDATE grants on `mad_staff_deliveries`; apply permissions manually.
+No application startup SQL is introduced. Existing email environment settings apply.
 
-Current statuses CONFIRMED, CHECKED_IN and CHECKED_OUT are included; PENDING,
-CANCELLED and unknown/null statuses are excluded. This inclusion rule and reporting
-view contract remain subject to provider confirmation under DDP-038. Duplicate
-booking IDs count once. The latest `updated_at` version wins before date filtering,
-so cancellation or rescheduling cannot leave an older version counted. For a tied
-update timestamp, an excluded status wins conservatively; otherwise status/date
-sorting provides deterministic results. The provider must resolve conflicting
-same-version dates and preserve stable booking IDs across replayed events.
+Each subsystem owns its login: verify `is_active`, compare the token's credential
+version with the database `session_version` on every protected request, and allow
+only password change/logout when `password_change_required` is true. On change,
+replace the hash, clear the flag and increment the version atomically. MAD does not
+provide staff login or enforce these checks inside another subsystem.
 
-The JSON response contains:
+The queue retains one current delivery per staff member. Reset replaces that row's
+identity and clears the old encrypted payload. An email already being transmitted
+can still arrive with an obsolete password; it cannot authenticate after the reset.
+Application audit logs record actor ID, staff ID and reset outcome without secrets.
+Retain those logs centrally if durable audit history is required.
 
-| Field                                | Meaning                                                                                |
-| ------------------------------------ | -------------------------------------------------------------------------------------- |
-| `period`, `timezone`, `weekStartsOn` | Requested calendar policy                                                              |
-| `metric`                             | `bookings_checking_in`                                                                 |
-| `includedStatuses`                   | The status inclusion rule                                                              |
-| `start`, `end`                       | UTC ISO timestamps for the hotel-local period, end exclusive                           |
-| `asOf`                               | Request clock used to choose the current period; not historical version reconstruction |
-| `bucketSize`                         | `day`                                                                                  |
-| `total`                              | Sum of the trend counts                                                                |
-| `trend`                              | Ordered `{date, start, end, count}` daily buckets, with zeroes for empty dates         |
-| `freshness.queriedAt`                | PostgreSQL query timestamp for the snapshot read                                       |
-| `freshness.sourceLatestUpdatedAt`    | Latest update visible anywhere in the reporting view, or null for an empty source      |
+Run `npm test -- --runInBand staff-reset.spec.ts` and
+`npm run test:integration -- staff.e2e-spec.ts` to check the reset behavior using the
+disposable database configuration described above.
 
-Source update time is not an ingestion watermark or proof of upstream delivery
-freshness. A missing view, database failure or missing read permission returns
-`503 SERVICE_UNAVAILABLE`, never a successful zero total. An available empty view
-returns 200 with zero-filled buckets and a null source update timestamp.
+## Staff profile maintenance (DDP-014)
 
-### Provider reporting view
+Both endpoints require a current manager bearer token after the manager's first
+password change. Manager accounts are excluded from the target staff profiles.
 
-The endpoint reads only `public.mad_booking_analytics`. The booking owner must
-expose `booking_id` (non-null UUID), `check_in_date` (non-null hotel-local DATE),
-`status` (TEXT) and `updated_at` (non-null TIMESTAMPTZ). The owner manages the source
-and view; MAD does not create, mutate or synthesize bookings. For the existing
-unprefixed booking schema, the owner can provision this projection:
+- `GET /mad/staff/:id`: returns the staff profile and its current integer `version`.
+- `PATCH /mad/staff/:id`: requires that `version` and at least one mutable field.
+  Returns HTTP 200 with the saved profile and incremented version.
 
-```sql
-CREATE VIEW public.mad_booking_analytics AS
-SELECT booking_id, check_in_date, status::text AS status, updated_at
-FROM public.bookings;
+Example PATCH body after GET returns version 0:
+
+```json
+{ "version": 0, "vocation": "Kitchen", "role": "KITCHEN_STAFF" }
 ```
 
-Adapt the projection to the real provider schema before running it. If check-in
-is stored as an instant instead of a DATE, the owner must convert it to the hotel
-timezone before projecting the date. Source indexes on `check_in_date`,
-`booking_id` and `updated_at` support candidate selection, deduplication and the
-freshness query. Latency still requires measurement against the actual source.
+Mutable fields: `name`, `vocation`, `email`, `age`, `phone`, `nic`, `role`, and
+`isActive`. Validation/normalization matches staff creation. Omitted fields are
+preserved; nulls, unknown fields and empty edits are rejected. `isActive` only
+accepts `false`: this ticket supports deactivation, not reactivation. Roles remain
+RECEPTIONIST, WORKER, KITCHEN_STAFF and KITCHEN_MANAGER; manager elevation, changing
+usernames/passwords through PATCH, deletion and manager self-deactivation are
+not supported. Deactivated records and their historical references are retained.
 
-After provisioning the view, rerun `npm run migration:run` with the owner
-connection and the correct `MAD_DB_ROLE`. The migration runner grants SELECT on
-the view when present, revokes runtime writes, and checks the effective shared
-write boundary. It safely skips an absent view so the foundation can start before
-the external provider is available. Grant updates run on every migration invocation
-even when no schema version is new. Do not grant MAD write access to the source.
+Responses contain `staffId`, `name`, `vocation`, `email`, `age`, `phone`, `nic`,
+`username`, `role`, `isActive`, `passwordChangeRequired` and `version`. No hashes,
+passwords, tokens, lockout internals or email ciphertext are returned.
 
-### Verification handoff
+Malformed UUIDs/fields return 400; unknown or manager target IDs return 404;
+duplicate unique details and stale versions return 409; authentication failures
+return 401/403. Storage/encryption failures return 503 with the edit rolled back.
+Reload the profile after a conflict and ask the manager to reconcile the changes;
+do not automatically retry using a new version.
 
-No tests were run while implementing DDP-009. See [the test register](test/README.md)
-for the included cases and commands. Runtime acceptance, real-provider agreement,
-performance and CI results are not established by source or static checks alone.
+The API reuses `session_version` as the edit version, avoiding a schema change.
+Every accepted edit increments it, including profile-only or same-value edits,
+so all existing staff sessions become stale. Password resets and password changes
+also invalidate an open edit's version. Other subsystems must check the current
+account's active flag, role and version on every protected operation; checking
+only the JWT signature does not enforce this contract. Staff sign in again after
+an edit. MAD enforces these checks for its own requests; verification of other
+subsystems belongs to their owners.
 
-## DDP-010: occupancy calendar
+Pending/failed credential messages are updated atomically to the edited email,
+role and version using the same temporary password and a fresh delivery ID.
+Deactivation cancels outstanding messages and removes their ciphertext. Completed
+messages are retained. Already transmitted messages cannot be recalled. Profile
+edits do not send replacement emails for messages already sent; use the explicit
+reset endpoint if another temporary password is needed. Required DB permissions
+are unchanged from DDP-013, and no startup SQL or new environment values are needed.
 
-`GET /mad/analytics/occupancy?from=2026-09-27&to=2026-09-29` requires the same
-active MANAGER session and completed password change as the bookings endpoint.
-Both dates are required and **inclusive**. Only real `YYYY-MM-DD` dates with years
-0001–9999 are accepted. Reversed ranges, ranges longer than 366 dates, timestamps,
-repeated parameters and unknown parameters return `400 VALIDATION_ERROR`.
+Audit logs record actor ID, staff ID, changed field names, saved version and outcome,
+not profile values or credentials. Retain application logs for audit history.
+Unit tests: `npm test -- --runInBand staff-profiles.spec.ts`.
+API/database tests: `npm run test:integration -- staff.e2e-spec.ts` with a disposable
+test database. These tests were added but not executed during implementation.
 
-The implementation defaults to Asia/Colombo hotel-local dates and the following
-policy, pending business/provider confirmation under DDP-038:
+## Revenue and combined analytics (DDP-056 / DDP-015)
 
-- A stay occupies a physical room on `[check_in_date, check_out_date)`; checkout
-  day is excluded. Allocation rows represent individual rooms, including multiple
-  rooms allocated to one booking. Overlaps and duplicate joins count a room once.
-- Included statuses are CONFIRMED, CHECKED_IN and CHECKED_OUT, matching DDP-009.
-  Cancelled, pending and unknown/null statuses do not occupy rooms.
-- Eligible capacity is distinct active physical rooms on that date, minus rooms
-  under maintenance. Room activity and maintenance intervals are start-inclusive,
-  end-exclusive. An open `active_to` means the room remains active.
-- Occupied counts include only those eligible rooms. Allocations against inactive,
-  unknown or maintenance-blocked rooms do not inflate counts or produce rates
-  above 1; provider reconciliation of those conflicting allocations is separate.
-- A date without allocations has zero occupied rooms. `rate` is a fraction from
-  0 to 1 (`occupiedRooms / eligibleRooms`), or **null** when capacity is zero.
+Manager-only GET `/mad/analytics/revenue?period=day|week|month` returns completed-
+payment revenue; GET `/mad/analytics/overview?period=day|week|month` returns
+`{bookings,revenue}` with identical calendar boundaries and reporting timestamp.
+These use the existing manager guard, including mandatory password change.
+Invalid period/unknown query fields return 400; absent/invalid auth 401; denied
+role or mandatory password change 403; missing/denied/invalid sources 503.
 
-The response contains `from`, `to`, `timezone`, `rangeEndInclusive: true`,
-`maxRangeDays: 366`, `includedStatuses`,
-`denominator: "active_rooms_excluding_maintenance"`, and ordered `dates` entries:
+Approved policy (2026-10-15): sum `public.payments.amount` as LKR integer cents
+where `payment_status='COMPLETED'`, grouped by `paid_at`. REFUNDED, FAILED and
+PENDING records are excluded. This is **completed-payment revenue**, not net
+cash-flow accounting: the schema has no refund event amount/date. A later status
+change to REFUNDED removes that payment from its original period's revenue.
+No booking totals, joins or foreign-currency conversion are used. Each payment
+primary key is counted once; multiple payments for one booking remain separate.
+
+Periods are whole calendar days, Monday-start weeks or months in Asia/Colombo,
+with half-open boundaries `[start,end)` serialized as UTC ISO timestamps. Compare
+the full current calendar period with the immediately preceding calendar period,
+not elapsed portions. The UI labels the current period as in progress. Revenue
+SQL uses numeric arithmetic and rounds `(current-previous)*100/previous` to two
+decimal places. When previous revenue is zero, `percentageChange` is null and
+`percentageUnavailableReason` is `PREVIOUS_REVENUE_ZERO`, including when both
+amounts are zero. Otherwise the reason is null. Zero current with positive previous
+revenue returns -100%. Fields `currentMinor` and `previousMinor` are safe integer
+cents; unsafe totals, malformed completed payments (including missing paid_at),
+and storage errors return 503 rather than fabricated zero revenue.
+
+The response also contains `period`, `timezone`, `currency: "LKR"`,
+`metric: "completed_payment_revenue"`, `comparison: "whole_calendar_period"`,
+`asOf`, `start`, `end`, `previousStart`, and `previousEnd`. The reporting timestamp
+aligns period selection across both metrics, not a transactionally frozen snapshot
+of independently changing source data.
+
+The hosted shared schema already defines payments. No migration or startup SQL
+was added. If using a limited runtime role, the database owner must manually grant
+SELECT on `public.payments` to that role (substitute its actual name):
+`GRANT SELECT ON public.payments TO your_runtime_role;`. No grant was executed.
+Existing booking reporting-view permissions are still required.
+
+Tests added, not run: `npm test -- --runInBand revenue-analytics.service.spec.ts`
+and `npm run test:integration -- bookings.e2e-spec.ts` (disposable database only).
+
+## DDP-018: promotion creation and lookups
+
+Manager-only endpoints (the existing JWT guard also requires first-login password
+change completion):
+
+| Method | Path                                          | Result                                                 |
+| ------ | --------------------------------------------- | ------------------------------------------------------ |
+| POST   | /mad/promotions                               | 201 saved promotion and derived lifecycle              |
+| GET    | /mad/promotions?page=1&pageSize=20            | Paginated promotions, newest first with UUID tie-break |
+| GET    | /mad/promotions/:id                           | Promotion, or 404 for unknown UUID                     |
+| GET    | /mad/promotions/room-types?page=1&pageSize=20 | Eligible room types sorted by name/UUID                |
+
+Pagination defaults to page 1, size 20; size is capped at 100 and page at 1,000,000.
+Malformed UUIDs, duplicate query parameters and unexpected fields return 400.
+Missing/invalid sessions return 401; disallowed roles and first-login accounts return 403. Database/source errors return sanitized 503, never invented empty results.
+All HTTP responses retain the application's no-store policy.
+
+Example POST JSON (replace the example UUID with an ID from the room-type lookup):
 
 ```json
 {
-  "date": "2026-09-27",
-  "occupiedRooms": 3,
-  "eligibleRooms": 10,
-  "rate": 0.3
+  "code": "AUTUMN_26",
+  "discountType": "PERCENTAGE",
+  "discountValue": 25,
+  "validFrom": "2026-10-01T00:00:00+05:30",
+  "validUntil": "2026-11-01T00:00:00+05:30",
+  "roomTypeIds": ["11111111-1111-4111-8111-111111111111"],
+  "maxRedemptions": 100
 }
 ```
 
-Every requested date appears, even with no bookings or no rooms. The single
-read-only database statement reads all three sources in one snapshot and returns
-`freshness.queriedAt` and `freshness.sourceLatestUpdatedAt`. The latter is the
-maximum visible update across all source views, null when all are empty; it is
-not an ingestion watermark or a historical snapshot. Past dates use the provider's
-currently corrected room/stay history.
+Approved contract for HW coordination: codes are trimmed, ASCII and uppercase,
+1-50 characters, starting with an alphanumeric character; subsequent characters may
+also be underscore or hyphen. Values and redemption limits are positive integers.
+PERCENTAGE is 1-100; FIXED_AMOUNT is LKR integer cents, at most 2,147,483,647.
+There must be 1-100 unique existing room-type IDs. Unknown IDs return 400.
+Creation of the promotion and all associations is atomic. Duplicate normalized
+codes return 409, including concurrent requests. No room-type writes are needed.
 
-### Occupancy provider views
+Validity timestamps must include seconds and Z or an explicit offset (up to three
+fractional-second digits). Start is inclusive, end exclusive, and end must be later.
+Use +05:30 for hotel-local midnight; responses serialize equivalent UTC instants.
+No date-only or implicit server-local timestamps are accepted.
 
-The room and booking owners must provision these views in `public` using their
-actual schemas. They are external contracts, not application-created tables:
+Stored status is ACTIVE on creation. Derived lifecycle precedence is INACTIVE,
+EXHAUSTED, EXPIRED, SCHEDULED, ACTIVE; comparisons use one clock instant per response.
+A future promotion is SCHEDULED even though its stored enabled status is ACTIVE.
+Fixed discounts must floor the final payable amount at zero in redemption consumers;
+this ticket only creates and reads promotions, and does not redeem or price bookings.
+Lifecycle editing and logical deletion are implemented by DDP-019 below; redemption remains a separate ticket. Existing frontend
+mock content and styling are unchanged; these endpoints are ready for later UI wiring.
 
-| View                        | Required columns                                                                                     | Meaning                                                                                                                         |
-| --------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `mad_occupancy_rooms`       | `room_id UUID`, `active_from DATE`, `active_to DATE NULL`, `updated_at TIMESTAMPTZ`                  | Active intervals for each physical room; preserve historical intervals when rooms close or reopen                               |
-| `mad_occupancy_allocations` | `room_id UUID`, `check_in_date DATE`, `check_out_date DATE`, `status TEXT`, `updated_at TIMESTAMPTZ` | Current corrected room assignments and booking status, one row per room/stay; split a room move into its actual night intervals |
-| `mad_occupancy_maintenance` | `room_id UUID`, `start_date DATE`, `end_date DATE`, `updated_at TIMESTAMPTZ`                         | Current effective maintenance blocks, including relevant historical blocks; remove cancelled blocks                             |
+### Manual database prerequisite
 
-IDs, dates and timestamps must be non-null except `active_to`. Status may be null
-and is excluded. Each finite interval must end after it starts. Providers convert
-instants into Asia/Colombo dates before projection. Views must expose corrected
-current records, **not raw event/version history**: cancelled/rescheduled/reassigned
-allocations must replace the old values. Identical duplicate rows are tolerated;
-conflicting versions must be resolved by the owner before projection. Index source
-room IDs and interval boundaries and measure performance on the real dataset.
+Use the corrected shared schema: mad_promotion_codes, mad_promotion_room_types and
+room_types. The normalized junction table replaces the obsolete UUID-array column.
+Have the database owner review/apply deploy/neon-mad-promotions.sql manually to add
+case/whitespace-normalized uniqueness, and grant the actual runtime role SELECT/INSERT
+on both MAD promotion tables plus SELECT on room_types. The grant examples in that
+file are comments requiring your actual role name. No schema changes run at startup.
+The index intentionally fails if legacy normalized duplicates exist: review them
+before retrying, without silently merging records or redemption history.
+The historical foundation migration alone is not a substitute for this corrected schema.
 
-After provisioning all three views, rebuild the backend and rerun
-`npm run migration:run` with owner credentials and `MAD_DB_ROLE`. The migration
-runner grants SELECT when views are present, including on repeated runs with no
-new schema version. It gives the runtime role no writes to these sources.
-Missing views, denied reads and database outages return `503 SERVICE_UNAVAILABLE`,
-not a fabricated empty calendar. An available empty room view means zero capacity;
-providers must therefore publish complete inventory and maintenance coverage.
+Tests: src/promotions/promotions.spec.ts and test/promotions.e2e-spec.ts. Integration
+uses a newly created disposable PostgreSQL database and the corrected schema fixture,
+not Neon. CI discovers both files automatically. Promotion service branch coverage is
+required at 90%; existing overall 80% line/branch requirements are retained. Tests
+were authored but not run locally at the user's request. Run npm run test:cov and
+npm run test:integration in CI before marking the ticket verified.
 
-No tests were run for DDP-010 at the user's request. The
-[verification register](test/README.md#ddp-010--occupancy-calendar) lists cases and
-commands. Runtime acceptance, coverage and final DDP-038 provider/policy agreement
-remain pending; the calendar UI belongs to DDP-016.
+## DDP-019: versioned promotion lifecycle and durable publication
 
-## DDP-011: low-booking alerts
+The UI is unchanged. Manager-only mutation endpoints return HTTP 200 and the saved
+promotion including `version`, `deletedAt`, `lifecycleState` and `publicationStatus`:
 
-`GET /mad/analytics/low-booking-alerts` returns low-occupancy dates for the next
-14 Colombo calendar dates including today. It reuses DDP-010 data and requires
-manager authorization. Rates strictly below LOW_BOOKING_THRESHOLD (proposed
-default 0.40) include a promotion suggestion; zero-capacity dates are explicitly
-unavailable. No promotions are created and no schema changes are required.
+| Method | Path                           | Body                                                     |
+| ------ | ------------------------------ | -------------------------------------------------------- |
+| PUT    | /mad/promotions/:id            | All DDP-018 editable fields plus current integer version |
+| POST   | /mad/promotions/:id/activate   | { "version": 0 }                                         |
+| POST   | /mad/promotions/:id/deactivate | { "version": 0 }                                         |
+| DELETE | /mad/promotions/:id            | { "version": 0 }                                         |
 
-See [the API contract and test register](DDP_011_IMPLEMENTATION.md). Verification
-is pending because the Docker build/test request was declined.
+Fetch the current promotion first. New promotions start at version 0; every successful
+mutation increments it once. A transaction locks the row before checking the supplied
+version. Concurrent requests using the same version have one winner; stale versions
+return 409 without overwriting it. Unknown IDs return 404; invalid fields return 400.
+Missing/invalid sessions return 401; unauthorized/first-login managers return 403.
+PUT is a complete replacement of editable fields, not a partial PATCH. It preserves
+current redemptions and status. A redemption limit cannot be lowered below completed
+redemptions. Activation of an expired or exhausted offer returns 409; future valid
+offers can be enabled but remain SCHEDULED until their start. Repeated actions need
+the new version. Version overflow is rejected rather than wrapping.
+
+Approved logical deletion policy: all deletions preserve the promotion, room-type
+links, redemption count, booking references and saved booking amounts. Deletion
+sets INACTIVE plus deletedAt, returns DELETED, and permanently reserves the code.
+Deleted offers are omitted from the default list but remain readable by ID for audit;
+edit/reactivation/repeated deletion return 409. No booking/history rows are rewritten.
+The database constraint also prevents an inactive tombstone being marked ACTIVE.
+
+Creation and every lifecycle mutation atomically insert an immutable snapshot into
+mad_promotion_outbox. Keys are event_id (UUID) and unique (promo_id,promotion_version).
+Events are promotion.upsert or promotion.deleted; deletion snapshots explicitly carry
+INACTIVE and deletedAt. A failed outbox insert rolls back the entire mutation, including
+room-type replacement. No network call takes place inside the transaction.
+
+PENDING means unacknowledged publication work exists; NO_PENDING_WORK only means the
+queue has no unacknowledged rows for this promotion, not proof of website delivery.
+Existing promotions without historical outbox events also report NO_PENDING_WORK.
+DDP-040 must deliver/retry these events, use event_id for idempotency, reject older
+versions (including late upserts after a tombstone), acknowledge only successful
+applications, and reconcile legacy offers. This ticket does not claim that HW has
+already removed an offer. Consumers must validate live eligibility before redemption.
+No publisher, automatic expiry scheduler or redemption logic is added here.
+
+### Manual rollout
+
+Before running this backend version, have the database owner review/apply
+`deploy/neon-mad-promotion-lifecycle.sql` after the DDP-018 schema/index prerequisites.
+It adds version/deleted_at, the tombstone invariant and the durable outbox. Use its
+commented grant examples with the actual runtime role. Never run the full shared
+schema over an existing database. No SQL is applied automatically at startup and no
+Neon changes were executed during implementation. The publisher's acknowledgement
+permissions belong to its own role/configuration under DDP-040.
+
+Unit tests extend src/promotions/promotions.spec.ts. Disposable-PostgreSQL integration
+cases in test/promotions.e2e-spec.ts cover all mutations, stale concurrent requests,
+history preservation, authorization, validation, eligibility and queue-failure rollback.
+Tests are authored but not run locally; CI coverage and staging verification remain
+required. The existing 90% promotion-service branch threshold is unchanged.
+
+## DDP-020 promotion UI contract additions
+
+`POST /mad/promotions` accepts optional `status: ACTIVE | INACTIVE` (default ACTIVE).
+INACTIVE creates a draft and its inactive outbox snapshot in the same transaction;
+it never briefly publishes an active offer. `PUT` still rejects status changes;
+use the version-checked activation/deactivation endpoints instead.
+
+Promotion responses now also report `publicationStatus: FAILED` when any
+unacknowledged outbox row has a non-null last_error. Worker error details are never
+returned. Otherwise PENDING / NO_PENDING_WORK retain their DDP-019 meaning.
+Delivery confirmation and retry processing remain DDP-040 work, not inferred by
+this UI. This uses existing outbox columns, with no new SQL or environment changes.
+Draft creation and safe failure visibility have additional unit and disposable-DB
+integration cases, authored but not run locally.

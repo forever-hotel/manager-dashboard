@@ -36,7 +36,10 @@ export async function migrate(database: DataSource, role: string) {
     // Append future forward migrations here; never replay recorded versions.
     const migrations = [
       { version: '1789600000000', migration: new MadFoundation1789600000000() },
-      { version: '1790726400000', migration: new MadManagerAuth1790726400000() },
+      {
+        version: '1790726400000',
+        migration: new MadManagerAuth1790726400000(),
+      },
     ];
     for (const { version, migration } of migrations) {
       const applied = (await runner.query(
@@ -60,7 +63,10 @@ export async function migrate(database: DataSource, role: string) {
       GRANT SELECT ON mad_manager_accounts TO "${role}";
       GRANT UPDATE (password_hash, password_change_required, session_version, failed_attempts, locked_until, updated_at)
         ON mad_manager_accounts TO "${role}";`);
-    if ((await runner.query("SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='staff_users' AND column_name='session_version'")).length) {
+    const staffColumns: unknown = await runner.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='staff_users' AND column_name='session_version'",
+    );
+    if (Array.isArray(staffColumns) && staffColumns.length) {
       await runner.query(`GRANT SELECT ON staff_users TO "${role}";
         GRANT UPDATE(password_hash,password_change_required,session_version,failed_attempts,locked_until,updated_at) ON staff_users TO "${role}";`);
     }

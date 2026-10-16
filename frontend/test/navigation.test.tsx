@@ -17,29 +17,47 @@ const session = {
   passwordChangeRequired: false,
 };
 describe('Dashboard shell', () => {
-  beforeEach(() => { vi.stubGlobal('fetch', vi.fn()); vi.mocked(replaceLocation).mockClear(); });
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+    vi.mocked(replaceLocation).mockClear();
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
   it('retains all routes, mobile navigation and keyboard semantics', () => {
-    render(<ClientLayout session={session}><p>Protected content</p></ClientLayout>);
+    render(
+      <ClientLayout session={session}>
+        <p>Protected content</p>
+      </ClientLayout>,
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
-    expect(screen.getByRole('button', { name: 'Close navigation' })).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('button', { name: 'Close navigation' }),
+    ).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getAllByRole('link')).toHaveLength(13);
     const rooms = screen.getByRole('link', { name: 'Room status' });
     expect(rooms).toHaveAttribute('aria-current', 'page');
     fireEvent.click(rooms);
-    expect(screen.getByRole('button', { name: 'Open navigation' })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#dashboard-content');
+    expect(
+      screen.getByRole('button', { name: 'Open navigation' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.getByRole('link', { name: 'Skip to content' }),
+    ).toHaveAttribute('href', '#dashboard-content');
   });
   it('shows the authenticated username and completes server logout', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response('{}'));
     render(<Sidebar open close={() => {}} username="actual-manager" />);
     expect(screen.getByText('actual-manager')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
-    await vi.waitFor(() => expect(replaceLocation).toHaveBeenCalledWith('/login'));
-    expect(fetch).toHaveBeenCalledWith('/api/auth/logout', expect.objectContaining({ method: 'POST', body: '{}' }));
+    await vi.waitFor(() =>
+      expect(replaceLocation).toHaveBeenCalledWith('/login'),
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/auth/logout',
+      expect.objectContaining({ method: 'POST', body: '{}' }),
+    );
   });
   it('keeps logout retryable when the server fails', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response('{}', { status: 503 }));
