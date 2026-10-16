@@ -104,3 +104,48 @@ loading/empty/unknown/error/retry/race states) and test/occupancy-bff.test.ts (p
 BFF contracts). Existing backend/test/occupancy.e2e-spec.ts provides disposable-database
 coverage for the unchanged backend endpoint. Tests were not run locally at the user's
 request. Run npm run test:cov and the existing backend integration suite in CI.
+
+## DDP-020 promotion management
+
+The Promotions page now reads real records and room types, with paginated listing,
+creation, editing, activation, deactivation and confirmed logical deletion. The
+existing page layout, typography and styles are reused; mock text is replaced with
+labelled form controls. The inherited Day/Week/Month decoration is disabled because
+the promotion API lists all validity periods and defines no period filter.
+
+All MD-05 fields are editable. Fixed discounts use integer LKR cents; percentages
+are integers from 1 to 100. Dates are entered in Asia/Colombo (+05:30), with inclusive
+start and exclusive end. Select one or more room types (up to 100). Save as draft
+creates an INACTIVE promotion atomically; editing preserves its lifecycle status.
+Activation and deactivation remain explicit actions. Historical redemption counts
+and deleted codes are preserved by the backend.
+
+The browser uses `/api/promotions` and its detail/action/room-types paths. This BFF
+validates routes, queries, bodies and response shapes, enforces same-origin JSON
+mutations, and forwards the HttpOnly session as a server-side bearer token through
+the existing gateway adapter. Nest remains responsible for manager authorization.
+Responses are no-store and internal errors/extra response fields are not exposed.
+
+Every existing-record mutation sends its version. A conflict preserves entered
+fields and offers Reload latest version. Review changes in the refreshed table
+before saving; this explicitly adopts the latest version without silently retrying.
+For a duplicate new code, change the code after refreshing. Deleted promotions
+cannot be edited again. Failed saves keep input; after a network failure refresh
+before retrying because the original write may have committed.
+
+Saved lifecycle and website publication are displayed separately. PENDING means
+queued, FAILED means unacknowledged work has a recorded error, and NO_PENDING_WORK
+does not prove delivery (including legacy records). None claims website availability.
+Refresh reads current publication state. Actual delivery/retry/acknowledgement and
+real HW staging verification depend on DDP-040; there is no pretend publish button
+or client-triggered redelivery.
+
+No new environment variables or SQL are needed for DDP-020. The DDP-018/019 manual
+schema prerequisites must already be applied. Deploy the updated backend before
+this frontend so inactive creation and FAILED publication state are supported.
+No hosted SQL is executed automatically.
+
+Tests are authored in `test/promotions.test.tsx` and `test/promotions-bff.test.ts`;
+real disposable-database cases remain in `backend/test/promotions.e2e-spec.ts`.
+Coverage includes the new BFF and component under the existing thresholds. Tests
+were not run locally as requested; CI coverage and staging evidence are pending.

@@ -129,6 +129,31 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
     );
     return result;
   }
+  it('TC-MAD-020-AC1: saves a draft inactive atomically and exposes publication failure safely', async () => {
+    const created = await post({ ...payload, status: 'INACTIVE' }).expect(201);
+    const body = created.body as Promotion;
+    expect(body).toMatchObject({
+      status: 'INACTIVE',
+      lifecycleState: 'INACTIVE',
+      version: 0,
+      publicationStatus: 'PENDING',
+    });
+    const outbox = await database.query<{ payload: Promotion }[]>(
+      'SELECT payload FROM mad_promotion_outbox WHERE promo_id=$1',
+      [body.id],
+    );
+    expect(outbox).toHaveLength(1);
+    expect(outbox[0].payload.status).toBe('INACTIVE');
+    await database.query(
+      "UPDATE mad_promotion_outbox SET last_error='private provider failure',attempts=1 WHERE promo_id=$1",
+      [body.id],
+    );
+    const detail = await get('/mad/promotions/' + body.id).expect(200);
+    expect((detail.body as Promotion).publicationStatus).toBe('FAILED');
+    expect(JSON.stringify(detail.body)).not.toContain('private');
+    await post({ ...payload, code: 'INVALID', status: 'DRAFT' }).expect(400);
+    expect(await counts()).toEqual({ promotions: 1, links: 1 });
+  });
   it.each(['PERCENTAGE', 'FIXED_AMOUNT'])(
     'TC-MAD-018-AC1: saves %s precisely with associated room types and lifecycle',
     async (discountType) => {

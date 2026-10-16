@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import {
   CreatePromotionDto,
+  NewPromotionDto,
   PromotionPageDto,
   EditPromotionDto,
 } from './promotion.dto';
@@ -32,8 +33,10 @@ export interface PromotionRow {
   version: number;
   deleted_at: Date | null;
   publication_pending: boolean;
+  publication_failed?: boolean;
 }
 const select = `SELECT p.*, EXISTS(SELECT 1 FROM public.mad_promotion_outbox o
+  WHERE o.promo_id=p.promo_id AND o.published_at IS NULL AND o.last_error IS NOT NULL) AS publication_failed, EXISTS(SELECT 1 FROM public.mad_promotion_outbox o
   WHERE o.promo_id=p.promo_id AND o.published_at IS NULL) AS publication_pending, COALESCE((SELECT array_agg(r.room_type_id ORDER BY r.room_type_id)
   FROM public.mad_promotion_room_types r WHERE r.promo_id=p.promo_id), ARRAY[]::uuid[]) AS room_type_ids
   FROM public.mad_promotion_codes p`;
@@ -54,7 +57,11 @@ export function promotionView(row: PromotionRow, now: Date) {
     id: row.promo_id,
     version: row.version,
     deletedAt: row.deleted_at?.toISOString() ?? null,
-    publicationStatus: row.publication_pending ? 'PENDING' : 'NO_PENDING_WORK',
+    publicationStatus: row.publication_failed
+      ? 'FAILED'
+      : row.publication_pending
+        ? 'PENDING'
+        : 'NO_PENDING_WORK',
     code: row.code_string,
     discountType: row.discount_type,
     discountValue: row.discount_value,
@@ -115,7 +122,7 @@ export class PromotionsService {
     return { start, end };
   }
 
-  async create(input: CreatePromotionDto) {
+  async create(input: NewPromotionDto) {
     const { start, end } = this.validateTerms(input);
     return this.guarded(() =>
       this.database.transaction(async (manager) => {
@@ -138,7 +145,7 @@ export class PromotionsService {
         await manager.query(
           `INSERT INTO public.mad_promotion_codes
         (promo_id,code_string,discount_type,discount_value,valid_from,valid_until,max_redemptions,current_redemptions,status)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,0,'ACTIVE')`,
+        VALUES ($1,$2,$3,$4,$5,$6,$7,0,$8)`,
           [
             id,
             input.code,
@@ -147,6 +154,7 @@ export class PromotionsService {
             new Date(start),
             new Date(end),
             input.maxRedemptions,
+            input.status ?? 'ACTIVE',
           ],
         );
         await manager.query(

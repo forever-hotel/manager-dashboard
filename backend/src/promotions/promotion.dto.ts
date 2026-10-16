@@ -94,3 +94,10 @@ export class EditPromotionDto extends CreatePromotionDto {
   @Max(2147483647)
   version!: number;
 }
+
+// Creation can be saved inactive atomically; edit cannot change lifecycle status.
+export class NewPromotionDto extends CreatePromotionDto {
+  @IsOptional()
+  @IsIn(['ACTIVE', 'INACTIVE'])
+  status?: 'ACTIVE' | 'INACTIVE';
+}

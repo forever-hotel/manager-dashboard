@@ -295,3 +295,18 @@ cases in test/promotions.e2e-spec.ts cover all mutations, stale concurrent reque
 history preservation, authorization, validation, eligibility and queue-failure rollback.
 Tests are authored but not run locally; CI coverage and staging verification remain
 required. The existing 90% promotion-service branch threshold is unchanged.
+
+## DDP-020 promotion UI contract additions
+
+`POST /mad/promotions` accepts optional `status: ACTIVE | INACTIVE` (default ACTIVE).
+INACTIVE creates a draft and its inactive outbox snapshot in the same transaction;
+it never briefly publishes an active offer. `PUT` still rejects status changes;
+use the version-checked activation/deactivation endpoints instead.
+
+Promotion responses now also report `publicationStatus: FAILED` when any
+unacknowledged outbox row has a non-null last_error. Worker error details are never
+returned. Otherwise PENDING / NO_PENDING_WORK retain their DDP-019 meaning.
+Delivery confirmation and retry processing remain DDP-040 work, not inferred by
+this UI. This uses existing outbox columns, with no new SQL or environment changes.
+Draft creation and safe failure visibility have additional unit and disposable-DB
+integration cases, authored but not run locally.

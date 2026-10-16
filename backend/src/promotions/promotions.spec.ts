@@ -3,6 +3,7 @@ import { validate } from 'class-validator';
 import { DataSource, EntityManager } from 'typeorm';
 import {
   CreatePromotionDto,
+  NewPromotionDto,
   normalizeCode,
   PromotionPageDto,
   PromotionVersionDto,
@@ -160,6 +161,7 @@ describe('DDP-018 service', () => {
         row.valid_from,
         row.valid_until,
         10,
+        'ACTIVE',
       ]);
     },
   );
@@ -368,5 +370,45 @@ describe('DDP-019 versioned promotion lifecycle', () => {
     await expect(
       service.changeState(roomId, 0, 'delete'),
     ).rejects.toMatchObject({ status: 503 });
+  });
+});
+
+describe('DDP-020 draft creation and publication visibility', () => {
+  it('accepts inactive creation but rejects unknown initial states', async () => {
+    expect(
+      await validate(
+        plainToInstance(NewPromotionDto, { ...input, status: 'INACTIVE' }),
+      ),
+    ).toHaveLength(0);
+    expect(
+      await validate(
+        plainToInstance(NewPromotionDto, { ...input, status: 'DRAFT' }),
+      ),
+    ).not.toHaveLength(0);
+  });
+  it('exposes failed publication without disclosing worker errors', () => {
+    expect(
+      promotionView(
+        { ...row, publication_pending: true, publication_failed: true },
+        now,
+      ).publicationStatus,
+    ).toBe('FAILED');
+    expect(promotionView(row, now).publicationStatus).toBe('NO_PENDING_WORK');
+  });
+  it('inserts an inactive draft and queues only its inactive snapshot', async () => {
+    const { service, query } = setup();
+    query
+      .mockResolvedValueOnce([{ room_type_id: roomId }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ ...row, status: 'INACTIVE' }])
+      .mockResolvedValueOnce([]);
+    const result = await service.create({ ...input, status: 'INACTIVE' });
+    expect(result.status).toBe('INACTIVE');
+    expect(query.mock.calls[2][1]?.[7]).toBe('INACTIVE');
+    expect(
+      JSON.parse(String(query.mock.calls[5][1]?.[4])) as unknown,
+    ).toMatchObject({ status: 'INACTIVE', version: 0 });
   });
 });

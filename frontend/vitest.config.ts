@@ -15,6 +15,7 @@ export default defineConfig({
         'proxy.ts',
         'app/api/auth/**/route.ts',
         'app/api/analytics/**/route.ts',
+        'app/api/promotions/**/route.ts',
       ],
       exclude: ['lib/navigation.ts'],
       thresholds: {

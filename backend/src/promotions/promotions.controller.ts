@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
-  CreatePromotionDto,
+  NewPromotionDto,
   PromotionPageDto,
   EditPromotionDto,
   PromotionVersionDto,
@@ -24,7 +24,7 @@ import { PromotionsService } from './promotions.service';
 @UseGuards(JwtAuthGuard)
 export class PromotionsController {
   constructor(private readonly promotions: PromotionsService) {}
-  @Post() create(@Body() input: CreatePromotionDto) {
+  @Post() create(@Body() input: NewPromotionDto) {
     return this.promotions.create(input);
   }
   @Get() list(@Query() query: PromotionPageDto) {
