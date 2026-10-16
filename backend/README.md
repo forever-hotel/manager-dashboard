@@ -163,3 +163,74 @@ Existing booking reporting-view permissions are still required.
 
 Tests added, not run: `npm test -- --runInBand revenue-analytics.service.spec.ts`
 and `npm run test:integration -- bookings.e2e-spec.ts` (disposable database only).
+
+## DDP-018: promotion creation and lookups
+
+Manager-only endpoints (the existing JWT guard also requires first-login password
+change completion):
+
+| Method | Path                                          | Result                                                 |
+| ------ | --------------------------------------------- | ------------------------------------------------------ |
+| POST   | /mad/promotions                               | 201 saved promotion and derived lifecycle              |
+| GET    | /mad/promotions?page=1&pageSize=20            | Paginated promotions, newest first with UUID tie-break |
+| GET    | /mad/promotions/:id                           | Promotion, or 404 for unknown UUID                     |
+| GET    | /mad/promotions/room-types?page=1&pageSize=20 | Eligible room types sorted by name/UUID                |
+
+Pagination defaults to page 1, size 20; size is capped at 100 and page at 1,000,000.
+Malformed UUIDs, duplicate query parameters and unexpected fields return 400.
+Missing/invalid sessions return 401; disallowed roles and first-login accounts return 403. Database/source errors return sanitized 503, never invented empty results.
+All HTTP responses retain the application's no-store policy.
+
+Example POST JSON (replace the example UUID with an ID from the room-type lookup):
+
+```json
+{
+  "code": "AUTUMN_26",
+  "discountType": "PERCENTAGE",
+  "discountValue": 25,
+  "validFrom": "2026-10-01T00:00:00+05:30",
+  "validUntil": "2026-11-01T00:00:00+05:30",
+  "roomTypeIds": ["11111111-1111-4111-8111-111111111111"],
+  "maxRedemptions": 100
+}
+```
+
+Approved contract for HW coordination: codes are trimmed, ASCII and uppercase,
+1-50 characters, starting with an alphanumeric character; subsequent characters may
+also be underscore or hyphen. Values and redemption limits are positive integers.
+PERCENTAGE is 1-100; FIXED_AMOUNT is LKR integer cents, at most 2,147,483,647.
+There must be 1-100 unique existing room-type IDs. Unknown IDs return 400.
+Creation of the promotion and all associations is atomic. Duplicate normalized
+codes return 409, including concurrent requests. No room-type writes are needed.
+
+Validity timestamps must include seconds and Z or an explicit offset (up to three
+fractional-second digits). Start is inclusive, end exclusive, and end must be later.
+Use +05:30 for hotel-local midnight; responses serialize equivalent UTC instants.
+No date-only or implicit server-local timestamps are accepted.
+
+Stored status is ACTIVE on creation. Derived lifecycle precedence is INACTIVE,
+EXHAUSTED, EXPIRED, SCHEDULED, ACTIVE; comparisons use one clock instant per response.
+A future promotion is SCHEDULED even though its stored enabled status is ACTIVE.
+Fixed discounts must floor the final payable amount at zero in redemption consumers;
+this ticket only creates and reads promotions, and does not redeem or price bookings.
+Lifecycle editing, deletion and redemption remain separate tickets. Existing frontend
+mock content and styling are unchanged; these endpoints are ready for later UI wiring.
+
+### Manual database prerequisite
+
+Use the corrected shared schema: mad_promotion_codes, mad_promotion_room_types and
+room_types. The normalized junction table replaces the obsolete UUID-array column.
+Have the database owner review/apply deploy/neon-mad-promotions.sql manually to add
+case/whitespace-normalized uniqueness, and grant the actual runtime role SELECT/INSERT
+on both MAD promotion tables plus SELECT on room_types. The grant examples in that
+file are comments requiring your actual role name. No schema changes run at startup.
+The index intentionally fails if legacy normalized duplicates exist: review them
+before retrying, without silently merging records or redemption history.
+The historical foundation migration alone is not a substitute for this corrected schema.
+
+Tests: src/promotions/promotions.spec.ts and test/promotions.e2e-spec.ts. Integration
+uses a newly created disposable PostgreSQL database and the corrected schema fixture,
+not Neon. CI discovers both files automatically. Promotion service branch coverage is
+required at 90%; existing overall 80% line/branch requirements are retained. Tests
+were authored but not run locally at the user's request. Run npm run test:cov and
+npm run test:integration in CI before marking the ticket verified.

@@ -76,6 +76,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
+      "promotions/**/*.ts",
       "staff/**/*.ts",
       "analytics/**/*.ts",
       "auth/**/*.ts",
@@ -120,6 +121,9 @@
         "branches": 90
       },
       "./src/staff/staff-delivery.worker.ts": {
+        "branches": 90
+      },
+      "./src/promotions/promotions.service.ts": {
         "branches": 90
       }
     },

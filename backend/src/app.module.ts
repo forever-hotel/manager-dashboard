@@ -1,3 +1,4 @@
+import { PromotionsModule } from './promotions/promotions.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
@@ -18,6 +19,7 @@ import { StaffModule } from './staff/staff.module';
     AuthModule,
     AnalyticsModule,
     StaffModule,
+    PromotionsModule,
   ],
   controllers: [HealthController],
 })
