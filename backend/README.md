@@ -364,3 +364,56 @@ rollback. Integration uses an isolated PostgreSQL database and a restricted runt
 role, plus a separate guest-like role to verify private-table access denial. No
 FOSS application is mocked as proven compatible: real FOSS staging verification
 and CI test/coverage results remain required. Existing UI is unchanged (DDP-022).
+
+## DDP-023 food-order analytics
+
+`GET /mad/analytics/food-orders?period=day|week|month` requires an authenticated
+manager after first-login password change. Omitted period defaults to day, matching
+the other analytics endpoints. Invalid/duplicate periods or unknown query keys
+return 400; missing/invalid sessions return 401 and disallowed roles return 403.
+
+The report uses current calendar periods in Asia/Colombo, Monday-start weeks,
+inclusive start and exclusive end. Orders are attributed by `placed_at`. Current
+PLACED, IN_PREPARATION, READY and DELIVERED orders count; CANCELLED orders are
+excluded from all totals, quantities and peak hours. A later cancellation restates
+the original placement period rather than creating a negative cancellation bucket.
+These are full calendar periods, not rolling intervals or elapsed-only comparisons.
+
+Response fields:
+
+- `period`, `timezone`, `weekStartsOn`, `metric`, `includedStatuses`, `start`, `end`,
+  `asOf`: explicit reporting policy and server-clock bounds.
+- `total`: unique qualifying orders, counted independently of line items. Orders
+  with no items still count once.
+- `trend`: every calendar day in the selected period, `{ date, count }`.
+- `hours`: all 24 hotel-local hours, `{ hour: 0..23, count }`, aggregated across
+  that period. `peakHours` contains all positive maximum-count hours ascending;
+  it is empty when no orders qualify.
+- `popularItems`: top 10 `{ menuItemId, name, quantity }` entries grouped by menu
+  item ID and historical line-item name, ordered by quantity descending, name in
+  PostgreSQL C collation ascending, then UUID ascending. Renamed items retain
+  separate historical-name groups; current menu names are never substituted.
+  `itemLimit` and `itemGrouping` state this policy. Ties at the cutoff use the same
+  deterministic order rather than returning an unbounded set.
+- `freshness`: query timestamp and latest source order/line-item update timestamp
+  among period candidates (including cancelled records); null if there are none.
+
+The source contract is read-only `kms_food_orders` and `kms_food_order_items`, using
+the supplied shared schema's order/item primary keys and item snapshot fields. One
+parameterized SQL statement gives a consistent snapshot; order counts never use an
+item-expanded join. Only aggregate/item identity/name fields are returned, with no
+booking, guest, room, allergy or special-note data. Counts are checked for safe
+integer representation. Missing sources, denied grants, malformed results or DB
+outages produce 503, never a fabricated empty report. Responses are no-store.
+
+No schema change or new environment setting is required. If the dedicated MAD role
+lacks reporting reads, the database owner can adapt the commented column-level
+grants in `deploy/neon-mad-food-analytics.sql`; no grants execute automatically.
+Coordinate cancellation/ranking rules with KMS/FOSS before cross-service acceptance.
+There are no writes to either owner's data and no frontend changes in this ticket.
+
+Tests: `src/analytics/food-analytics.service.spec.ts` and
+`test/food-analytics.e2e-spec.ts`. Integration creates an isolated PostgreSQL database
+with reporting-schema fixtures and a role limited to the required source columns.
+Tests are authored but not run locally; CI coverage and real staging acceptance
+remain pending. The food service has a 90% branch coverage gate.
