@@ -4,6 +4,8 @@ import { LowBookingAlertsService } from './low-booking-alerts.service';
 import { AuthModule } from '../auth/auth.module';
 import { AnalyticsController } from './analytics.controller';
 import { OccupancyAnalyticsService } from './occupancy-analytics.service';
+import { FoodAnalyticsService } from './food-analytics.service';
+import { FoodAnalyticsController } from './food-analytics.controller';
 import {
   BOOKING_CLOCK,
   BookingAnalyticsService,
@@ -11,8 +13,9 @@ import {
 
 @Module({
   imports: [AuthModule],
-  controllers: [AnalyticsController],
+  controllers: [AnalyticsController, FoodAnalyticsController],
   providers: [
+    FoodAnalyticsService,
     LowBookingAlertsService,
     RevenueAnalyticsService,
     BookingAnalyticsService,

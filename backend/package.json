@@ -129,6 +129,9 @@
       },
       "./src/complaints/complaints.service.ts": {
         "branches": 90
+      },
+      "./src/analytics/food-analytics.service.ts": {
+        "branches": 90
       }
     },
     "coverageProvider": "v8"
