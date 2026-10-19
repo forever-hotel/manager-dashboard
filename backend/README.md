@@ -417,3 +417,56 @@ Tests: `src/analytics/food-analytics.service.spec.ts` and
 with reporting-schema fixtures and a role limited to the required source columns.
 Tests are authored but not run locally; CI coverage and real staging acceptance
 remain pending. The food service has a 90% branch coverage gate.
+
+## DDP-024 service-request analytics
+
+`GET /mad/analytics/service-requests?period=day|week|month` requires a manager
+session with first-login password change completed. The default period is day.
+Invalid/duplicate periods and unknown query keys return 400; missing/invalid
+sessions return 401, and disallowed roles or first-login sessions return 403.
+
+Calendar periods use Asia/Colombo, Monday-start weeks, inclusive start and
+exclusive end. These are full calendar periods, not rolling intervals. Three
+independent cohorts prevent confusing throughput with outstanding work:
+
+- `total`, `trend` and `byStatus`: requests submitted within the period, using
+  `submitted_at`. Trend contains every local calendar day, including zeros;
+  status counts always include SUBMITTED, ASSIGNED, IN_PROGRESS and COMPLETED.
+- `resolution`: currently COMPLETED requests whose `completed_at` falls in the
+  period, including requests submitted before the period. `completedCount` counts
+  this cohort; `validDurationCount` counts its nonnegative durations and is the
+  average denominator. `excludedCount` is their difference. `averageMinutes` is
+  elapsed completion-minus-submission time in minutes, rounded to two decimals.
+  With no valid durations the average is null, not zero. A genuine zero-duration
+  completion remains zero. Without completions both counts are zero.
+- `backlog.count`: currently SUBMITTED, ASSIGNED or IN_PROGRESS requests across
+  all dates, with submission at or before `asOf`. This is current source state,
+  not a historical reconstruction or the unresolved subset of the selected period.
+
+`dataQuality` flags negative completed durations, missing completion timestamps
+and unexpected timestamps on open requests, with separate counts and OK/WARNING
+status. Its scope is all source records, independent of the selected period.
+Negative durations are excluded from the average. Missing completion timestamps
+cannot be assigned to a completion period; they remain visible in global quality
+counts. A period containing only invalid completions therefore has a positive
+completed count and null average. Current-state edits can restate past totals.
+
+Metadata includes `period`, `timezone`, `weekStartsOn`, `start`, `end`, `asOf`,
+cohort labels and `freshness` (query time and latest source update across all
+requests, null when empty). One parameterized SELECT gives a consistent snapshot
+of `public.foss_service_requests`; no booking/room/guest/description data is
+returned and WKMS tasks are not used. Unsafe numeric results, missing sources,
+denied permissions or database failures return a sanitized 503, not zero metrics.
+All responses are no-store.
+
+No migration, environment change or UI change is required. A restricted MAD role
+needs SELECT on `request_id`, `status`, `submitted_at`, `completed_at`, `updated_at`.
+The database owner may adapt the commented optional grants in
+`deploy/neon-mad-service-analytics.sql`; nothing executes at startup. Coordinate
+the reporting contract with FOSS before cross-system acceptance.
+
+Tests: `src/analytics/service-request-analytics.service.spec.ts` and
+`test/service-request-analytics.e2e-spec.ts`. The latter uses a real disposable
+PostgreSQL database and a restricted runtime role. Tests are authored, not run
+locally; CI results, coverage and real staging verification remain pending.
+The analytics service has a 90% branch coverage gate.
