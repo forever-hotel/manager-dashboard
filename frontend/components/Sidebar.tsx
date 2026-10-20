@@ -75,11 +75,11 @@ export function Sidebar({
   return (
     <aside
       id="dashboard-navigation"
-      className={`${open ? 'flex' : 'hidden'} md:flex md:w-[220px] shrink-0 border-r border-gray-200 flex-col justify-between md:h-screen md:fixed left-0 top-0 bg-white overflow-y-auto`}
+      className={`${open ? 'flex' : 'hidden'} fixed bottom-0 left-0 top-16 z-40 w-[min(280px,85vw)] shrink-0 flex-col justify-between overflow-y-auto overscroll-contain border-r border-gray-200 bg-white shadow-xl md:top-0 md:flex md:h-screen md:w-[220px] md:shadow-none`}
     >
       <div>
         {/* Logo */}
-        <div className="px-5 pt-6 pb-6 border-b border-gray-100">
+        <div className="hidden px-5 pt-6 pb-6 border-b border-gray-100 md:block">
           <div className="font-medium text-[13px] text-black">
             Forever Hotel
           </div>
