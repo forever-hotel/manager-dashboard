@@ -1,3 +1,4 @@
+import { ReportsModule } from './reports/reports.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -7,6 +8,11 @@ import { HealthController } from './health/health.controller';
 import { validateEnvironment } from './config/environment';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { StaffModule } from './staff/staff.module';
+import { ComplaintsModule } from './complaints/complaints.module';
+import { TasksModule } from './tasks/tasks.module';
+import { RoomsModule } from './rooms/rooms.module';
+import { KitchenModule } from './kitchen/kitchen.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -18,8 +24,14 @@ import { StaffModule } from './staff/staff.module';
     DatabaseModule,
     AuthModule,
     AnalyticsModule,
+    ReportsModule,
     StaffModule,
     PromotionsModule,
+    ComplaintsModule,
+    KitchenModule,
+    RoomsModule,
+    TasksModule,
+    RealtimeModule,
   ],
   controllers: [HealthController],
 })

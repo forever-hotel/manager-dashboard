@@ -3,6 +3,22 @@ import { validateStaffConfig } from '../staff/staff-config';
 
 export function validateEnvironment(env: Record<string, unknown>) {
   env = { ...env };
+  const realtime = env.MAD_REALTIME_ENABLED ?? 'false';
+  if (realtime !== 'true' && realtime !== 'false')
+    throw new Error(
+      'Configuration: MAD_REALTIME_ENABLED must be true or false',
+    );
+  env.MAD_REALTIME_ENABLED = realtime;
+  if (realtime === 'true') {
+    try {
+      if (typeof env.RABBITMQ_URL !== 'string') throw new Error();
+      const url = new URL(env.RABBITMQ_URL);
+      if (!['amqp:', 'amqps:'].includes(url.protocol) || !url.hostname)
+        throw new Error();
+    } catch {
+      throw new Error('Configuration: RABBITMQ_URL must be an AMQP URL');
+    }
+  }
   validateStaffConfig(env);
   env.LOW_BOOKING_THRESHOLD = lowBookingThreshold(env.LOW_BOOKING_THRESHOLD);
   if (!env.DATABASE_URL) {

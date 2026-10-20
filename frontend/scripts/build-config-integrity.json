@@ -2,6 +2,6 @@
   "postcss.config.mjs": "9ca55411b62b2c9cc5631a3e6c631d80c8b8171c7b9ea1e19f83400f4100e910",
   "next.config.ts": "549ed9baef24a299d4deb44fda5ac4c57f786b64633c37531973e3e62b78be59",
   "eslint.config.mjs": "a680c21c1b91c30f45683743b3762c8f731d59ee9fa76c8e78f168dd3c9b4353",
-  "vitest.config.ts": "f228fde2f651af76d4f8d0ec3e8b141aec1139757636d45e4749a409919436d8",
+  "vitest.config.ts": "4d474f8a601e6a4a20811591cc9fddcfd68ff40880af5e2e2dc7468ee5238c46",
   "playwright.config.ts": "82807c8d164bef101b23508f513bdfea553bd56459a8fda8939cb62db460e0aa"
 }

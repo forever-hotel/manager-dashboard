@@ -25,18 +25,26 @@
     "test:serve": "ts-node test/serve-contract-stack.ts"
   },
   "dependencies": {
+    "@fontsource/noto-sans": "5.3.0",
+    "@fontsource/noto-sans-sinhala": "5.3.0",
+    "@fontsource/noto-sans-tamil": "5.3.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.2.7",
     "@nestjs/typeorm": "^11.0.3",
+    "@nestjs/websockets": "^11.2.7",
+    "amqplib": "^2.2.0",
     "bcryptjs": "3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "pdfkit": "0.20.2",
     "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.4",
     "typeorm": "^1.1.0"
   },
   "devDependencies": {
@@ -48,6 +56,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
+    "@types/pdfkit": "0.17.6",
     "@types/supertest": "^7.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
@@ -55,6 +64,7 @@
     "globals": "^17.0.0",
     "jest": "^30.0.0",
     "prettier": "^3.4.2",
+    "socket.io-client": "^4.8.4",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
@@ -76,6 +86,12 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
+      "rooms/**/*.ts",
+      "reports/**/*.ts",
+      "tasks/**/*.ts",
+      "kitchen/**/*.ts",
+      "realtime/**/*.ts",
+      "complaints/**/*.ts",
       "promotions/**/*.ts",
       "staff/**/*.ts",
       "analytics/**/*.ts",
@@ -124,6 +140,27 @@
         "branches": 90
       },
       "./src/promotions/promotions.service.ts": {
+        "branches": 90
+      },
+      "./src/complaints/complaints.service.ts": {
+        "branches": 90
+      },
+      "./src/analytics/food-analytics.service.ts": {
+        "branches": 90
+      },
+      "./src/analytics/service-request-analytics.service.ts": {
+        "branches": 90
+      },
+      "./src/analytics/worker-performance.service.ts": {
+        "branches": 90
+      },
+      "./src/kitchen/kitchen.service.ts": {
+        "branches": 90
+      },
+      "./src/tasks/tasks.service.ts": {
+        "branches": 90
+      },
+      "./src/rooms/rooms.service.ts": {
         "branches": 90
       }
     },

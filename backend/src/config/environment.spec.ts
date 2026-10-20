@@ -25,6 +25,30 @@ describe('Startup configuration', () => {
       }).PORT,
     ).toBe(4000);
   });
+  it('validates optional realtime configuration without exposing broker credentials', () => {
+    expect(validateEnvironment(valid)).toMatchObject({
+      MAD_REALTIME_ENABLED: 'false',
+    });
+    expect(
+      validateEnvironment({
+        ...valid,
+        MAD_REALTIME_ENABLED: 'true',
+        RABBITMQ_URL: 'amqp://localhost/mad_test',
+      }),
+    ).toMatchObject({ MAD_REALTIME_ENABLED: 'true' });
+    for (const value of ['yes', ''])
+      expect(() =>
+        validateEnvironment({ ...valid, MAD_REALTIME_ENABLED: value }),
+      ).toThrow('MAD_REALTIME_ENABLED');
+    for (const value of [undefined, 'private-secret', 'http://localhost'])
+      expect(() =>
+        validateEnvironment({
+          ...valid,
+          MAD_REALTIME_ENABLED: 'true',
+          RABBITMQ_URL: value,
+        }),
+      ).toThrow('RABBITMQ_URL must be an AMQP URL');
+  });
   it.each(Object.keys(valid))(
     'names missing %s without exposing values',
     (key) => {

@@ -11,6 +11,16 @@ jobs:
     name: Backend checks
     runs-on: ubuntu-latest
     services:
+      rabbitmq:
+        image: rabbitmq:4-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: mad
+          RABBITMQ_DEFAULT_PASS: integration-only
+          RABBITMQ_DEFAULT_VHOST: mad_test
+        ports: ["5672:5672"]
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s --health-timeout 5s --health-retries 15
       postgres:
         image: postgres:15-alpine
         env:
@@ -22,6 +32,7 @@ jobs:
           --health-interval 5s --health-timeout 3s --health-retries 15
     env:
       TEST_DATABASE_URL: postgresql://postgres:integration-only@localhost:5432/mad_test
+      TEST_RABBITMQ_URL: amqp://mad:integration-only@localhost:5672/mad_test
     defaults:
       run:
         working-directory: backend
