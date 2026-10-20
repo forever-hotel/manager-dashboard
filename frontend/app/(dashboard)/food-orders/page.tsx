@@ -1,4 +1,5 @@
 import React from 'react';
+import KitchenQueue from '@/components/KitchenQueue';
 
 export default function FoodOrdersPage() {
   return (
@@ -84,119 +85,7 @@ export default function FoodOrdersPage() {
       {/* Kitchen queue + top items */}
       <div className="grid grid-cols-3 gap-4 mb-10">
         {/* Kitchen queue (live) : spans 2 cols */}
-        <section className="col-span-2 border border-gray-200 rounded-lg p-4">
-          <h2 className="font-medium text-[11.5px] text-black mb-3">
-            Kitchen queue (live)
-          </h2>
-          <div className="grid grid-cols-3 gap-3">
-            {/* New */}
-            <div className="bg-gray-50 rounded-md p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-[10px] text-black">New</span>
-                <span className="font-medium text-[9.5px] text-black bg-white border border-gray-200 rounded-full w-5 h-5 flex items-center justify-center">
-                  3
-                </span>
-              </div>
-              <div className="space-y-2">
-                <div className="bg-white rounded-md p-2.5 border border-gray-100">
-                  <div className="font-medium text-[10.5px] text-black">
-                    Room 204
-                  </div>
-                  <div className="font-normal text-[9px] text-black/60">
-                    Dinner · 3 items · 6 min ago
-                  </div>
-                  <span className="font-medium text-[9px] text-black">
-                    Allergen
-                  </span>
-                </div>
-                <div className="bg-white rounded-md p-2.5 border border-gray-100">
-                  <div className="font-medium text-[10.5px] text-black">
-                    Room 108
-                  </div>
-                  <div className="font-normal text-[9px] text-black/60">
-                    Dinner · 2 items · 2 min ago
-                  </div>
-                </div>
-                <div className="bg-white rounded-md p-2.5 border border-gray-100">
-                  <div className="font-medium text-[10.5px] text-black">
-                    Room 306
-                  </div>
-                  <div className="font-normal text-[9px] text-black/60">
-                    Tea time · 1 item · just now
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Preparing */}
-            <div className="bg-gray-50 rounded-md p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-[10px] text-black">
-                  Preparing
-                </span>
-                <span className="font-medium text-[9.5px] text-black bg-white border border-gray-200 rounded-full w-5 h-5 flex items-center justify-center">
-                  3
-                </span>
-              </div>
-              <div className="space-y-2">
-                <div className="bg-white rounded-md p-2.5 border border-gray-100">
-                  <div className="font-medium text-[10.5px] text-black">
-                    Room 101
-                  </div>
-                  <div className="font-normal text-[9px] text-black/60">
-                    Lunch · 4 items · 14 min
-                  </div>
-                </div>
-                <div className="bg-white rounded-md p-2.5 border border-gray-100">
-                  <div className="font-medium text-[10.5px] text-black">
-                    Room 202
-                  </div>
-                  <div className="font-normal text-[9px] text-black/60">
-                    Lunch · 2 items · 10 min
-                  </div>
-                </div>
-                <div className="bg-white rounded-md p-2.5 border border-gray-100">
-                  <div className="font-medium text-[10.5px] text-black">
-                    Room 303
-                  </div>
-                  <div className="font-normal text-[9px] text-black/60">
-                    Lunch · 1 item · 8 min
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Ready */}
-            <div className="bg-gray-50 rounded-md p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-[10px] text-black">
-                  Ready
-                </span>
-                <span className="font-medium text-[9.5px] text-black bg-white border border-gray-200 rounded-full w-5 h-5 flex items-center justify-center">
-                  2
-                </span>
-              </div>
-              <div className="space-y-2">
-                <div className="bg-white rounded-md p-2.5 border border-gray-100">
-                  <div className="font-medium text-[10.5px] text-black">
-                    Room 105
-                  </div>
-                  <div className="font-normal text-[9px] text-black/60">
-                    Lunch · awaiting delivery
-                  </div>
-                </div>
-                <div className="bg-white rounded-md p-2.5 border border-gray-100">
-                  <div className="font-medium text-[10.5px] text-black">
-                    Room 307
-                  </div>
-                  <div className="font-normal text-[9px] text-black/60">
-                    Breakfast · awaiting delivery
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <KitchenQueue />
 
         {/* Top ordered items */}
         <section className="border border-gray-200 rounded-lg p-4">

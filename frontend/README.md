@@ -194,3 +194,13 @@ deployment if not already done. Tests are in `test/complaints.test.tsx` and
 `test/complaints-bff.test.ts`, with existing backend disposable-DB tests for DDP-021.
 Coverage collection includes the complaint BFF. Tests were authored but not run
 locally; CI coverage and staging acceptance remain pending.
+
+## Kitchen overview (DDP-026)
+
+The kitchen queue now uses protected snapshot reads and Socket.IO invalidations.
+Its existing three columns are preserved, with Ready and Delivered sharing the
+third column. Configure `MAD_SOCKET_PUBLIC_URL` in the frontend server environment
+(the browser-reachable MAD socket origin; locally `http://localhost:4000`).
+REST and one-use ticket issuance continue through the existing BFF/gateway.
+See [setup, SQL and producer requirements](../backend/KITCHEN_REALTIME_GUIDE.md).
+No local tests were run; CI and real KMS staging verification remain pending.
