@@ -12,6 +12,11 @@ test('TC-MAD-031-AC3: real database Reports index CSV/PDF and empty filtered exp
 }) => {
   await login(page);
   await page.goto('/reports');
+  // A wrapping label can include select option text in a label-text query.
+  // Locate the native select by its accessible role instead of exact label text.
+  const report = page.getByRole('combobox', { name: /^Report\b/ });
+  await expect(report).toBeVisible();
+  await expect(report).toHaveValue('bookings');
   const csvPending = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export CSV', exact: true }).focus();
   await page.keyboard.press('Enter');
@@ -22,9 +27,10 @@ test('TC-MAD-031-AC3: real database Reports index CSV/PDF and empty filtered exp
   let text = '';
   for await (const chunk of csvStream!) text += chunk.toString();
   expect(text).toContain('"total","1","count"');
-  await page
-    .getByLabel('Report', { exact: true })
-    .selectOption('worker-performance');
+  await expect(page).toHaveURL(/\/reports$/);
+  await expect(report).toBeVisible();
+  await report.selectOption('worker-performance');
+  await expect(report).toHaveValue('worker-performance');
   await page
     .getByLabel('Worker ID (optional)')
     .fill('77f4568c-89ab-4c12-b321-123456789012');

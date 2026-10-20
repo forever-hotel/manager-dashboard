@@ -129,7 +129,9 @@ describe('DDP-031 report downloads', () => {
   it('AC3: Reports index chooses report, format and filters through the same flow', async () => {
     fetchMock.mockResolvedValueOnce(reportResponse('csv', 'occupancy'));
     render(<ReportsIndex />);
-    fireEvent.change(screen.getByLabelText('Report'), {
+    const report = screen.getByRole('combobox', { name: /^Report\b/ });
+    expect(report).toHaveValue('bookings');
+    fireEvent.change(report, {
       target: { value: 'occupancy' },
     });
     fireEvent.change(screen.getByLabelText('From date'), {
@@ -144,7 +146,8 @@ describe('DDP-031 report downloads', () => {
       '/api/reports/occupancy?format=csv&from=2026-10-01&to=2026-10-21',
       expect.any(Object),
     );
-    fireEvent.change(screen.getByLabelText('Report'), {
+    expect(report).toHaveValue('occupancy');
+    fireEvent.change(report, {
       target: { value: 'staff' },
     });
     fireEvent.change(screen.getByLabelText('Worker ID (optional)'), {
