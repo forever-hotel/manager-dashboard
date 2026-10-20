@@ -1,7 +1,7 @@
 # Room snapshots and updates (DDP-027)
 
 MAD reads FDS room data and broadcasts authorized updates. It never assigns rooms
-or modifies room status. Existing frontend pages are unchanged by this API ticket.
+or modifies room status. DDP-028 connects the room board to this read-only API.
 
 ## Snapshot contract
 
@@ -18,6 +18,7 @@ required. Missing/invalid sessions return 401; disallowed sessions return 403.
   "rooms": [{
     "id": "101",
     "number": "101",
+    "floor": 1,
     "typeId": "67f4568c-89ab-4c12-b321-123456789012",
     "type": "Deluxe",
     "status": "VACANT",
@@ -107,3 +108,5 @@ PostgreSQL and RabbitMQ `/mad_test`; unit cases are under `src/rooms` and
 `src/realtime/room-consumer.spec.ts`. Tests are authored, not run locally.
 CI coverage, real FDS staging integration and <=1-second propagation/<=2-second
 UI target measurements remain pending. This API ticket does not change the UI.
+
+DDP-028 uses the actual integer `rooms.floor` for grouping (including zero/negative floors), never room-number inference. Existing restricted roles need `GRANT SELECT(floor) ON rooms TO mad_runtime` after replacing the role name. This does not require a source schema change.

@@ -50,7 +50,7 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
     await database.query(readFileSync('../deploy/neon-mad-auth.sql', 'utf8'));
     await database.query(`CREATE TYPE room_status AS ENUM ('OCCUPIED','VACANT','UNDER_MAINTENANCE','REQUIRES_CLEANING');
       CREATE TABLE room_types(room_type_id uuid PRIMARY KEY,type_name text NOT NULL);
-      CREATE TABLE rooms(room_number varchar(10) PRIMARY KEY,room_type_id uuid REFERENCES room_types(room_type_id),status room_status NOT NULL,updated_at timestamptz NOT NULL);
+      CREATE TABLE rooms(room_number varchar(10) PRIMARY KEY,room_type_id uuid REFERENCES room_types(room_type_id),status room_status NOT NULL,updated_at timestamptz NOT NULL,floor integer NOT NULL DEFAULT 1);
       GRANT SELECT ON rooms,room_types,mad_revoked_sessions TO "${role}"`);
     await database.query(readFileSync('../deploy/neon-mad-rooms.sql', 'utf8'));
     await database.query(
@@ -112,7 +112,7 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
   }
   async function add(id: string, status = 'VACANT') {
     await database.query(
-      "INSERT INTO rooms VALUES ($1,'67f4568c-89ab-4c12-b321-123456789012',$2,'2026-10-20T00:00:00.123456Z')",
+      "INSERT INTO rooms(room_number,room_type_id,status,updated_at) VALUES ($1,'67f4568c-89ab-4c12-b321-123456789012',$2,'2026-10-20T00:00:00.123456Z')",
       [id, status],
     );
   }
@@ -153,6 +153,7 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
     expect(body.rooms.map((r) => r.id)).toEqual(['101', '102', '103', '104']);
     expect(body.rooms[0]).toMatchObject({
       number: '101',
+      floor: 1,
       type: 'Deluxe',
       version: Date.parse('2026-10-20T00:00:00.123Z') * 1000 + 456,
     });
@@ -172,6 +173,14 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
       await get('', token).expect(status);
     await get().expect(200);
     expect(await database.query('SELECT * FROM rooms')).toEqual(before);
+    await request(app.getHttpServer())
+      .patch('/mad/rooms/101')
+      .set('Authorization', 'Bearer ' + provider.issue('manager'))
+      .send({ status: 'OCCUPIED' })
+      .expect(404);
+    await expect(
+      app.get(DataSource).query("UPDATE rooms SET status='OCCUPIED'"),
+    ).rejects.toThrow();
     const ticket = await request(app.getHttpServer())
       .post('/mad/realtime/ticket')
       .set('Authorization', 'Bearer ' + provider.issue('worker'));

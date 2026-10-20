@@ -151,6 +151,13 @@ describe('DDP-039 one-use ticket and session enforcement', () => {
       };
       await gateway.publishRoom(roomEvent);
       expect(emit).toHaveBeenCalledWith('room.status.changed', roomEvent);
+      const taskEvent = {
+        ...event,
+        type: 'task.changed' as const,
+        taskId: event.orderId,
+      };
+      await gateway.publishTask(taskEvent);
+      expect(emit).toHaveBeenCalledWith('task.changed', taskEvent);
       session.mockRejectedValueOnce(new Error('revoked'));
       await gateway.publish(event);
       expect(disconnect).toHaveBeenCalledWith(true);

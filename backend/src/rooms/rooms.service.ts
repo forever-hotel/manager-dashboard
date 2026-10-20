@@ -9,6 +9,7 @@ export const ROOM_LABELS = {
 export interface RoomStatus {
   id: string;
   number: string;
+  floor: number;
   typeId: string;
   type: string;
   status: keyof typeof ROOM_LABELS;
@@ -17,7 +18,7 @@ export interface RoomStatus {
   version: number;
 }
 export const ROOMS_SQL = `SELECT statement_timestamp() AS queried_at,coalesce(jsonb_agg(jsonb_build_object(
-'id',r.room_number,'number',r.room_number,'typeId',t.room_type_id,'type',t.type_name,'status',r.status,
+'id',r.room_number,'number',r.room_number,'floor',r.floor,'typeId',t.room_type_id,'type',t.type_name,'status',r.status,
 'updatedAt',r.updated_at,'version',(extract(epoch FROM r.updated_at)*1000000)::bigint
 ) ORDER BY r.room_number COLLATE "C") FILTER(WHERE r.room_number IS NOT NULL),'[]'::jsonb) AS rooms
 FROM public.rooms r LEFT JOIN public.room_types t ON t.room_type_id=r.room_type_id
@@ -37,6 +38,7 @@ export class RoomsService {
           !room.id.length ||
           room.id.length > 10 ||
           room.number !== room.id ||
+          !Number.isSafeInteger(room.floor) ||
           typeof room.typeId !== 'string' ||
           typeof room.type !== 'string' ||
           !room.type.length ||

@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 const room = {
   id: '101',
   number: '101',
+  floor: 1,
   typeId: 'type-id',
   type: 'Deluxe',
   status: 'VACANT',
@@ -86,6 +87,8 @@ describe('DDP-027 room snapshot and event contract', () => {
         { id: null },
         { id: '12345678901' },
         { number: 'other' },
+        { floor: null },
+        { floor: 1.5 },
         { typeId: null },
         { type: null },
         { type: '' },

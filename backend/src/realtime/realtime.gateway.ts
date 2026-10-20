@@ -1,3 +1,4 @@
+import type { TaskEvent } from './task-events.consumer';
 import {
   Injectable,
   OnModuleDestroy,
@@ -35,6 +36,7 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
   private timer?: ReturnType<typeof setInterval>;
   healthy = false;
   roomsHealthy = false;
+  tasksHealthy = false;
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService,
@@ -73,11 +75,13 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
     server.on('connection', (socket) => {
       socket.emit('transport.status', { healthy: this.healthy });
       socket.emit('rooms.transport.status', { healthy: this.roomsHealthy });
+      socket.emit('tasks.transport.status', { healthy: this.tasksHealthy });
       socket.on('disconnect', () => this.sessions.delete(socket));
     });
     this.timer = setInterval(() => {
       void this.send('transport.status', { healthy: this.healthy });
       void this.send('rooms.transport.status', { healthy: this.roomsHealthy });
+      void this.send('tasks.transport.status', { healthy: this.tasksHealthy });
     }, 5000);
     this.timer.unref();
   }
@@ -102,6 +106,10 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
   async publishRoom(event: RoomEvent) {
     if (!this.server) throw new ServiceUnavailableException();
     await this.send('room.status.changed', event);
+  }
+  async publishTask(event: TaskEvent) {
+    if (!this.server) throw new ServiceUnavailableException();
+    await this.send('task.changed', event);
   }
   onModuleDestroy() {
     clearInterval(this.timer);
