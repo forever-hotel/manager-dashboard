@@ -16,6 +16,14 @@ describe('Stable error envelope', () => {
   it.each([
     [new Error('private secret'), 500, 'INTERNAL_ERROR'],
     [new HttpException('private outage', 503), 503, 'SERVICE_UNAVAILABLE'],
+    [
+      new HttpException(
+        { code: 'private database secret', message: 'private outage' },
+        503,
+      ),
+      503,
+      'SERVICE_UNAVAILABLE',
+    ],
     [new HttpException('unauthorized', 401), 401, 'UNAUTHENTICATED'],
     [new HttpException('missing', 404), 404, 'NOT_FOUND'],
     [new HttpException('unusual', 418), 418, 'INTERNAL_ERROR'],
@@ -67,6 +75,15 @@ describe('Stable error envelope', () => {
       'no-store',
     );
     expect(next).toHaveBeenCalledTimes(1);
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'X-Content-Type-Options',
+      'nosniff',
+    );
+    expect(response.setHeader).toHaveBeenCalledWith('X-Frame-Options', 'DENY');
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Referrer-Policy',
+      'no-referrer',
+    );
     expect(app.useGlobalPipes).toHaveBeenCalled();
     expect(app.useGlobalFilters).toHaveBeenCalledWith(
       expect.any(ApiExceptionFilter),

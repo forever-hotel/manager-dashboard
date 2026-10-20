@@ -1,6 +1,12 @@
 import { InitialManagerService } from '../src/auth/initial-manager.service';
 import { Test } from '@nestjs/testing';
-import { Controller, Get, INestApplication, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpException,
+  INestApplication,
+  UseGuards,
+} from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -22,6 +28,17 @@ class ProtectedFixtureController {
   @Get()
   get() {
     return { status: 'ok' };
+  }
+  @Get('failure')
+  failure() {
+    throw new HttpException(
+      {
+        code: 'private connection details',
+        message: 'private password',
+        details: ['private note'],
+      },
+      503,
+    );
   }
 }
 
@@ -102,6 +119,19 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
     }
   });
   const http = () => request(app.getHttpServer());
+  it('redacts server exception codes and sends defensive response headers over HTTP', async () => {
+    const login = await http()
+      .get('/protected/failure')
+      .set('Authorization', 'Bearer ' + provider.issue('manager'))
+      .expect(503);
+    expect(login.body).toEqual({
+      code: 'SERVICE_UNAVAILABLE',
+      message: 'Service temporarily unavailable. Please retry.',
+    });
+    expect(login.headers['x-content-type-options']).toBe('nosniff');
+    expect(login.headers['x-frame-options']).toBe('DENY');
+    expect(login.headers['referrer-policy']).toBe('no-referrer');
+  });
   it('preserves existing data and records each version once despite concurrent runners', async () => {
     const rows = await database.query<{ code_string: string }[]>(
       "SELECT code_string FROM mad_promotion_codes WHERE code_string='KEEP-ME'",

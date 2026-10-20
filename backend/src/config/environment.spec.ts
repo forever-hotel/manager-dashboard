@@ -25,6 +25,19 @@ describe('Startup configuration', () => {
       }).PORT,
     ).toBe(4000);
   });
+  it('blocks production query logging without echoing credentials', () => {
+    expect(() =>
+      validateEnvironment({
+        ...valid,
+        NODE_ENV: 'production',
+        FRONTEND_URL: 'https://mad.test',
+        DB_LOGGING: 'true',
+      }),
+    ).toThrow('DB_LOGGING must be false');
+    expect(validateEnvironment({ ...valid, DB_LOGGING: 'true' })).toMatchObject(
+      { DB_LOGGING: 'true' },
+    );
+  });
   it('validates optional realtime configuration without exposing broker credentials', () => {
     expect(validateEnvironment(valid)).toMatchObject({
       MAD_REALTIME_ENABLED: 'false',

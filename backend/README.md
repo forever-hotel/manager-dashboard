@@ -544,3 +544,9 @@ outstanding staging/scaling verification. No tests or hosted SQL were run locall
 `room.status.changed` updates reuse the authorized socket transport with a separate
 durable queue and watermark store. See [the room contract and setup](ROOM_STATUS_GUIDE.md)
 for manual SQL, source ownership, FDS publishing and pending acceptance checks.
+
+## DDP-035 security review
+
+See [the security review and acceptance register](SECURITY_REVIEW.md) for endpoint
+inventory, hardening, dependency findings and pending CI/staging evidence.
+No tests or hosted database changes were executed locally.
