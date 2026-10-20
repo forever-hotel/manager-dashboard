@@ -23,14 +23,17 @@ const errorText = (e: unknown) =>
   e instanceof ComplaintError
     ? e.message
     : 'Service unavailable. Reload before retrying; a save may already have completed.';
-export default function ComplaintsDashboard() {
+export default function ComplaintsDashboard({
+  initialWorkerId = '',
+  initialStatus = '',
+}: { initialWorkerId?: string; initialStatus?: string } = {}) {
   const [rows, setRows] = useState<Complaint[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({
-    status: '',
+    status: initialStatus,
     category: '',
-    workerId: '',
+    workerId: initialWorkerId,
   });
   const [draft, setDraft] = useState(filters);
   const [refresh, setRefresh] = useState(0);

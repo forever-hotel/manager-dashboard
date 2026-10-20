@@ -544,3 +544,15 @@ outstanding staging/scaling verification. No tests or hosted SQL were run locall
 `room.status.changed` updates reuse the authorized socket transport with a separate
 durable queue and watermark store. See [the room contract and setup](ROOM_STATUS_GUIDE.md)
 for manual SQL, source ownership, FDS publishing and pending acceptance checks.
+
+## DDP-035 security review
+
+See [the security review and acceptance register](SECURITY_REVIEW.md) for endpoint
+inventory, hardening, dependency findings and pending CI/staging evidence.
+No tests or hosted database changes were executed locally.
+
+## DDP-036 Sprint 6 acceptance
+
+See [Sprint 6 readiness](SPRINT_6_READINESS.md) for the 58-row acceptance register,
+missing prerequisites, CI requirements and unpublished v0.2.0 review pack.
+The acceptance gate remains open until actual CI/staging evidence is attached.

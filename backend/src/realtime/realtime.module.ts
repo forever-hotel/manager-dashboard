@@ -1,3 +1,5 @@
+import { StockEventsConsumer } from './stock-events.consumer';
+import { StockAlertsService } from '../stock/stock-alerts.service';
 import { TasksModule } from '../tasks/tasks.module';
 import { TaskEventsConsumer } from './task-events.consumer';
 import { RoomsModule } from '../rooms/rooms.module';
@@ -12,6 +14,8 @@ import { RealtimeGateway } from './realtime.gateway';
   controllers: [RealtimeController],
   providers: [
     RealtimeGateway,
+    StockAlertsService,
+    StockEventsConsumer,
     RealtimeConsumer,
     RoomEventsConsumer,
     TaskEventsConsumer,

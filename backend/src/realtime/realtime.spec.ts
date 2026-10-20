@@ -158,7 +158,30 @@ describe('DDP-039 one-use ticket and session enforcement', () => {
       };
       await gateway.publishTask(taskEvent);
       expect(emit).toHaveBeenCalledWith('task.changed', taskEvent);
+      const stockEvent = {
+        eventId: event.eventId,
+        type: 'stock.alert.changed' as const,
+        menuItemId: event.orderId,
+        version: 2,
+        occurredAt: event.occurredAt,
+        alert: {
+          alertId: event.eventId,
+          menuItemId: event.orderId,
+          name: 'Soup',
+          stockStatus: 'LOW_STOCK' as const,
+          active: true,
+          version: 2,
+          sourceUpdatedAt: event.occurredAt,
+          raisedAt: event.occurredAt,
+          clearedAt: null,
+        },
+      };
+      await gateway.publishStock(stockEvent);
+      expect(emit).toHaveBeenCalledWith('stock.alert.changed', stockEvent);
       session.mockRejectedValueOnce(new Error('revoked'));
+      const beforeRevocation = emit.mock.calls.length;
+      await gateway.publishStock(stockEvent);
+      expect(emit.mock.calls).toHaveLength(beforeRevocation);
       await gateway.publish(event);
       expect(disconnect).toHaveBeenCalledWith(true);
       sock.handshake.auth.ticket = gateway.ticket('private').ticket;
