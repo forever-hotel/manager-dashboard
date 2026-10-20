@@ -20,6 +20,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       404: 'NOT_FOUND',
       409: 'CONFLICT',
       413: 'PAYLOAD_TOO_LARGE',
+      422: 'REPORT_TOO_LARGE',
       429: 'RATE_LIMITED',
       503: 'SERVICE_UNAVAILABLE',
     };

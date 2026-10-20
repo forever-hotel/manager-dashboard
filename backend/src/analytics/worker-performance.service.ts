@@ -42,12 +42,23 @@ export class WorkerPerformanceService {
     @Inject(BOOKING_CLOCK) private readonly now: () => Date,
   ) {}
 
-  async summary(query: WorkerPerformanceQueryDto) {
+  async summary(query: WorkerPerformanceQueryDto, exportLimit?: number) {
     try {
       const asOf = this.now().toISOString();
       const [row] = await this.database.query<WorkerPerformanceRow[]>(
-        WORKER_PERFORMANCE_SQL,
-        [query.period, BOOKING_TIMEZONE, asOf, query.workerId ?? null],
+        exportLimit === undefined
+          ? WORKER_PERFORMANCE_SQL
+          : WORKER_PERFORMANCE_SQL.replace(
+              '), completions AS (',
+              'ORDER BY worker_id LIMIT $5\n), completions AS (',
+            ),
+        [
+          query.period,
+          BOOKING_TIMEZONE,
+          asOf,
+          query.workerId ?? null,
+          ...(exportLimit === undefined ? [] : [exportLimit]),
+        ],
       );
       if (!row || !Array.isArray(row.workers))
         throw new Error('Missing report');

@@ -30,3 +30,5 @@ Room/task setup, read-only ownership and the WKMS event contract are documented 
 manual task supplement in `deploy/neon-mad-tasks.sql`; no automatic migrations run.
 
 Staff account UI, delivery status and directory API details: [staff management guide](backend/STAFF_UI_GUIDE.md).
+
+Protected CSV/PDF export formats, filters and limits: [report export guide](backend/REPORT_EXPORT_GUIDE.md).
