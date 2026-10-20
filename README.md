@@ -34,3 +34,5 @@ Staff account UI, delivery status and directory API details: [staff management g
 Protected CSV/PDF export formats, filters and limits: [report export guide](backend/REPORT_EXPORT_GUIDE.md).
 
 Frontend analytical views and download setup: [report download guide](frontend/REPORT_DOWNLOAD_GUIDE.md).
+
+Kitchen stock-event contract, manual SQL and broker operations: [stock event guide](backend/STOCK_EVENTS_GUIDE.md).

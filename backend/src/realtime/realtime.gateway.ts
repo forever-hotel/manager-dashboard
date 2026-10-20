@@ -1,3 +1,4 @@
+import type { StockUpdate } from '../stock/stock-event';
 import type { TaskEvent } from './task-events.consumer';
 import {
   Injectable,
@@ -37,6 +38,7 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
   healthy = false;
   roomsHealthy = false;
   tasksHealthy = false;
+  stockHealthy = false;
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService,
@@ -76,12 +78,14 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
       socket.emit('transport.status', { healthy: this.healthy });
       socket.emit('rooms.transport.status', { healthy: this.roomsHealthy });
       socket.emit('tasks.transport.status', { healthy: this.tasksHealthy });
+      socket.emit('stock.transport.status', { healthy: this.stockHealthy });
       socket.on('disconnect', () => this.sessions.delete(socket));
     });
     this.timer = setInterval(() => {
       void this.send('transport.status', { healthy: this.healthy });
       void this.send('rooms.transport.status', { healthy: this.roomsHealthy });
       void this.send('tasks.transport.status', { healthy: this.tasksHealthy });
+      void this.send('stock.transport.status', { healthy: this.stockHealthy });
     }, 5000);
     this.timer.unref();
   }
@@ -110,6 +114,10 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
   async publishTask(event: TaskEvent) {
     if (!this.server) throw new ServiceUnavailableException();
     await this.send('task.changed', event);
+  }
+  async publishStock(event: StockUpdate) {
+    if (!this.server) throw new ServiceUnavailableException();
+    await this.send('stock.alert.changed', event);
   }
   onModuleDestroy() {
     clearInterval(this.timer);
