@@ -81,6 +81,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
+      "rooms/**/*.ts",
       "kitchen/**/*.ts",
       "realtime/**/*.ts",
       "complaints/**/*.ts",
@@ -147,6 +148,9 @@
         "branches": 90
       },
       "./src/kitchen/kitchen.service.ts": {
+        "branches": 90
+      },
+      "./src/rooms/rooms.service.ts": {
         "branches": 90
       }
     },
