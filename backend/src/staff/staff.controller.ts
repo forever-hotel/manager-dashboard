@@ -1,5 +1,8 @@
+import { StaffDirectoryService } from './staff-directory.service';
+import { StaffDirectoryDto, StaffResetDto } from './staff-directory.dto';
 import {
   Body,
+  Query,
   Get,
   Patch,
   Controller,
@@ -23,10 +26,15 @@ export class StaffController {
   constructor(
     private readonly staff: StaffService,
     private readonly profiles: StaffProfilesService,
+    private readonly directory: StaffDirectoryService,
   ) {}
+  @Get()
+  list(@Query() query: StaffDirectoryDto) {
+    return this.directory.list(query);
+  }
   @Get(':id')
   get(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.profiles.get(id);
+    return this.directory.get(id);
   }
   @Patch(':id')
   update(
@@ -39,10 +47,11 @@ export class StaffController {
   @Post(':id/reset-password')
   @HttpCode(200)
   resetPassword(
+    @Body() body: StaffResetDto,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req() request: AuthenticatedRequest,
   ) {
-    return this.staff.resetPassword(id, request.user.sub);
+    return this.staff.resetPassword(id, request.user.sub, body?.version);
   }
 
   @Post()

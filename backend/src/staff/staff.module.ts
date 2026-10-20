@@ -1,3 +1,4 @@
+import { StaffDirectoryService } from './staff-directory.service';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { StaffController } from './staff.controller';
@@ -12,6 +13,7 @@ import { StaffDeliveryWorker } from './staff-delivery.worker';
   controllers: [StaffController],
   providers: [
     StaffService,
+    StaffDirectoryService,
     StaffProfilesService,
     CredentialCipher,
     SendGridService,

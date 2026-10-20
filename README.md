@@ -28,3 +28,5 @@ Their local content must be handed over separately when needed.
 Room/task setup, read-only ownership and the WKMS event contract are documented in
 [the operations guide](backend/OPERATIONS_GUIDE.md). DDP-028/DDP-042 require the
 manual task supplement in `deploy/neon-mad-tasks.sql`; no automatic migrations run.
+
+Staff account UI, delivery status and directory API details: [staff management guide](backend/STAFF_UI_GUIDE.md).
