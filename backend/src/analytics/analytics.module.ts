@@ -8,6 +8,8 @@ import { FoodAnalyticsService } from './food-analytics.service';
 import { FoodAnalyticsController } from './food-analytics.controller';
 import { ServiceRequestAnalyticsService } from './service-request-analytics.service';
 import { ServiceRequestAnalyticsController } from './service-request-analytics.controller';
+import { WorkerPerformanceController } from './worker-performance.controller';
+import { WorkerPerformanceService } from './worker-performance.service';
 import {
   BOOKING_CLOCK,
   BookingAnalyticsService,
@@ -16,11 +18,13 @@ import {
 @Module({
   imports: [AuthModule],
   controllers: [
+    WorkerPerformanceController,
     AnalyticsController,
     FoodAnalyticsController,
     ServiceRequestAnalyticsController,
   ],
   providers: [
+    WorkerPerformanceService,
     ServiceRequestAnalyticsService,
     FoodAnalyticsService,
     LowBookingAlertsService,

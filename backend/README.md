@@ -470,3 +470,63 @@ Tests: `src/analytics/service-request-analytics.service.spec.ts` and
 PostgreSQL database and a restricted runtime role. Tests are authored, not run
 locally; CI results, coverage and real staging verification remain pending.
 The analytics service has a 90% branch coverage gate.
+
+## DDP-025 worker-performance analytics
+
+`GET /mad/analytics/worker-performance?period=day|week|month&workerId=<uuid>`
+requires a manager session after first-login password change. Both filters are
+optional: period defaults to day and omission of workerId returns all eligible
+workers. Invalid/duplicate filters and unknown keys return 400; missing/invalid
+sessions return 401 and disallowed roles/first-login sessions return 403. An
+unknown valid worker ID returns an empty `workers` array, not a fabricated worker.
+
+The worker population includes current WORKER-role staff and staff referenced by
+any retained WKMS task, including inactive staff and former workers promoted to
+other roles. Staff with no tasks remain present when their current role is WORKER.
+Results use stable `workerId` values ordered ascending, not names as identifiers.
+Names, roles and active flags reflect current staff records. No pagination is
+applied to this aggregate staff report.
+
+`period`, `timezone`, `weekStartsOn`, `start`, `end` and `asOf` describe the current
+full calendar day/week/month in Asia/Colombo, with Monday weeks and [start,end)
+bounds. Per-worker metrics are:
+
+- `completedTaskCount`: current COMPLETED tasks attributed by `completed_at` in
+  the period, irrespective of submission date. Uses retained WKMS tasks and
+  `assigned_worker_id`; service requests are not substituted for worker tasks.
+- `averageCompletionMinutes`: elapsed `completed_at - submitted_at`, rounded to
+  two decimals. The schema has no work-start timestamp, so this includes waiting
+  time and must not be presented as hands-on work time. Negative durations are
+  excluded. `validDurationCount` is the denominator; `excludedDurationCount` is
+  the difference from completed count. Without valid durations the average is
+  null; a genuine zero-minute completion remains zero.
+- `openComplaintCount`: currently SUBMITTED/UNDER_REVIEW FOSS complaints directly
+  referencing this worker, submitted on/before `asOf`, across all dates. Resolved,
+  future-submitted and unreferenced complaints do not count. No worker is inferred
+  from a complaint's order or service request. DDP-021 resolution is reflected
+  on the next read.
+- `dataQuality`: OK/WARNING and negative-duration, missing-completion and
+  unexpected-completion timestamp counts across all tasks assigned to that
+  returned worker. Missing completion times cannot enter a completion period.
+
+Task and complaint aggregates are computed independently before joining to staff,
+preventing task-by-complaint count multiplication. A single parameterized SELECT
+provides a consistent snapshot. Response cohort/unit labels make these policies
+explicit. `freshness` reports query time and the greatest update time across the
+selected staff and all task/complaint sources (null if those sources are empty).
+No credential, contact, guest, complaint narrative or task-description fields are
+read by this query or returned. Responses are no-store; missing/denied sources or
+invalid numeric results return sanitized 503 rather than fabricated zero reports.
+
+Attribution follows the retained task's current assignee: the shared schema has no
+immutable completion-assignee history. WKMS must retain completed tasks and their
+assignee to preserve historical reporting. Post-completion reassignment or source
+correction restates these metrics. Coordinate this contract with WKMS and FOSS.
+
+No schema, environment or UI changes are required. Optional commented read grants
+are in `deploy/neon-mad-worker-analytics.sql`; only a database owner should adapt
+them for a restricted MAD role. No grants or SQL run automatically at startup.
+Tests are in `src/analytics/worker-performance.service.spec.ts` and
+`test/worker-performance.e2e-spec.ts`, with a 90% service branch coverage gate.
+They are authored but not run locally. CI coverage and real provider staging
+verification remain pending.
