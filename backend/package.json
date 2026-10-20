@@ -25,6 +25,9 @@
     "test:serve": "ts-node test/serve-contract-stack.ts"
   },
   "dependencies": {
+    "@fontsource/noto-sans": "5.3.0",
+    "@fontsource/noto-sans-sinhala": "5.3.0",
+    "@fontsource/noto-sans-tamil": "5.3.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
@@ -37,6 +40,7 @@
     "bcryptjs": "3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "pdfkit": "0.20.2",
     "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -52,6 +56,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
+    "@types/pdfkit": "0.17.6",
     "@types/supertest": "^7.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
@@ -82,6 +87,7 @@
     },
     "collectCoverageFrom": [
       "rooms/**/*.ts",
+      "reports/**/*.ts",
       "tasks/**/*.ts",
       "kitchen/**/*.ts",
       "realtime/**/*.ts",

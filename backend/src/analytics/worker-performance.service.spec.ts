@@ -170,4 +170,12 @@ describe('DDP-025 worker performance', () => {
         message: 'Service Unavailable',
       });
   });
+  it('bounds the export worker cohort in SQL without changing normal analytics requests', async () => {
+    const { service, query } = setup();
+    await service.summary({ period: 'day' }, 201);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('ORDER BY worker_id LIMIT $5'),
+      ['day', 'Asia/Colombo', now.toISOString(), null, 201],
+    );
+  });
 });

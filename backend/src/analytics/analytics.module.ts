@@ -23,6 +23,15 @@ import {
     FoodAnalyticsController,
     ServiceRequestAnalyticsController,
   ],
+  exports: [
+    WorkerPerformanceService,
+    ServiceRequestAnalyticsService,
+    FoodAnalyticsService,
+    LowBookingAlertsService,
+    RevenueAnalyticsService,
+    BookingAnalyticsService,
+    OccupancyAnalyticsService,
+  ],
   providers: [
     WorkerPerformanceService,
     ServiceRequestAnalyticsService,
