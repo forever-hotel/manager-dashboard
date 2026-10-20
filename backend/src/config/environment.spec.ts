@@ -34,8 +34,9 @@ describe('Startup configuration', () => {
         DB_LOGGING: 'true',
       }),
     ).toThrow('DB_LOGGING must be false');
-    expect(validateEnvironment({ ...valid, DB_LOGGING: 'true' })).toMatchObject(
-      { DB_LOGGING: 'true' },
+    // Staff configuration also rejects parameter logging in local environments.
+    expect(() => validateEnvironment({ ...valid, DB_LOGGING: 'true' })).toThrow(
+      'DB_LOGGING must be false',
     );
   });
   it('validates optional realtime configuration without exposing broker credentials', () => {
