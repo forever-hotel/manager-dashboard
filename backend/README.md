@@ -530,3 +530,10 @@ Tests are in `src/analytics/worker-performance.service.spec.ts` and
 `test/worker-performance.e2e-spec.ts`, with a 90% service branch coverage gate.
 They are authored but not run locally. CI coverage and real provider staging
 verification remain pending.
+
+## DDP-026 / DDP-039 / DDP-041 kitchen overview
+
+The manager-only kitchen snapshot API and durable RabbitMQ-to-Socket.IO kitchen
+transport are implemented. See [setup and producer contract](KITCHEN_REALTIME_GUIDE.md)
+for manual SQL, local Compose settings, the KMS handoff, recovery behavior and
+outstanding staging/scaling verification. No tests or hosted SQL were run locally.

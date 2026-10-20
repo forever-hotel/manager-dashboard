@@ -8,6 +8,8 @@ import { validateEnvironment } from './config/environment';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { StaffModule } from './staff/staff.module';
 import { ComplaintsModule } from './complaints/complaints.module';
+import { KitchenModule } from './kitchen/kitchen.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { ComplaintsModule } from './complaints/complaints.module';
     StaffModule,
     PromotionsModule,
     ComplaintsModule,
+    KitchenModule,
+    RealtimeModule,
   ],
   controllers: [HealthController],
 })
