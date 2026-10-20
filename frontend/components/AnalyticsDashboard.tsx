@@ -1,4 +1,5 @@
 'use client';
+import ReportDownload from './ReportDownload';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   AnalyticsError,
@@ -156,6 +157,16 @@ export default function AnalyticsDashboard({
               No eligible bookings for this {period}.
             </p>
           )}
+          <div className="flex gap-4 mb-4">
+            <div>
+              <p className="text-[10.5px]">Bookings</p>
+              <ReportDownload type="bookings" filters={{ period }} />
+            </div>
+            <div>
+              <p className="text-[10.5px]">Revenue</p>
+              <ReportDownload type="revenue" filters={{ period }} />
+            </div>
+          </div>
           <BookingTrend data={data} />
           <p className="text-[10px] text-black/60 mt-3">
             Reporting timestamp: {data.bookings.asOf}

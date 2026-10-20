@@ -1,5 +1,4 @@
-import { SectionPlaceholder } from '@/components/SectionPlaceholder';
-
+import ReportsIndex from '@/components/ReportsIndex';
 export default function Page() {
-  return <SectionPlaceholder title="Reports" />;
+  return <ReportsIndex />;
 }
