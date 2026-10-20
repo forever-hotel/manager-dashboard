@@ -1,0 +1,38 @@
+# Change log
+
+## Unreleased — DDP-037
+
+- Reconcile implemented REST/BFF/event contracts, validation, permissions,
+  safe examples and analytical metric/timezone policies.
+- Add clean-checkout configuration, manual schema/grant prerequisites, initial
+  manager setup, disposable test-service instructions and operational guidance.
+- Link delivered MD requirements to code, candidate tests and existing decisions;
+  mark missing features/owner agreements/execution evidence explicitly.
+- Correct README reset-body guidance and stale export implementation wording.
+
+Documentation only: no runtime/UI/API behavior changes, schema execution or test
+execution. These entries do not publish v0.2.0 or assert clean-checkout, staging,
+coverage or final integration acceptance. See the DDP-037 review register below.
+
+## DDP-037 acceptance/verification register
+
+All cases priority High. Source baseline is the parent commit plus this
+documentation diff; record the actual candidate SHA in the reviewing PR.
+
+| ID             | Requirement / type                                 | Preconditions and input                                                                                         | Expected                                                                               | Actual / status / evidence                                                                                                                                                   |
+| -------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-MAD-037-AC1 | NFR-16; Guide4.3; SDS1.4; documentation inspection | Current controllers/DTOs/services, BFF schemas and event consumers                                              | Implemented paths, requests/responses, permissions/errors/examples/versions documented | Source reviewed; static link and inventory checks recorded in task output. Peer/provider review pending; no HTTP/event execution claimed. [API reference](API_CONTRACT.md)   |
+| TC-MAD-037-AC2 | Guide9.3; SDS7.5; clean-checkout acceptance        | Clean checkout, approved gateway checkout, development DB schema/role, disposable test services; follow runbook | Setup/config/manual prerequisites/tests succeed with recorded versions/commands        | NOT RUN under user's no-local-tests constraint. CI plus independent setup review pending. [Runbook](DEVELOPER_GUIDE.md)                                                      |
+| TC-MAD-037-AC3 | Guide6.3.3; traceability review                    | Delivered MD identifiers, ticket scope, existing code/tests/decision sources                                    | Requirement links, honest gaps, changelog, no secrets or fabricated completion         | Matrix and decision log prepared; candidate file existence checked. Formal ADR links/owner acceptance and peer approval pending. [Traceability](REQUIREMENT_TRACEABILITY.md) |
+
+Static verification: 130 relative Markdown links resolve, all 40 extracted
+method/path inventory entries reference existing controllers, and all 25
+traceability rows (22 MD identifiers) reference existing candidate source/tests.
+Markdown formatting and diff whitespace checks pass. This is inspection evidence,
+not API execution, a secret-history scan or clean-checkout acceptance.
+
+No defects were filed or evidence URLs fabricated. Attach the PR/peer review,
+clean-checkout command transcript with secrets redacted, final SHA/tool versions,
+CI artifacts and actual owner ADR/contract links to close acceptance. Code
+coverage for this documentation-only change is N/A; delivered application coverage
+requirements remain enforced by CI and must not be marked passed from this entry.
