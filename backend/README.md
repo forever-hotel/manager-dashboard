@@ -537,3 +537,10 @@ The manager-only kitchen snapshot API and durable RabbitMQ-to-Socket.IO kitchen
 transport are implemented. See [setup and producer contract](KITCHEN_REALTIME_GUIDE.md)
 for manual SQL, local Compose settings, the KMS handoff, recovery behavior and
 outstanding staging/scaling verification. No tests or hosted SQL were run locally.
+
+## DDP-027 room status
+
+`GET /mad/rooms/status` provides manager-only read-only room snapshots. Versioned
+`room.status.changed` updates reuse the authorized socket transport with a separate
+durable queue and watermark store. See [the room contract and setup](ROOM_STATUS_GUIDE.md)
+for manual SQL, source ownership, FDS publishing and pending acceptance checks.

@@ -142,6 +142,22 @@ describe('DDP-039 one-use ticket and session enforcement', () => {
       expect(await authorize()).toBeInstanceOf(Error);
       await gateway.publish(event);
       expect(emit).toHaveBeenCalledWith('kitchen.order.changed', event);
+      const roomEvent = {
+        eventId: event.eventId,
+        type: 'room.status.changed' as const,
+        roomId: '101',
+        version: 2,
+        occurredAt: event.occurredAt,
+      };
+      await gateway.publishRoom(roomEvent);
+      expect(emit).toHaveBeenCalledWith('room.status.changed', roomEvent);
+      const taskEvent = {
+        ...event,
+        type: 'task.changed' as const,
+        taskId: event.orderId,
+      };
+      await gateway.publishTask(taskEvent);
+      expect(emit).toHaveBeenCalledWith('task.changed', taskEvent);
       session.mockRejectedValueOnce(new Error('revoked'));
       await gateway.publish(event);
       expect(disconnect).toHaveBeenCalledWith(true);

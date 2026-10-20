@@ -1,4 +1,7 @@
+'use client';
 import React from 'react';
+import { useOperationsSnapshot } from '@/components/useOperationsSnapshot';
+import { roomSnapshotSchema } from '@/lib/rooms';
 
 const topBarSvg = (
   <svg
@@ -22,13 +25,28 @@ function TopBar({ title }: { title: string }) {
       <h1 className="font-medium text-[15px] text-black">{title}</h1>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1 bg-gray-100 rounded-md p-1">
-          <button className="font-normal text-[10.5px] text-black px-3 py-1 rounded">
+          <button
+            type="button"
+            disabled
+            title="Room status shows the current snapshot only"
+            className="font-normal text-[10.5px] text-black px-3 py-1 rounded"
+          >
             Day
           </button>
-          <button className="font-medium text-[10.5px] text-black px-3 py-1 rounded bg-white shadow-sm">
+          <button
+            type="button"
+            disabled
+            title="Room status shows the current snapshot only"
+            className="font-medium text-[10.5px] text-black px-3 py-1 rounded bg-white shadow-sm"
+          >
             Week
           </button>
-          <button className="font-normal text-[10.5px] text-black px-3 py-1 rounded">
+          <button
+            type="button"
+            disabled
+            title="Room status shows the current snapshot only"
+            className="font-normal text-[10.5px] text-black px-3 py-1 rounded"
+          >
             Month
           </button>
         </div>
@@ -38,50 +56,42 @@ function TopBar({ title }: { title: string }) {
   );
 }
 
-const rooms: { id: string; status: 'occ' | 'clean' | 'maint' | 'free' }[][] = [
-  [
-    { id: '101', status: 'occ' },
-    { id: '102', status: 'occ' },
-    { id: '103', status: 'clean' },
-    { id: '104', status: 'free' },
-    { id: '105', status: 'occ' },
-    { id: '106', status: 'maint' },
-    { id: '107', status: 'free' },
-    { id: '108', status: 'occ' },
-  ],
-  [
-    { id: '201', status: 'free' },
-    { id: '202', status: 'occ' },
-    { id: '203', status: 'occ' },
-    { id: '204', status: 'clean' },
-    { id: '205', status: 'free' },
-    { id: '206', status: 'occ' },
-    { id: '207', status: 'maint' },
-    { id: '208', status: 'clean' },
-  ],
-  [
-    { id: '301', status: 'occ' },
-    { id: '302', status: 'free' },
-    { id: '303', status: 'occ' },
-    { id: '304', status: 'free' },
-    { id: '305', status: 'clean' },
-    { id: '306', status: 'occ' },
-    { id: '307', status: 'occ' },
-    { id: '308', status: 'free' },
-  ],
-];
-
 const statusConfig = {
-  occ: { bg: '#e6f1fb', text: '#0c447c', label: 'Occ' },
-  free: { bg: '#eaf3de', text: '#27500a', label: 'Free' },
-  clean: { bg: '#faeeda', text: '#633806', label: 'Clean' },
-  maint: { bg: '#fcebeb', text: '#791f1f', label: 'Maint' },
+  OCCUPIED: { bg: '#e6f1fb', text: '#0c447c', label: 'Occ' },
+  VACANT: { bg: '#eaf3de', text: '#27500a', label: 'Free' },
+  REQUIRES_CLEANING: { bg: '#faeeda', text: '#633806', label: 'Clean' },
+  UNDER_MAINTENANCE: { bg: '#fcebeb', text: '#791f1f', label: 'Maint' },
 };
 
 export default function RoomsPage() {
+  const { snapshot, message, retry } = useOperationsSnapshot(
+    '/api/rooms/status',
+    roomSnapshotSchema,
+    'rooms.transport.status',
+    'room.status.changed',
+  );
+  const floors = [...new Set(snapshot?.rooms.map((r) => r.floor) ?? [])].sort(
+    (a, b) => a - b,
+  );
+  const count = (status: keyof typeof statusConfig) =>
+    snapshot ? snapshot.rooms.filter((r) => r.status === status).length : '?';
   return (
     <main className="flex-1 min-w-0 px-8 py-6">
       <TopBar title="Room status" />
+      {message && (
+        <div
+          role="status"
+          className="font-normal text-[10px] text-black/60 mb-3"
+        >
+          {message}{' '}
+          <button type="button" className="underline" onClick={retry}>
+            Retry
+          </button>
+        </div>
+      )}
+      <p className="font-normal text-[10px] text-black/60 mb-3">
+        Current snapshot ? Read only
+      </p>
 
       {/* Summary cards */}
       <section className="mb-6">
@@ -97,7 +107,7 @@ export default function RoomsPage() {
               className="font-medium text-[22px]"
               style={{ color: '#27500a' }}
             >
-              8
+              {count('VACANT')}
             </div>
           </div>
           <div className="border border-gray-200 rounded-lg p-4">
@@ -108,7 +118,7 @@ export default function RoomsPage() {
               className="font-medium text-[22px]"
               style={{ color: '#0c447c' }}
             >
-              14
+              {count('OCCUPIED')}
             </div>
           </div>
           <div className="border border-gray-200 rounded-lg p-4">
@@ -119,7 +129,7 @@ export default function RoomsPage() {
               className="font-medium text-[22px]"
               style={{ color: '#633806' }}
             >
-              4
+              {count('REQUIRES_CLEANING')}
             </div>
           </div>
           <div className="border border-gray-200 rounded-lg p-4">
@@ -130,7 +140,7 @@ export default function RoomsPage() {
               className="font-medium text-[22px]"
               style={{ color: '#791f1f' }}
             >
-              2
+              {count('UNDER_MAINTENANCE')}
             </div>
           </div>
         </div>
@@ -162,31 +172,39 @@ export default function RoomsPage() {
           </div>
         </div>
         <div className="border border-gray-200 rounded-lg p-5 space-y-5">
-          {rooms.map((floor, fi) => (
-            <div key={fi}>
+          {snapshot?.rooms.length === 0 && (
+            <p className="font-normal text-[10px] text-black/60">
+              No rooms available.
+            </p>
+          )}
+          {floors.map((floor) => (
+            <div key={floor}>
               <div className="font-normal text-[10.5px] text-black mb-2">
-                Floor {fi + 1}
+                Floor {floor}
               </div>
               <div className="grid grid-cols-8 gap-3">
-                {floor.map((room) => {
-                  const cfg = statusConfig[room.status];
-                  return (
-                    <div
-                      key={room.id}
-                      className="h-10 rounded flex items-center justify-center text-center"
-                      style={{ backgroundColor: cfg.bg }}
-                    >
-                      <span
-                        className="font-medium text-[9px] leading-tight"
-                        style={{ color: cfg.text }}
+                {snapshot?.rooms
+                  .filter((r) => r.floor === floor)
+                  .map((room) => {
+                    const cfg = statusConfig[room.status];
+                    return (
+                      <div
+                        key={room.id}
+                        aria-label={`Room ${room.number}, ${room.label}, ${room.type}`}
+                        className="h-10 rounded flex items-center justify-center text-center"
+                        style={{ backgroundColor: cfg.bg }}
                       >
-                        {room.id}
-                        <br />
-                        {cfg.label}
-                      </span>
-                    </div>
-                  );
-                })}
+                        <span
+                          className="font-medium text-[9px] leading-tight"
+                          style={{ color: cfg.text }}
+                        >
+                          {room.id}
+                          <br />
+                          {cfg.label}
+                        </span>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           ))}

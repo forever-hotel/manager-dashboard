@@ -8,6 +8,8 @@ import { validateEnvironment } from './config/environment';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { StaffModule } from './staff/staff.module';
 import { ComplaintsModule } from './complaints/complaints.module';
+import { TasksModule } from './tasks/tasks.module';
+import { RoomsModule } from './rooms/rooms.module';
 import { KitchenModule } from './kitchen/kitchen.module';
 import { RealtimeModule } from './realtime/realtime.module';
 
@@ -25,6 +27,8 @@ import { RealtimeModule } from './realtime/realtime.module';
     PromotionsModule,
     ComplaintsModule,
     KitchenModule,
+    RoomsModule,
+    TasksModule,
     RealtimeModule,
   ],
   controllers: [HealthController],

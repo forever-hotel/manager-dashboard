@@ -19,7 +19,11 @@ export class StaffService {
     private readonly database: DataSource,
     private readonly cipher: CredentialCipher,
   ) {}
-  async resetPassword(staffId: string, actorId: string) {
+  async resetPassword(
+    staffId: string,
+    actorId: string,
+    expectedVersion?: number,
+  ) {
     try {
       const result = await this.database.transaction(async (manager) => {
         const accounts = await manager.query<
@@ -37,6 +41,13 @@ export class StaffService {
         const account = accounts[0];
         if (!account || !STAFF_ROLES.includes(account.role))
           throw new NotFoundException('Staff account not found.');
+        if (
+          expectedVersion !== undefined &&
+          account.session_version !== expectedVersion
+        )
+          throw new ConflictException(
+            'The staff account changed. Reload before resetting.',
+          );
         if (!account.is_active)
           throw new ConflictException(
             'Inactive staff accounts cannot be reset.',

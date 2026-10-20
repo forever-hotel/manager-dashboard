@@ -112,4 +112,11 @@ describe('DDP-013 staff password reset', () => {
       'private database details',
     );
   });
+  it('rejects a stale expected version before hashing or writing', async () => {
+    const { service, query } = setup();
+    await expect(
+      service.resetPassword('staff-id', 'actor-id', 2),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(query).toHaveBeenCalledTimes(1);
+  });
 });

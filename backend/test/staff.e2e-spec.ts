@@ -492,6 +492,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     expect(Object.keys(original).sort()).toEqual(
       [
         'age',
+        'deliveryStatus',
         'email',
         'isActive',
         'name',
@@ -529,8 +530,15 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       }).expect(200)
     ).body as StaffProfile;
     expect(Array.isArray(changed)).toBe(false);
-    expect(Object.keys(changed).sort()).toEqual(Object.keys(original).sort());
-    expect((await readProfile(staffId).expect(200)).body).toEqual(changed);
+    expect(Object.keys(changed).sort()).toEqual(
+      Object.keys(original)
+        .filter((key) => key !== 'deliveryStatus')
+        .sort(),
+    );
+    expect((await readProfile(staffId).expect(200)).body).toEqual({
+      ...changed,
+      deliveryStatus: 'pending',
+    });
     expect(changed).toMatchObject({
       name: 'Updated Name',
       email: 'updated@example.com',
@@ -623,7 +631,10 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     ]);
     expect(responses.map((r) => r.status).sort()).toEqual([200, 409]);
     const saved = responses.find((r) => r.status === 200)?.body as StaffProfile;
-    expect((await readProfile(staffId)).body).toEqual(saved);
+    expect((await readProfile(staffId)).body).toEqual({
+      ...saved,
+      deliveryStatus: 'pending',
+    });
     await reset(staffId).expect(200);
     await edit(staffId, { version: 1, name: 'Stale After Reset' }).expect(409);
   });
@@ -678,5 +689,84 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     } finally {
       await database.query(`GRANT UPDATE ON mad_staff_deliveries TO "${role}"`);
     }
+  });
+  it('TC-MAD-044-AC1/AC2: filters, searches and paginates all roles with safe delivery status', async () => {
+    for (const [index, role] of STAFF_ROLES.entries())
+      await post({
+        ...profile,
+        role,
+        email: `staff${index}@example.com`,
+        nic: String(200012345670 + index),
+      }).expect(201);
+    const get = (query: string) =>
+      request(app.getHttpServer())
+        .get('/mad/staff?' + query)
+        .set('Authorization', 'Bearer ' + token());
+    const first = await get('search=Test&pageSize=2').expect(200);
+    const second = await get('search=Test&pageSize=2&page=2').expect(200);
+    const one = first.body as { items: { staffId: string }[]; total: number };
+    const two = second.body as { items: { staffId: string }[] };
+    expect(one.total).toBe(4);
+    expect(
+      new Set([...one.items, ...two.items].map((x) => x.staffId)).size,
+    ).toBe(4);
+    for (const role of STAFF_ROLES) {
+      const result = await get('search=Test&role=' + role).expect(200);
+      expect((result.body as { total: number }).total).toBe(1);
+    }
+    const id = one.items[0].staffId;
+    await edit(id, { version: 0, isActive: false }).expect(200);
+    const inactive = await get('search=Test&status=inactive').expect(200);
+    expect((inactive.body as { total: number }).total).toBe(1);
+    const detail = await readProfile(id).expect(200);
+    expect(detail.body).toMatchObject({
+      deliveryStatus: 'cancelled',
+      isActive: false,
+    });
+    const encoded = JSON.stringify(first.body);
+    for (const field of [
+      'password_hash',
+      'encrypted_credentials',
+      'lease_token',
+    ])
+      expect(encoded).not.toContain(field);
+    expect((await get('search=%25').expect(200)).body as unknown).toMatchObject(
+      { total: 0 },
+    );
+  });
+  it('TC-MAD-044-AC3: rejects invalid directory inputs and unauthorized requests', async () => {
+    for (const query of [
+      'page=0',
+      'pageSize=101',
+      'role=MANAGER',
+      'status=unknown',
+      'extra=1',
+      'page=1&page=2',
+    ])
+      await request(app.getHttpServer())
+        .get('/mad/staff?' + query)
+        .set('Authorization', 'Bearer ' + token())
+        .expect(400);
+    for (const [session, status] of [
+      ['', 401],
+      ['invalid', 401],
+      [token('worker'), 403],
+      [token('first'), 403],
+    ] as const)
+      await request(app.getHttpServer())
+        .get('/mad/staff')
+        .set('Authorization', 'Bearer ' + session)
+        .expect(status);
+    await readProfile(randomUUID()).expect(404);
+  });
+  it('TC-MAD-029-AC3: versioned resets reject stale accounts without credential writes', async () => {
+    const response = await post().expect(201);
+    const { staffId } = response.body as { staffId: string };
+    const before = await snapshot(staffId);
+    await reset(staffId).send({ version: 1 }).expect(409);
+    expect(await snapshot(staffId)).toEqual(before);
+    await reset(staffId).send({ version: 0 }).expect(200);
+    await reset(staffId).send({ version: 0 }).expect(409);
+    await reset(staffId).send({ version: -1 }).expect(400);
   });
 });

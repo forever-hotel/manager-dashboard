@@ -18,6 +18,11 @@ export default defineConfig({
         'app/api/promotions/**/route.ts',
         'app/api/complaints/**/route.ts',
         'app/api/kitchen/**/route.ts',
+        'app/api/rooms/**/route.ts',
+        'app/api/tasks/**/route.ts',
+        'app/api/staff/**/route.ts',
+        'app/api/realtime/**/route.ts',
+        'app/(dashboard)/rooms/page.tsx',
       ],
       exclude: ['lib/navigation.ts'],
       thresholds: {
