@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { SessionBoundary } from './SessionBoundary';
 import { Session } from '@/lib/auth';
+import { NotificationsBanner } from './Notifications';
 export function ClientLayout({
   children,
   session,
@@ -118,6 +119,7 @@ export function ClientLayout({
           tabIndex={-1}
           className="flex-1 min-w-0 md:pl-[220px]"
         >
+          <NotificationsBanner />
           {children}
         </div>
       </div>

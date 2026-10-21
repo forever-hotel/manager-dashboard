@@ -1,5 +1,5 @@
-import { SectionPlaceholder } from '@/components/SectionPlaceholder';
+import TaskLimitSettings from '@/components/TaskLimitSettings';
 
 export default function Page() {
-  return <SectionPlaceholder title="Settings" />;
+  return <TaskLimitSettings />;
 }

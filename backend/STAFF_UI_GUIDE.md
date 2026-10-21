@@ -91,3 +91,46 @@ Tests authored but NOT RUN locally (user instruction):
 Run existing CI unit/coverage, integration and browser jobs. Passing tests,
 coverage, real SendGrid delivery and staging acceptance remain pending evidence.
 No commits or pushes are performed by this implementation task.
+
+## DDP-044 read integrity and acceptance register
+
+The existing directory/read paths are completed without a UI, SQL, dependency or
+environment change. Keep the existing auth/staff supplements and read grants.
+Backend and BFF pagination accept decimal digit strings only; scientific notation,
+hexadecimal, fractional and repeated values are invalid. Search is trimmed and
+rejects control characters; percent/underscore remain literal substring characters.
+The detail endpoint accepts no query fields, matching the browser BFF.
+
+The backend explicitly projects public profile fields and validates UUID identity,
+role/status filters, booleans, bounded labels, delivery state, safe integer versions,
+nullable age/phone/NIC, duplicate IDs, total count and complete page size. Nullable
+legacy profile fields remain nullable; an unknown delivery row is the documented
+`none` state. Malformed source data returns sanitized503, never fabricated zero
+accounts. Unknown/manager IDs return404; valid pages beyond the last retain their
+matching total with an empty items array. Sorting remains lower(name), UUID.
+
+The browser validates the same profile/page constraints and verifies requested ID,
+page/pageSize and role/status against returned data. Extra credential, delivery
+payload, lease and provider-error fields are discarded rather than forwarded.
+No claim is made that an email marked sent reached the recipient: it indicates
+provider acceptance only. Reads do not alter accounts, sessions or delivery state.
+
+All cases below are High priority; actual result/status **NOT_RUN**, evidence and
+defect links pending CI/staging. Preconditions: disposable PostgreSQL, existing
+staff/auth schema, restricted MAD runtime role, seeded manager/worker/first-login
+sessions, four-role profile and delivery fixtures. Never run against Neon.
+
+| ID / requirements             | Type / candidate tests                                                    | Input and expected result                                                                                                                                                        |
+| ----------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-MAD-044-AC1 / MD-14/15/15b | API/DB `test/staff.e2e-spec.ts`; unit `src/staff/staff-directory.spec.ts` | Four supported roles, case-insensitive literal name/email/username searches, role/status filters and tied names: matching counts, deterministic UUID tiebreak and distinct pages |
+| TC-MAD-044-AC2 / MD-16/16b    | API/DB and unit suites above; frontend `test/staff-bff.test.ts`           | Selected staff UUID: allowlisted editable profile plus delivery state, no password/hash/encrypted credential/lease/provider-error leakage                                        |
+| TC-MAD-044-AC3                | API/DB suite above                                                        | Invalid/repeated pagination or detail queries400; unknown/manager IDs404; inactive filter retains deactivated staff; beyond-last page200 with truthful total                     |
+| TC-MAD-044-SOURCE             | Unit/API/DB suites above                                                  | Duplicate, incomplete, inconsistent or malformed source pages503; denied delivery-table access503; successful and failed reads leave accounts unchanged                          |
+| TC-MAD-044-AUTH               | API/DB suite; `src/common/security-boundaries.spec.ts`                    | Missing/invalid/expired tokens401; worker/first-login sessions403 on protected directory/detail reads                                                                            |
+| TC-MAD-044-BFF                | Frontend `test/staff-bff.test.ts`, `test/staff.test.tsx`                  | Invalid queries rejected; wrong ID/filter/page and duplicate/partial source results503; realistic full pagination fixtures retain existing UI/draft behavior                     |
+
+Run the existing backend/frontend CI coverage and real-database integration jobs.
+Critical directory service branch target is90%; global/new-code targets remain80%.
+Configuration/assertion presence is not measured coverage. Final CI, actual grants
+and staging results remain required acceptance evidence. No tests or hosted SQL
+were executed during DDP-044 completion.

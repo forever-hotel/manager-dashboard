@@ -115,3 +115,13 @@ ESCALATED inclusion is a blocking WKMS decision: until decided, policy enforceme
 must not be presented as complete. Version/ack event/API wire names remain open;
 do not infer them from the examples. Negative/out-of-bounds examples cannot close
 AC3 until real bounds, active-state cohort and atomic claim contract are adopted.
+
+## DDP-045 implementation update (2026-10-21)
+
+The project owner has now approved integer1..10/default3 and counting assigned
+ASSIGNED/IN_PROGRESS/ESCALATED tasks, retaining existing tasks on reduction.
+MAD settings and shared-database version/confirmation handoff are implemented;
+see [exact policy and WKMS protocol](../TASK_LIMIT_GUIDE.md). The earlier proposal
+above is historical; its ESCALATED/bounds decision is resolved locally. Actual
+WKMS owner agreement, deployed atomic claims and staging/CI evidence remain pending.
+The reference fixture is test-only, not deployed enforcement.

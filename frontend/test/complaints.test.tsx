@@ -61,6 +61,19 @@ async function open() {
 const patches = (fetcher: ReturnType<typeof setup>) =>
   fetcher.mock.calls.filter(([, init]) => init?.method === 'PATCH');
 describe('DDP-022 complaint register', () => {
+  it('opens the specific complaint linked by a notification without changing it', async () => {
+    const fetcher = setup();
+    render(<ComplaintsDashboard initialComplaintId={complaint().id} />);
+    expect(
+      await screen.findByLabelText('Internal note (manager only)'),
+    ).toBeVisible();
+    expect(
+      fetcher.mock.calls.some(
+        ([url]) => String(url) === '/api/complaints/' + complaint().id,
+      ),
+    ).toBe(true);
+    expect(patches(fetcher)).toHaveLength(0);
+  });
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();

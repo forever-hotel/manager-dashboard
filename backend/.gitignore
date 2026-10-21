@@ -16,6 +16,8 @@ lerna-debug.log*
 .DS_Store
 
 # Tests
+/performance-results/
+/test/performance/private/
 /coverage
 /.nyc_output
 

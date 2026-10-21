@@ -373,3 +373,45 @@ Example promotion draft (replace roomTypeIds with an existing test room type):
 
 Examples are illustrative fixtures, not executed evidence. Keep browser code on
 the BFF; direct bearer examples are for trusted integration tooling only.
+
+## Persistent notifications - DDP-043
+
+GET `/mad/notifications?page=1&pageSize=20` returns a manager-specific active-issue
+snapshot: items, global total/unread, complaint/stock counts, page/pageSize/queriedAt.
+PATCH `/mad/notifications/:type/:id/read` accepts only a current revision, with no
+query fields. Type is COMPLAINT/STOCK; ID UUID. Marking read does not change active
+counts or resolve source issues. Missing/invalid session401, disallowed403,
+invalid400, inactive/missing404, stale409, unavailable503. Responses are no-store.
+
+The BFF exposes `/api/notifications` and its read path, with server-held cookie
+sessions and same-origin JSON mutations. Shared state supplies the panel, dashboard
+alert area and navigation badge. Authenticated `notifications.changed` invalidates
+snapshots; `notifications.transport.status` reports source reconciliation health.
+See [exact fields, examples/policies, SQL and register](NOTIFICATIONS_GUIDE.md).
+
+## Staff directory completion - DDP-044
+
+GET `/mad/staff` retains its search/role/status filters and safe directory response.
+Pagination is decimal digits only. GET `/mad/staff/:id` accepts no query fields;
+unknown/manager IDs404, invalid input400, missing/invalid session401, disallowed403,
+invalid/unavailable source503. Stable sorting, matching totals, unique UUIDs,
+profile allowlists and current delivery state are validated before returning data.
+The BFF additionally verifies requested IDs, filters and page/pageSize. Response
+fields and UI remain unchanged. See [staff contract and register](STAFF_UI_GUIDE.md).
+
+## Worker task-limit settings - DDP-045
+
+GET/PATCH `/mad/settings/task-limit` require a manager after first-password change,
+accept no query fields and return no-store JSON. PATCH body is only integer limit
+1..10 plus expected version0..2147483646. Invalid400, missing/invalid session401,
+disallowed403, stale409, unavailable503. GET seeded requested default3/version0
+has null effective fields until WKMS confirms. Response fields: limit/version/
+updatedAt, effectiveLimit/effectiveVersion/confirmedAt, PENDING/EFFECTIVE status,
+defaultLimit3/minLimit1/maxLimit10, activeStates and assignedWorkerRequired.
+
+The BFF `/api/settings/task-limit` uses server-held sessions and same-origin JSON
+mutations. MAD owns requested policy/history; WKMS alone confirms through the
+restricted shared-DB function after transactional owner activation. No new public
+acknowledgement or claim endpoint exists. See [SQL, roles, exact protocol and
+acceptance register](TASK_LIMIT_GUIDE.md). Real WKMS production adoption remains
+pending; reference concurrency fixtures do not replace it.

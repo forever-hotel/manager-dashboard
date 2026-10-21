@@ -25,3 +25,11 @@ Do not describe entity `version` as schema version. Current events carry no
 schemaVersion field. Breaking wire changes need explicit owner agreement and
 versioning/migration policy before rollout. DDP-043 alert listing/read state,
 DDP-045 task limits and DDP-046 real-service acceptance remain open where absent.
+
+## Worker task-limit decision - DDP-045
+
+Project owner approved limits1..10/default3; assigned ASSIGNED/IN_PROGRESS/ESCALATED
+count as active. MAD stores requested/history and WKMS-confirmed versions separately.
+Shared-DB confirmation is WKMS-only and must commit with owner policy activation;
+MAD never claims tasks. See [handoff and acceptance limits](TASK_LIMIT_GUIDE.md).
+Named WKMS/deployment owner sign-off and real enforcement evidence remain pending.

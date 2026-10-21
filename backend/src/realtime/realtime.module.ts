@@ -12,6 +12,7 @@ import { RealtimeGateway } from './realtime.gateway';
 @Module({
   imports: [AuthModule, RoomsModule, TasksModule],
   controllers: [RealtimeController],
+  exports: [RealtimeGateway],
   providers: [
     RealtimeGateway,
     StockAlertsService,

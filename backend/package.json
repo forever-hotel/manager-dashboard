@@ -86,6 +86,8 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
+      "settings/**/*.ts",
+      "notifications/**/*.ts",
       "rooms/**/*.ts",
       "stock/**/*.ts",
       "reports/**/*.ts",
@@ -112,6 +114,15 @@
       "json-summary"
     ],
     "coverageThreshold": {
+      "./src/settings/task-limit.service.ts": {
+        "branches": 90
+      },
+      "./src/staff/staff-directory.service.ts": {
+        "branches": 90
+      },
+      "./src/notifications/notifications.service.ts": {
+        "branches": 90
+      },
       "global": {
         "lines": 80,
         "branches": 80

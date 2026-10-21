@@ -39,6 +39,7 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
   roomsHealthy = false;
   tasksHealthy = false;
   stockHealthy = false;
+  notificationsHealthy = false;
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService,
@@ -86,6 +87,9 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
       socket.emit('rooms.transport.status', { healthy: this.roomsHealthy });
       socket.emit('tasks.transport.status', { healthy: this.tasksHealthy });
       socket.emit('stock.transport.status', { healthy: this.stockHealthy });
+      socket.emit('notifications.transport.status', {
+        healthy: this.notificationsHealthy,
+      });
       socket.on('disconnect', () => this.sessions.delete(socket));
     });
     this.timer = setInterval(() => {
@@ -93,6 +97,9 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
       void this.send('rooms.transport.status', { healthy: this.roomsHealthy });
       void this.send('tasks.transport.status', { healthy: this.tasksHealthy });
       void this.send('stock.transport.status', { healthy: this.stockHealthy });
+      void this.send('notifications.transport.status', {
+        healthy: this.notificationsHealthy,
+      });
     }, 5000);
     this.timer.unref();
   }

@@ -1,5 +1,69 @@
 # Change log
 
+## Unreleased - DDP-047
+
+- Add opt-in 100/300-session mixed read API and authenticated persistent socket
+  load tools, sanitized results, per-route percentiles and missed-load detection.
+- Add commit-to-receipt/render evidence evaluation and proposed baseline comparison,
+  with isolated timing tests, runbook and acceptance/evidence registers.
+- Keep workload/latency approval and DDP-046/DDP-054 prerequisites explicit. No
+  performance tests or SQL executed; no UI, application or schema changes.
+  Actual capacity and performance acceptance remain unverified.
+
+## Unreleased - DDP-046
+
+- Prepare real-service integration procedures and a 45-case acceptance register
+  covering all 22 MD requirements, task limits, critical cross-system flows,
+  authorization/recovery and 14 CSV/PDF report variants.
+- Add candidate/provider revision, persistent fixture and owner sign-off evidence
+  requirements, distinguishing local contract fixtures from real providers.
+- No application, UI, schema or executable changes; no tests or SQL executed.
+  Staging is not ready, so DDP-046 remains unaccepted. See the
+  [verification pack](integration/DDP_046_VERIFICATION.md).
+
+## Unreleased - DDP-045
+
+- Add versioned manager task-limit GET/PATCH and Settings form using approved
+  integer bounds1..10/default3 and assigned ASSIGNED/IN_PROGRESS/ESCALATED cohort.
+- Separate requested from WKMS-confirmed policy; persist history and retain the
+  previous effective version through pending changes and provider failures.
+- Prepare manual request/history/confirmation schema and restricted WKMS-only
+  shared-DB confirmation function; startup runs no SQL or task mutations.
+- Add unit, BFF/component and disposable database coverage, including a clearly
+  test-only WKMS activation/claim concurrency reference and permission boundaries.
+- Extend coverage/integrity configuration. No new env/dependencies; actual WKMS
+  adoption, role grants, CI/staging and full acceptance remain pending.
+
+Tests and hosted SQL unrun. See [handoff/register](TASK_LIMIT_GUIDE.md).
+
+## Unreleased - DDP-044
+
+- Complete existing staff list/detail reads with explicit safe projections,
+  source/profile validation, unique identities and consistent counts/pages.
+- Align decimal pagination, control-character search validation and detail query
+  rejection across backend and BFF; verify requested IDs, filters and pages.
+- Extend unit, BFF and real-database coverage for deterministic search/order,
+  inactive discovery, credential privacy, denied grants and non-mutating reads.
+- Preserve UI, response fields and nullable legacy profile values; no SQL/env or
+  dependency changes. Add the critical directory branch coverage target90%.
+
+Tests unrun locally; CI/coverage and staging acceptance pending. See
+[contract/register](STAFF_UI_GUIDE.md).
+
+## Unreleased - DDP-043
+
+- Add source-derived complaint/stock snapshots and per-manager read receipts.
+- Connect the Notifications panel, dashboard alert area and navigation badge using
+  shared counts, safe detail links, stale/retry states and authenticated updates.
+- Reconcile current source state after changes/reconnect; reading never resolves
+  the underlying complaint/stock issue or removes it from active counts.
+- Prepare manual receipt SQL and unit, BFF, component and real PostgreSQL/socket
+  integration coverage. No new environment variables/dependencies.
+- Extend coverage scope and the reviewed Vitest integrity hash accordingly.
+
+SQL and tests unrun locally. CI/coverage and staging acceptance pending; see
+[deployment/register](NOTIFICATIONS_GUIDE.md).
+
 ## Unreleased - completion audit through DDP-042
 
 - Record every ticket's implementation source, candidate verification and remaining

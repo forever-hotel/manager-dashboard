@@ -111,6 +111,10 @@ describe('DDP-029 staff proxy', () => {
       '?role=MANAGER',
       '?extra=1',
       '?page=1&page=2',
+      '?page=1e2',
+      '?page=0x10',
+      '?pageSize=1.0',
+      '?search=bad%00value',
     ])
       expect((await GET(req('GET', undefined, query), context())).status).toBe(
         400,
@@ -151,5 +155,42 @@ describe('DDP-029 staff proxy', () => {
   it('rejects malformed success data', async () => {
     vi.mocked(backend).mockResolvedValue({ status: 200, data: {} });
     expect((await GET(req(), context())).status).toBe(503);
+  });
+  it('rejects duplicate/incomplete pages and mismatched IDs, filters or pagination', async () => {
+    for (const data of [
+      { ...staffPageFixture(), total: 2 },
+      {
+        ...staffPageFixture(),
+        total: 2,
+        items: [staffFixture(), staffFixture()],
+      },
+      { ...staffPageFixture(), page: 2, items: [] },
+      { ...staffPageFixture(), pageSize: 10 },
+      { ...staffPageFixture(), total: 9007199254740992 },
+    ]) {
+      vi.mocked(backend).mockResolvedValue({ status: 200, data });
+      expect((await GET(req(), context())).status).toBe(503);
+    }
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: staffFixture() });
+    expect(
+      (await GET(req(), context(['77f4568c-89ab-4c12-b321-123456789012'])))
+        .status,
+    ).toBe(503);
+    vi.mocked(backend).mockResolvedValue({
+      status: 200,
+      data: staffPageFixture(),
+    });
+    expect(
+      (
+        await GET(
+          req('GET', undefined, '?role=WORKER&status=active'),
+          context(),
+        )
+      ).status,
+    ).toBe(200);
+    for (const query of ['?role=RECEPTIONIST', '?status=inactive'])
+      expect((await GET(req('GET', undefined, query), context())).status).toBe(
+        503,
+      );
   });
 });

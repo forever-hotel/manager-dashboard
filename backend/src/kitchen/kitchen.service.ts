@@ -4,7 +4,8 @@ import {
   Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import type { DataSource } from 'typeorm';
 import { KitchenQueryDto } from './kitchen-query.dto';
 import { parseKitchenSnapshot } from './kitchen-snapshot';
 
@@ -56,6 +57,7 @@ SELECT jsonb_build_object('asOf',as_of,'deliveredSince',delivered_since,
 @Injectable()
 export class KitchenService {
   constructor(
+    @InjectDataSource()
     private readonly database: DataSource,
     @Optional()
     @Inject('KITCHEN_CLOCK')
