@@ -119,8 +119,20 @@ describe('DDP-030 report validation and encoding', () => {
       ]),
     );
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
-    expect(pdf.toString('latin1')).toContain('/Title (Worker report)');
-    expect(pdf.toString('latin1')).toMatch(/\/Count [2-9]/);
+    const content = pdf.toString('latin1');
+    // PDFKit stores metadata strings in indirect objects, not inline in /Info.
+    // Follow /Title to its object so unrelated text cannot satisfy this check.
+    const titleReference = content.match(/\/Title\s+(\d+)\s+(\d+)\s+R\b/);
+    expect(titleReference).not.toBeNull();
+    const titleObject = content.match(
+      new RegExp(
+        `(?:^|\\n)${titleReference?.[1]}\\s+${titleReference?.[2]}\\s+obj\\s*([\\s\\S]*?)\\s*endobj`,
+      ),
+    );
+    expect(titleObject?.[1]).toBe('(Worker report)');
+    expect(content).toMatch(/\/BaseFont \/[A-Z]+\+NotoSansSinhala-Regular/);
+    expect(content).toMatch(/\/BaseFont \/[A-Z]+\+NotoSansTamil-Regular/);
+    expect(content).toMatch(/\/Count [2-9]/);
     expect(pdf.subarray(-20).toString()).toContain('%%EOF');
   });
 });

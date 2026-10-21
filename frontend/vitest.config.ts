@@ -21,6 +21,7 @@ export default defineConfig({
         'app/api/rooms/**/route.ts',
         'app/api/tasks/**/route.ts',
         'app/api/staff/**/route.ts',
+        'app/api/reports/**/route.ts',
         'app/api/realtime/**/route.ts',
         'app/(dashboard)/rooms/page.tsx',
       ],

@@ -87,6 +87,7 @@
     },
     "collectCoverageFrom": [
       "rooms/**/*.ts",
+      "stock/**/*.ts",
       "reports/**/*.ts",
       "tasks/**/*.ts",
       "kitchen/**/*.ts",
@@ -158,6 +159,9 @@
         "branches": 90
       },
       "./src/tasks/tasks.service.ts": {
+        "branches": 90
+      },
+      "./src/stock/stock-alerts.service.ts": {
         "branches": 90
       },
       "./src/rooms/rooms.service.ts": {

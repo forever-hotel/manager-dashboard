@@ -3,6 +3,10 @@
 Next.js uses Tailwind, server-side API forwarding and HttpOnly authentication
 cookies. The current UI and login/password-change/logout behavior are retained.
 
+Use the shared [clean-checkout runbook](../backend/DEVELOPER_GUIDE.md) and
+[API/BFF/event reference](../backend/API_CONTRACT.md) for current configuration,
+manual database prerequisites, direct versus gateway mode and test-service setup.
+
 Use Node 22 and configure `.env.local` from `.env.example`. From this directory:
 
 ```powershell
@@ -41,12 +45,12 @@ calendar period. An always-visible table provides exact daily booking values.
 Native buttons support keyboard access, pressed states identify the selection,
 and loading/errors/empty data have status messages. Failed loads can be retried.
 Zero previous revenue displays N/A; unavailable API data displays an error, not zero.
-Revenue follows the approved completed-payment policy in backend/README.md.
+Revenue follows the approved completed-payment policy in the backend API reference.
 
 The previous mock occupancy, stay-length, alert and recent-booking content was
 removed from this page to avoid presenting invented live metrics. Existing fonts,
-neutral colors, cards and chart styling are retained. Export controls remain in
-DDP-031; no nonfunctional export buttons are shown.
+neutral colors, cards and chart styling are retained. Export controls are now
+implemented under DDP-031; see [the download guide](REPORT_DOWNLOAD_GUIDE.md).
 
 Run `npm test -- analytics.test.tsx analytics-bff.test.ts` for component/client and
 BFF contract cases. Tests were added but not run during implementation.
