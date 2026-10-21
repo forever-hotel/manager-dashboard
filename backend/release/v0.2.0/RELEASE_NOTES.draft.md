@@ -6,7 +6,7 @@ it until DDP-036 is accepted. Candidate SHA, release date and approver: pending.
 ## Candidate scope requiring verification
 
 - Versioned promotion creation/lifecycle and manager UI, including publication
-  visibility. Actual Hotel Website publication remains blocked by DDP-040.
+  visibility. MAD publication is implemented; actual HW consumer/checkout and acknowledgement acceptance remain pending.
 - Complaint register, authorized status transitions and manager internal history.
 - Staff directory/profile/role/reset/deactivation workflows for all four roles.
 - Service/worker/food analytics views and their zero/error/period states.

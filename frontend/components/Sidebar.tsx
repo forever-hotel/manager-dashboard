@@ -4,6 +4,7 @@ import React, { useRef, useState } from 'react';
 import { replaceLocation } from '@/lib/navigation';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useNotifications } from './Notifications';
 
 const groups: {
   label: string;
@@ -48,6 +49,7 @@ export function Sidebar({
   username: string;
 }) {
   const pathname = usePathname();
+  const notifications = useNotifications();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const locked = useRef(false);
@@ -105,6 +107,12 @@ export function Sidebar({
                       prefetch={false}
                       onClick={close}
                       aria-current={isActive ? 'page' : undefined}
+                      aria-label={
+                        item.href === '/notifications' && notifications
+                          ? 'Notifications ' +
+                            (notifications.snapshot?.total ?? '?')
+                          : undefined
+                      }
                       className={`flex items-center justify-between w-full h-9 rounded-md px-2 transition-colors ${
                         isActive ? 'bg-gray-100' : 'hover:bg-gray-50'
                       }`}
@@ -119,7 +127,8 @@ export function Sidebar({
                           {item.name}
                         </span>
                       </div>
-                      {'badge' in item && item.badge != null && (
+                      {((item.href === '/notifications' && notifications) ||
+                        ('badge' in item && item.badge != null)) && (
                         <span
                           className={`text-[10px] text-black rounded-full w-5 h-5 flex items-center justify-center ${
                             isActive
@@ -127,7 +136,9 @@ export function Sidebar({
                               : 'font-normal bg-gray-100'
                           }`}
                         >
-                          {item.badge}
+                          {item.href === '/notifications' && notifications
+                            ? (notifications.snapshot?.total ?? '?')
+                            : item.badge}
                         </span>
                       )}
                     </Link>

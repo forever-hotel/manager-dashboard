@@ -4,8 +4,10 @@ import {
   Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import type { DataSource } from 'typeorm';
 import { KitchenQueryDto } from './kitchen-query.dto';
+import { parseKitchenSnapshot } from './kitchen-snapshot';
 
 export interface KitchenOrder {
   id: string;
@@ -36,6 +38,12 @@ export const KITCHEN_SQL = `WITH bounds AS (
 ), filtered AS (SELECT * FROM eligible WHERE $1::text IS NULL OR status::text=$1),
  page AS (SELECT * FROM filtered ORDER BY placed_at,order_id LIMIT $2 OFFSET $3)
 SELECT jsonb_build_object('asOf',as_of,'deliveredSince',delivered_since,
+ 'invalidSource',(
+   EXISTS(SELECT 1 FROM public.kms_food_orders WHERE status IS NULL
+     OR status::text NOT IN ('PLACED','IN_PREPARATION','READY','DELIVERED','CANCELLED')
+     OR (status='DELIVERED' AND delivered_at IS NULL))
+   OR EXISTS(SELECT 1 FROM public.kms_food_order_items i JOIN eligible e ON e.order_id=i.order_id
+     WHERE i.quantity IS NULL OR i.quantity<=0)),
  'total',(SELECT count(*) FROM filtered),
  'counts',(SELECT jsonb_object_agg(state,(SELECT count(*) FROM eligible WHERE status::text=state))
    FROM unnest(ARRAY['PLACED','IN_PREPARATION','READY','DELIVERED']) AS state),
@@ -49,6 +57,7 @@ SELECT jsonb_build_object('asOf',as_of,'deliveredSince',delivered_since,
 @Injectable()
 export class KitchenService {
   constructor(
+    @InjectDataSource()
     private readonly database: DataSource,
     @Optional()
     @Inject('KITCHEN_CLOCK')
@@ -56,24 +65,17 @@ export class KitchenService {
   ) {}
   async snapshot(query: KitchenQueryDto): Promise<KitchenSnapshot> {
     try {
-      const [row] = await this.database.query<{ snapshot: KitchenSnapshot }[]>(
+      const asOf = this.now().toISOString();
+      const [row] = await this.database.query<{ snapshot: unknown }[]>(
         KITCHEN_SQL,
         [
           query.status ?? null,
           query.pageSize,
           (query.page - 1) * query.pageSize,
-          this.now().toISOString(),
+          asOf,
         ],
       );
-      if (!row || !Array.isArray(row.snapshot.orders)) throw new Error();
-      const result = row.snapshot;
-      for (const n of [
-        result.total,
-        ...Object.values(result.counts),
-        ...result.orders.flatMap((o) => [o.version, o.itemCount]),
-      ])
-        if (!Number.isSafeInteger(n) || n < 0) throw new Error();
-      return { ...result, page: query.page, pageSize: query.pageSize };
+      return parseKitchenSnapshot(row?.snapshot, query, asOf);
     } catch {
       throw new ServiceUnavailableException();
     }

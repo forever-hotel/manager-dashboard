@@ -33,11 +33,14 @@ jobs:
     env:
       TEST_DATABASE_URL: postgresql://postgres:integration-only@localhost:5432/mad_test
       TEST_RABBITMQ_URL: amqp://mad:integration-only@localhost:5672/mad_test
+      COVERAGE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -48,7 +51,9 @@ jobs:
       - run: npm run format:check
       - run: node ../scripts/verify-quality-gates.mjs
       - run: npm run build
+      - run: node --test ../scripts/check-changed-coverage.test.mjs
       - run: npm run test:cov -- --runInBand
+      - run: node ../scripts/check-changed-coverage.mjs backend
       - run: npm run test:integration
       - run: npm audit --audit-level=high
       - uses: actions/upload-artifact@v4
@@ -67,8 +72,11 @@ jobs:
       NEXT_PUBLIC_API_URL: http://localhost:4000
       BACKEND_API_URL: http://localhost:4000
       APP_ORIGIN: http://localhost:3000
+      COVERAGE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -82,6 +90,7 @@ jobs:
       - run: npm run format:check
       - run: node ../scripts/verify-quality-gates.mjs
       - run: npm run test:cov
+      - run: node ../scripts/check-changed-coverage.mjs frontend
       - run: npm run build
       - run: npm run audit:ci
       - uses: actions/upload-artifact@v4

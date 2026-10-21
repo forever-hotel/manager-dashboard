@@ -1,7 +1,7 @@
 # Room board and read-only tasks — DDP-028 / DDP-042
 
 The Rooms page reads FDS rooms; Tasks reads WKMS tasks. MAD cannot claim,
-assign, complete, or edit these records. Task-limit configuration remains DDP-045.
+assign, complete, or edit these records. Task-limit settings and the WKMS confirmation handoff are documented in TASK_LIMIT_GUIDE.md; production claiming remains WKMS-owned.
 The existing room card colors and layout are retained. Day/week/month controls
 remain visible but disabled because the source provides current status only.
 The Tasks placeholder is replaced with a queue using existing typography,
@@ -35,6 +35,8 @@ Source query failures show unavailable/stale rather than invented task counts.
   unassigned tasks. Clearing and applying the UI worker field removes the filter.
 - Page defaults to 1, maximum 100000; pageSize defaults to 20, range 1–100.
 - Unknown, repeated or invalid filters return 400.
+- Pagination accepts decimal digit strings only, matching the BFF. Scientific,
+  hexadecimal and fractional notation are rejected.
 - Sort: submitted_at descending, task_id ascending, including completed history.
   No arbitrary day window or silent dropping of completed tasks.
 - Response: `{tasks,total,queriedAt,page,pageSize,source:"WKMS",readOnly:true}`.
@@ -43,6 +45,11 @@ Source query failures show unavailable/stale rather than invented task counts.
   and `version` (exact updated_at epoch microseconds).
 - The page and total use one PostgreSQL statement snapshot. Empty results are 200;
   missing/denied/malformed source data returns sanitized 503.
+- Snapshot validation rejects duplicate UUIDs, incomplete pages, mismatched status,
+  worker or single-task lookups, invalid calendar/offset timestamps and revisions
+  that differ from updated_at epoch microseconds. Labels must be nonblank and
+  contain no control characters. Public fields are explicitly projected, including
+  the assignee, so unrelated source properties cannot leak into REST or events.
 - Missing/invalid sessions: 401; worker role or mandatory password change: 403.
   Claim/assign/complete paths `/mad/tasks/:id/{claim|assign|complete}` return 403
   for authenticated managers. No source write endpoint exists.
@@ -126,3 +133,24 @@ WKMS must separately deny manager mutation through its own API. MAD cannot enfor
 another repository's owner endpoints; shared DB grants and MAD route guards protect
 this application's boundary. Real WKMS producer delivery and owner authorization
 require staging evidence before final cross-system acceptance.
+
+### DDP-042 acceptance register
+
+All entries are high priority. Preconditions are an isolated PostgreSQL database,
+restricted MAD runtime role and seeded manager/worker/first-login sessions;
+broker/socket cases additionally require the isolated RabbitMQ `mad_test` host.
+Tests are authored, not executed locally. Actual results and evidence remain
+pending CI and staging; no passing coverage or external owner adoption is claimed.
+
+| ID / requirement               | Type and test                                                                        | Input and expected result                                                                                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-MAD-042-AC1 / MD-17         | API/DB: `test/tasks.e2e-spec.ts`                                                     | Five distinct states, status/worker filters and pages: stable IDs, assignee/category/priority/room/timestamps, exact microsecond versions and no duplicate page rows              |
+| TC-MAD-042-AC2 / MD-17, NFR-03 | API/DB/broker/socket: `test/tasks.e2e-spec.ts`                                       | Committed source event publishes authoritative task; disconnect, complete source and reconnect: fresh GET returns completed state without requiring the missed event              |
+| TC-MAD-042-AC3 / MD-17         | API/DB: `test/tasks.e2e-spec.ts`                                                     | Invalid/repeated filters return 400; missing/invalid auth returns 401; worker/first-login/manager mutations return 403; restricted SQL UPDATE denied; source unchanged            |
+| TC-MAD-042-BOUNDARY / MD-17    | Unit: `src/tasks/tasks.spec.ts`                                                      | Empty/beyond-last pages remain valid; malformed/duplicate/incomplete or mismatched source, unsafe revisions and invalid dates return sanitized 503; extra source fields discarded |
+| TC-MAD-042-RECOVERY / NFR-03   | Unit/component: `src/realtime/task-consumer.spec.ts`, frontend `test/tasks.test.tsx` | Persistent retry, duplicate/version handling, reconnect snapshot reload and authorization failure behavior                                                                        |
+
+No new SQL or environment variables are introduced by the DDP-042 completion.
+Keep the existing manual task supplement and least-privilege grants above.
+WKMS owner-side manager permissions, committed producer events and real staging
+propagation remain external release gates, not implemented by MAD's route guard.

@@ -1,0 +1,13 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": "metrics\\.spec\\.ts$",
+  "transform": { "^.+\\.ts$": "ts-jest" },
+  "collectCoverageFrom": ["metrics.ts"],
+  "coverageDirectory": "../../coverage/performance-tools",
+  "coverageThreshold": {
+    "global": { "lines": 80, "branches": 80 },
+    "./metrics.ts": { "branches": 90 }
+  }
+}

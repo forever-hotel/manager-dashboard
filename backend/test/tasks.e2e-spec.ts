@@ -170,6 +170,10 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
       'worker=invalid',
       'page=0',
       'pageSize=101',
+      'page=1e2',
+      'page=0x10',
+      'pageSize=1.0',
+      'page=1&page=2',
       'status=ASSIGNED&status=COMPLETED',
     ])
       await get(query).expect(400);
@@ -180,11 +184,21 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
       [provider.issue('first-login'), 403],
     ] as const)
       await get('', token).expect(status);
-    for (const action of ['claim', 'assign', 'complete'])
-      await request(app.getHttpServer())
-        .post('/mad/tasks/' + taskId + '/' + action)
-        .set('Authorization', 'Bearer ' + provider.issue('manager'))
-        .expect(403);
+    for (const action of ['claim', 'assign', 'complete']) {
+      for (const [token, status] of [
+        [null, 401],
+        ['bad', 401],
+        [provider.issue('worker'), 403],
+        [provider.issue('first-login'), 403],
+        [provider.issue('manager'), 403],
+      ] as const) {
+        const req = request(app.getHttpServer()).post(
+          '/mad/tasks/' + taskId + '/' + action,
+        );
+        if (token) req.set('Authorization', 'Bearer ' + token);
+        await req.expect(status);
+      }
+    }
     await get().expect(200);
     expect(await database.query('SELECT * FROM wkms_tasks')).toEqual(before);
     const runtime = app.get(DataSource);
@@ -291,6 +305,16 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
       );
       await channel.waitForConfirms();
       expect(await received).toEqual({ ...event, task: room });
+      client.disconnect();
+      await database.query(
+        "UPDATE wkms_tasks SET status='COMPLETED',completed_at=now(),updated_at=clock_timestamp() WHERE task_id=$1",
+        [taskId],
+      );
+      client = await socket();
+      const recovered = ((await get().expect(200)).body as Summary).tasks[0];
+      expect(recovered).toMatchObject({ id: taskId, status: 'COMPLETED' });
+      expect(recovered.version).toBeGreaterThan(room.version);
+      expect(recovered.completedAt).not.toBeNull();
     } finally {
       client?.disconnect();
       await channel.close();

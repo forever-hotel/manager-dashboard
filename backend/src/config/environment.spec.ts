@@ -6,6 +6,24 @@ describe('Startup configuration', () => {
     JWT_SECRET: 'test-secret-with-at-least-32-characters',
     JWT_ISSUER: 'mad',
   };
+  it('requires explicit publication enablement and a broker URL when enabled', () => {
+    expect(validateEnvironment(valid)).toMatchObject({
+      MAD_PROMOTIONS_PUBLISH_ENABLED: 'false',
+    });
+    expect(() =>
+      validateEnvironment({ ...valid, MAD_PROMOTIONS_PUBLISH_ENABLED: 'yes' }),
+    ).toThrow('MAD_PROMOTIONS_PUBLISH_ENABLED');
+    expect(() =>
+      validateEnvironment({ ...valid, MAD_PROMOTIONS_PUBLISH_ENABLED: 'true' }),
+    ).toThrow('RABBITMQ_URL');
+    expect(
+      validateEnvironment({
+        ...valid,
+        MAD_PROMOTIONS_PUBLISH_ENABLED: 'true',
+        RABBITMQ_URL: 'amqp://localhost/mad_test',
+      }),
+    ).toMatchObject({ MAD_PROMOTIONS_PUBLISH_ENABLED: 'true' });
+  });
   it.each(['', 'invalid', '-0.1', '1.01'])(
     'rejects invalid alert configuration at startup: %s',
     (value) => {

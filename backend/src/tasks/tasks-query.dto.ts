@@ -1,5 +1,8 @@
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+
+const pageNumber = ({ value }: { value: unknown }) =>
+  typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
 
 export class TasksQueryDto {
   @IsOptional()
@@ -10,13 +13,13 @@ export class TasksQueryDto {
   @IsUUID()
   worker?: string;
 
-  @Type(() => Number)
+  @Transform(pageNumber)
   @IsInt()
   @Min(1)
   @Max(100000)
   page = 1;
 
-  @Type(() => Number)
+  @Transform(pageNumber)
   @IsInt()
   @Min(1)
   @Max(100)

@@ -1,5 +1,39 @@
 # Manager dashboard backend
 
+DDP-047: [opt-in API/socket load tools and performance verification](test/performance/README.md).
+Profile prepared; no local tests/load executed. Staging measurements and owner
+approval are required before performance acceptance.
+
+DDP-046: [real-service verification pack](integration/DDP_046_VERIFICATION.md),
+[case register](integration/acceptance-register.csv) and
+[execution evidence record](integration/EVIDENCE.md).
+Prepared only: staging is not ready; real-provider acceptance remains pending.
+
+DDP-045: [task-limit settings, manual SQL and WKMS handoff](TASK_LIMIT_GUIDE.md).
+MAD saves remain pending until real WKMS activation confirms their exact version.
+
+DDP-044: [staff directory/read validation and acceptance register](STAFF_UI_GUIDE.md).
+No additional SQL, environment or UI changes are required.
+
+DDP-043: [persistent notifications, manual SQL and acceptance register](NOTIFICATIONS_GUIDE.md).
+Apply the reviewed notification receipt supplement manually before using this feature.
+
+[DDP-001 through DDP-042 source audit](DDP_001_042_AUDIT.md) records implementation
+references and remaining acceptance/external-owner work. The prepared
+[v0.1.0 gate](SPRINT_5_READINESS.md) remains unaccepted until CI/staging evidence.
+
+DDP-042: [read-only worker task feed, deployment and acceptance register](OPERATIONS_GUIDE.md).
+Existing UI is preserved; no additional SQL or environment changes are required.
+
+DDP-040: [promotion publisher setup and proposed HW checkout contract](PROMOTION_SYNC_GUIDE.md).
+Publication defaults disabled; review the new manual SQL before enabling it.
+
+DDP-039: [reliable real-time transport and acceptance register](REALTIME_GUIDE.md).
+
+DDP-038: [ownership and integration contract pack](contracts/DDP_038_CONTRACT_PACK.md),
+[deterministic metric examples](contracts/DDP_038_METRIC_EXAMPLES.md) and
+[decisions awaiting owner review](contracts/DDP_038_REVIEW_REGISTER.md).
+
 NestJS provides manager authentication, staff management, analytics, promotions,
 complaints, read-only operational feeds, exports and authenticated event delivery.
 

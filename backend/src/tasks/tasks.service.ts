@@ -1,7 +1,24 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { isUUID } from 'class-validator';
+import { isISO8601, isUUID } from 'class-validator';
 import { DataSource } from 'typeorm';
 import { TasksQueryDto } from './tasks-query.dto';
+
+function timestamp(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    isISO8601(value, { strict: true }) &&
+    /(Z|[+-]\d{2}:\d{2})$/.test(value) &&
+    Number.isFinite(Date.parse(value))
+  );
+}
+function label(value: unknown, maximum: number): value is string {
+  return (
+    typeof value === 'string' &&
+    Boolean(value.trim()) &&
+    value.length <= maximum &&
+    !/\p{Cc}/u.test(value)
+  );
+}
 
 export interface WorkerTask {
   id: string;
@@ -50,14 +67,31 @@ export class TasksService {
         !row ||
         !Array.isArray(row.tasks) ||
         !Number.isSafeInteger(row.total) ||
-        row.total < 0
+        row.total < 0 ||
+        !(row.queried_at instanceof Date) ||
+        !Number.isFinite(row.queried_at.getTime()) ||
+        row.tasks.length !==
+          Math.min(
+            query.pageSize,
+            Math.max(0, row.total - (query.page - 1) * query.pageSize),
+          ) ||
+        (id !== undefined && row.total > 1)
       )
         throw new Error();
+      const seen = new Set<string>();
+      const tasks: WorkerTask[] = [];
       for (const task of row.tasks) {
         if (
+          !task ||
+          typeof task !== 'object' ||
+          typeof task.id !== 'string' ||
           !isUUID(task.id) ||
-          typeof task.roomNumber !== 'string' ||
-          !task.roomNumber.length ||
+          seen.has(task.id.toLowerCase()) ||
+          (id !== undefined && task.id.toLowerCase() !== id.toLowerCase()) ||
+          (query.status !== undefined && task.status !== query.status) ||
+          (query.worker !== undefined &&
+            task.assignee?.id?.toLowerCase() !== query.worker.toLowerCase()) ||
+          !label(task.roomNumber, 10) ||
           ![
             'ROOM_CLEANING',
             'EXTRA_TOWELS',
@@ -76,21 +110,47 @@ export class TasksService {
             'ESCALATED',
           ].includes(task.status) ||
           (task.assignee !== null &&
-            (!isUUID(task.assignee.id) ||
-              typeof task.assignee.name !== 'string')) ||
+            (!task.assignee ||
+              typeof task.assignee.id !== 'string' ||
+              !isUUID(task.assignee.id) ||
+              !label(task.assignee.name, 200))) ||
           !Number.isSafeInteger(task.version) ||
           task.version < 0 ||
-          !Number.isFinite(Date.parse(task.updatedAt)) ||
-          !Number.isFinite(Date.parse(task.submittedAt)) ||
+          !timestamp(task.updatedAt) ||
+          !timestamp(task.submittedAt) ||
           (task.status === 'COMPLETED'
-            ? !task.completedAt ||
-              !Number.isFinite(Date.parse(task.completedAt))
+            ? !task.completedAt || !timestamp(task.completedAt)
             : task.completedAt !== null)
         )
           throw new Error();
+        const fraction =
+          /\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/.exec(task.updatedAt)?.[1] ?? '';
+        if (
+          fraction.length > 6 ||
+          task.version !==
+            Date.parse(task.updatedAt) * 1000 +
+              Number(fraction.padEnd(6, '0').slice(3))
+        )
+          throw new Error();
+        seen.add(task.id.toLowerCase());
+        tasks.push({
+          id: task.id,
+          roomNumber: task.roomNumber,
+          category: task.category,
+          priority: task.priority,
+          status: task.status,
+          assignee:
+            task.assignee === null
+              ? null
+              : { id: task.assignee.id, name: task.assignee.name },
+          submittedAt: task.submittedAt,
+          updatedAt: task.updatedAt,
+          completedAt: task.completedAt,
+          version: task.version,
+        });
       }
       return {
-        tasks: row.tasks,
+        tasks,
         total: row.total,
         queriedAt: row.queried_at.toISOString(),
         page: query.page,

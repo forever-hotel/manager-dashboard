@@ -710,6 +710,15 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     expect(
       new Set([...one.items, ...two.items].map((x) => x.staffId)).size,
     ).toBe(4);
+    expect([...one.items, ...two.items].map((x) => x.staffId)).toEqual(
+      [...one.items, ...two.items].map((x) => x.staffId).sort(),
+    );
+    expect(
+      (await get('search=STAFF0%40EXAMPLE.COM').expect(200)).body as unknown,
+    ).toMatchObject({ total: 1 });
+    expect(
+      (await get('search=Test&page=100').expect(200)).body as unknown,
+    ).toMatchObject({ total: 4, items: [] });
     for (const role of STAFF_ROLES) {
       const result = await get('search=Test&role=' + role).expect(200);
       expect((result.body as { total: number }).total).toBe(1);
@@ -723,6 +732,19 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       deliveryStatus: 'cancelled',
       isActive: false,
     });
+    const user = (detail.body as { username: string }).username;
+    expect(
+      (await get('search=' + encodeURIComponent(user)).expect(200))
+        .body as unknown,
+    ).toMatchObject({ total: 1 });
+    for (const field of [
+      'password',
+      'password_hash',
+      'encrypted_credentials',
+      'lease_token',
+      'last_error_code',
+    ])
+      expect(JSON.stringify(detail.body)).not.toContain('"' + field + '"');
     const encoded = JSON.stringify(first.body);
     for (const field of [
       'password_hash',
@@ -742,6 +764,10 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       'status=unknown',
       'extra=1',
       'page=1&page=2',
+      'page=1e2',
+      'page=0x10',
+      'pageSize=1.0',
+      'search=bad%00value',
     ])
       await request(app.getHttpServer())
         .get('/mad/staff?' + query)
@@ -758,6 +784,33 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
         .set('Authorization', 'Bearer ' + session)
         .expect(status);
     await readProfile(randomUUID()).expect(404);
+    await readProfile(ids.manager).expect(404);
+    await readProfile('not-a-uuid').expect(400);
+    await request(app.getHttpServer())
+      .get('/mad/staff/' + ids.worker + '?extra=1')
+      .set('Authorization', 'Bearer ' + token())
+      .expect(400);
+  });
+  it('TC-MAD-044-AC3: directory reads never mutate accounts and denied delivery access is unavailable', async () => {
+    const { staffId } = (await post().expect(201)).body as { staffId: string };
+    const before = await snapshot(staffId);
+    await readProfile(staffId).expect(200);
+    await request(app.getHttpServer())
+      .get('/mad/staff?status=active')
+      .set('Authorization', 'Bearer ' + token())
+      .expect(200);
+    expect(await snapshot(staffId)).toEqual(before);
+    await database.query(
+      `REVOKE SELECT ON mad_staff_deliveries FROM "${role}"`,
+    );
+    try {
+      expect((await readProfile(staffId).expect(503)).body as unknown).toEqual({
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Service temporarily unavailable. Please retry.',
+      });
+    } finally {
+      await database.query(`GRANT SELECT ON mad_staff_deliveries TO "${role}"`);
+    }
   });
   it('TC-MAD-029-AC3: versioned resets reject stale accounts without credential writes', async () => {
     const response = await post().expect(201);

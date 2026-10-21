@@ -215,6 +215,19 @@ describe('DDP-029 staff management', () => {
             ...staffPageFixture(),
             page: url.includes('page=2') ? 2 : 1,
             total: 21,
+            items: Array.from(
+              { length: url.includes('page=2') ? 1 : 20 },
+              (_, index) => ({
+                ...staffFixture(),
+                staffId:
+                  '67f4568c-89ab-4c12-b321-' +
+                  String(index + (url.includes('page=2') ? 20 : 0)).padStart(
+                    12,
+                    '0',
+                  ),
+                name: index === 0 ? 'Test Worker' : 'Worker ' + index,
+              }),
+            ),
           }),
         ),
     );

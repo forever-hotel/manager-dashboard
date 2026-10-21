@@ -1,5 +1,9 @@
 import { StaffDirectoryService } from './staff-directory.service';
-import { StaffDirectoryDto, StaffResetDto } from './staff-directory.dto';
+import {
+  StaffDetailQueryDto,
+  StaffDirectoryDto,
+  StaffResetDto,
+} from './staff-directory.dto';
 import {
   Body,
   Query,
@@ -33,7 +37,11 @@ export class StaffController {
     return this.directory.list(query);
   }
   @Get(':id')
-  get(@Param('id', new ParseUUIDPipe()) id: string) {
+  get(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: StaffDetailQueryDto,
+  ) {
+    void query;
     return this.directory.get(id);
   }
   @Patch(':id')
