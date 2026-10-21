@@ -204,6 +204,9 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
       'pageSize=101',
       'pageSize=',
       'page=1&page=2',
+      'page=1e2',
+      'page=0x10',
+      'pageSize=1.0',
       'extra=1',
     ])
       await get(query).expect(400);
@@ -221,6 +224,35 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     expect(
       await database.query('SELECT order_id,status FROM kms_food_orders'),
     ).toEqual([{ order_id: id, status: 'PLACED' }]);
+  });
+  it('TC-MAD-041-AC3: delivered orders without a completion timestamp cannot masquerade as zero activity', async () => {
+    const id = await order('DELIVERED');
+    const failed = await get().expect(503);
+    expect(failed.body as unknown).toEqual({
+      code: 'SERVICE_UNAVAILABLE',
+      message: 'Service temporarily unavailable. Please retry.',
+    });
+    await database.query(
+      'UPDATE kms_food_orders SET delivered_at=$2 WHERE order_id=$1',
+      [id, clock],
+    );
+    expect(((await get().expect(200)).body as Summary).counts.DELIVERED).toBe(
+      1,
+    );
+  });
+  it('TC-MAD-041-AC1: delivered retention includes hotel midnight and asOf, excludes earlier/future deliveries', async () => {
+    await order('DELIVERED', '2026-10-18T18:29:59.999999Z');
+    await order('DELIVERED', '2026-10-18T18:30:00Z');
+    await order('DELIVERED', clock.toISOString());
+    await order('DELIVERED', '2026-10-19T06:00:00.000001Z');
+    const result = (await get('status=DELIVERED&pageSize=1&page=3').expect(200))
+      .body as Summary;
+    expect(result.counts.DELIVERED).toBe(2);
+    expect(result.total).toBe(2);
+    expect(result.orders).toEqual([]);
+    expect(Date.parse(result.deliveredSince)).toBe(
+      Date.parse('2026-10-18T18:30:00Z'),
+    );
   });
   it('returns an explicit unavailable response when KMS access is denied', async () => {
     await database.query(
