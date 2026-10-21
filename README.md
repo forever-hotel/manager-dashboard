@@ -1,5 +1,8 @@
 # Forever Hotel manager dashboard
 
+Promotion publication setup, manual SQL and HW handoff:
+[DDP-040 integration guide](backend/PROMOTION_SYNC_GUIDE.md).
+
 Cross-subsystem data ownership, policy proposals and pending approvals:
 [DDP-038 contract pack](backend/contracts/DDP_038_CONTRACT_PACK.md).
 

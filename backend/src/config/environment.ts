@@ -3,13 +3,19 @@ import { validateStaffConfig } from '../staff/staff-config';
 
 export function validateEnvironment(env: Record<string, unknown>) {
   env = { ...env };
+  const promotions = env.MAD_PROMOTIONS_PUBLISH_ENABLED ?? 'false';
+  if (promotions !== 'true' && promotions !== 'false')
+    throw new Error(
+      'Configuration: MAD_PROMOTIONS_PUBLISH_ENABLED must be true or false',
+    );
+  env.MAD_PROMOTIONS_PUBLISH_ENABLED = promotions;
   const realtime = env.MAD_REALTIME_ENABLED ?? 'false';
   if (realtime !== 'true' && realtime !== 'false')
     throw new Error(
       'Configuration: MAD_REALTIME_ENABLED must be true or false',
     );
   env.MAD_REALTIME_ENABLED = realtime;
-  if (realtime === 'true') {
+  if (realtime === 'true' || promotions === 'true') {
     try {
       if (typeof env.RABBITMQ_URL !== 'string') throw new Error();
       const url = new URL(env.RABBITMQ_URL);

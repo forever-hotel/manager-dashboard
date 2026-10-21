@@ -1,5 +1,18 @@
 # Change log
 
+## Unreleased - DDP-040
+
+- Add opt-in transactional promotion outbox publication with persistent mandatory
+  routing, broker confirms, stable IDs and database-backed capped backoff.
+- Add a manual outbox retry-column/index/grant supplement; startup runs no SQL.
+- Add publisher unit/integration tests and explicit test-only HW consumer/checkout
+  contract fixtures for eligibility, lifecycle, history and atomic final use.
+- Document proposed HW wire/checkout semantics and remaining owner/staging gates.
+
+UI unchanged. Tests unrun locally; publisher defaults disabled. Actual website
+consumer, idempotent checkout/payment enforcement and staging acceptance remain
+pending, not replaced by reference fixtures. See [guide/register](PROMOTION_SYNC_GUIDE.md).
+
 ## Unreleased - DDP-039
 
 - Complete the existing broker/socket transport with immutable kitchen event-ID

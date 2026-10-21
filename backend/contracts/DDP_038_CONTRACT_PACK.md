@@ -104,6 +104,11 @@ nonexistent targets404. Auth and health have explicitly documented exceptions.
 
 ## Events, schemas and versions
 
+DDP-040 follow-up: MAD's [opt-in promotion publisher](../PROMOTION_SYNC_GUIDE.md)
+now supplies a concrete proposed envelope and retry implementation. HW adoption,
+checkout authority/grants and acknowledgement remain pending; this does not
+retroactively approve the DDP-038 interface or delivery dates.
+
 Current broker envelopes do **not** contain schemaVersion. `version` is the
 source entity's monotonic revision, normally exact PostgreSQL updated_at epoch
 microseconds (safe integer). It is not an API version or delivery retry count.

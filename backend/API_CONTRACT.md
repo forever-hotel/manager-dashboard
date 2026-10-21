@@ -317,8 +317,10 @@ See [stock guide](STOCK_EVENTS_GUIDE.md) and [exact types](src/stock/stock-event
 
 Promotion transactions currently write private outbox rows with event_type
 `promotion.upsert`/`promotion.deleted`, event_id, promo_id, promotion_version and
-payload equal to Promotion. No broker wire envelope/website delivery/ack consumer
-is implemented (DDP-040). Complaint outbox payload is `{type:"complaint.status_changed",
+payload equal to Promotion. DDP-040 now adds opt-in confirmed broker publication
+with envelope `{eventId,type,promotionId,version,occurredAt,promotion}`; the HW
+consumer/checkout and application acknowledgement remain external/pending. See
+[publication and HW contract](PROMOTION_SYNC_GUIDE.md). Complaint outbox payload is `{type:"complaint.status_changed",
 complaintId,version,previousStatus,status,referencedWorkerId,occurredAt}`; event_id
 is a separate column, **not inside this payload**. No note is published. Its
 downstream notifications integration remains pending. Neither outbox persistence
