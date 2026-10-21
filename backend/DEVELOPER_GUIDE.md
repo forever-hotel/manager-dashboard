@@ -269,8 +269,22 @@ cleans up. Keep these ports free; it does not reuse existing dev servers.
 Current suites cover auth and reports, not full real-provider acceptance. CI
 requires backend/frontend >=80% lines/branches and critical configured logic
 
-> =90% branches; changed-code coverage still needs measured baseline evidence.
+> =90% branches. CI additionally compares LCOV-covered changed lines/branches with
+> the push's previous SHA or PR base SHA (80%, critical branches90%). The JSON report
+> includes both SHAs and is uploaded with coverage. Actual measured evidence is
+> still required; configured thresholds are not a passing result.
 > The audit exception and its expiry are documented in [security review](SECURITY_REVIEW.md).
+
+After generating coverage yourself, the same check can be run from the applicable
+backend/frontend directory. Set `COVERAGE_BASE_SHA` to the full reviewed comparison
+commit, then run `node ../scripts/check-changed-coverage.mjs backend` (or `frontend`).
+Coverage scope follows existing Jest/Vitest instrumentation. Changed executable
+lines and branches with LCOV records are measured; pure comments/type-only changes
+have no executable denominator. Startup/page wrappers and external service code
+outside that scope require separate review and integration evidence. Missing LCOV
+or invalid comparison revisions fail the check. New branches compare against the
+empty tree when GitHub supplies an all-zero previous SHA. Workflow checkouts fetch
+history so normal push and PR comparison commits are available.
 
 For a basic isolated container smoke fixture, CI uses:
 

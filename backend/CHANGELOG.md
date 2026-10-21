@@ -1,5 +1,19 @@
 # Change log
 
+## Unreleased - completion audit through DDP-042
+
+- Record every ticket's implementation source, candidate verification and remaining
+  acceptance or external-owner requirements in the DDP-001 through DDP-042 audit.
+- Prepare DDP-017's missing 52-row foundation acceptance register, staging review,
+  draft v0.1.0 notes and retrospective; no execution results or release claimed.
+- Add CI LCOV checks for changed instrumented lines/branches (80%) and configured
+  critical branches (90%), with comparison SHAs and uploaded JSON evidence.
+- Accept platform checkout line endings in formatting checks without UI rewrites.
+- Refresh stale DDP-040 references to distinguish MAD publication from pending HW
+  consumer, checkout/redemption and acknowledgement acceptance.
+
+Tests remain unrun locally; no hosted SQL, commit, push or release performed.
+
 ## Unreleased - DDP-042
 
 - Harden the existing WKMS task feed with exact revision checks, strict timestamps,

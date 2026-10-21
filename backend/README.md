@@ -1,5 +1,9 @@
 # Manager dashboard backend
 
+[DDP-001 through DDP-042 source audit](DDP_001_042_AUDIT.md) records implementation
+references and remaining acceptance/external-owner work. The prepared
+[v0.1.0 gate](SPRINT_5_READINESS.md) remains unaccepted until CI/staging evidence.
+
 DDP-042: [read-only worker task feed, deployment and acceptance register](OPERATIONS_GUIDE.md).
 Existing UI is preserved; no additional SQL or environment changes are required.
 
