@@ -273,12 +273,39 @@ describe('DDP-045 policy API and reference WKMS handoff on disposable PostgreSQL
     );
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
+    for (const [index, result] of results.entries()) {
+      if (result.status === 'fulfilled')
+        expect(result.value).toEqual({ task_id: tasks[index] });
+      else
+        expect(result.reason).toMatchObject({ message: 'ACTIVE_TASK_LIMIT' });
+    }
     expect(
       await database.query(
         'SELECT count(*)::int AS count FROM wkms_tasks WHERE assigned_worker_id=$1',
         [worker],
       ),
     ).toEqual([{ count: 2 }]);
+  });
+  it('returns the claimed task and rejects an already assigned task without changing its owner', async () => {
+    await applyWkmsTaskLimit(wkms);
+    const worker = provider.ids.get('worker')!;
+    const task = randomUUID();
+    await database.query(
+      "INSERT INTO wkms_tasks VALUES($1,NULL,'UNASSIGNED')",
+      [task],
+    );
+    await expect(claimWkmsTask(wkms, worker, task)).resolves.toEqual({
+      task_id: task,
+    });
+    await expect(claimWkmsTask(wkms, worker, task)).rejects.toThrow(
+      'TASK_UNAVAILABLE',
+    );
+    expect(
+      await database.query(
+        'SELECT assigned_worker_id,status FROM wkms_tasks WHERE task_id=$1',
+        [task],
+      ),
+    ).toEqual([{ assigned_worker_id: worker, status: 'ASSIGNED' }]);
   });
   it('keeps the previous effective policy if WKMS cannot commit its acknowledgement', async () => {
     await applyWkmsTaskLimit(wkms);

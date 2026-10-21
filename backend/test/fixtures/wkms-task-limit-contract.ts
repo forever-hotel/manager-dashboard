@@ -45,11 +45,13 @@ export async function claimWkmsTask(
     );
     if (Number(load.total) >= policy.task_limit)
       throw new Error('ACTIVE_TASK_LIMIT');
-    const rows = await db.query<{ task_id: string }[]>(
+    // TypeORM's PostgreSQL UPDATE result is [returned rows, affected count].
+    const [rows, affected] = await db.query<[{ task_id: string }[], number]>(
       "UPDATE public.wkms_tasks SET assigned_worker_id=$1,status='ASSIGNED' WHERE task_id=$2 AND status='UNASSIGNED' AND assigned_worker_id IS NULL RETURNING task_id",
       [workerId, taskId],
     );
-    if (rows.length !== 1) throw new Error('TASK_UNAVAILABLE');
+    if (affected !== 1 || rows.length !== 1)
+      throw new Error('TASK_UNAVAILABLE');
     return rows[0];
   });
 }
