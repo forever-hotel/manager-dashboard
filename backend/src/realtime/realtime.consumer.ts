@@ -5,8 +5,11 @@ import { connect, ChannelModel, Channel } from 'amqplib';
 import { DataSource } from 'typeorm';
 import { KitchenEvent, RealtimeGateway } from './realtime.gateway';
 
+export class InvalidKitchenEvent extends Error {}
+
 export function parseKitchenEvent(raw: unknown): KitchenEvent {
-  if (!raw || typeof raw !== 'object') throw new Error('Invalid event');
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw))
+    throw new InvalidKitchenEvent('Invalid event');
   const e = raw as Record<string, unknown>;
   if (
     e.type !== 'kitchen.order.changed' ||
@@ -20,11 +23,11 @@ export function parseKitchenEvent(raw: unknown): KitchenEvent {
     !isISO8601(e.occurredAt, { strict: true }) ||
     !/(Z|[+-]\d{2}:\d{2})$/.test(e.occurredAt)
   )
-    throw new Error('Invalid event');
+    throw new InvalidKitchenEvent('Invalid event');
   return {
-    eventId: e.eventId,
+    eventId: e.eventId.toLowerCase(),
     type: e.type,
-    orderId: e.orderId,
+    orderId: e.orderId.toLowerCase(),
     version: Number(e.version),
     occurredAt: e.occurredAt,
   };
@@ -52,11 +55,25 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
         'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
         [event.orderId],
       );
-      const [seen] = await manager.query<{ exists: boolean }[]>(
-        'SELECT EXISTS(SELECT 1 FROM mad_realtime_events WHERE event_id=$1) AS exists',
+      const [seen] = await manager.query<
+        { exists: boolean; payload: KitchenEvent | null }[]
+      >(
+        'SELECT EXISTS(SELECT 1 FROM mad_realtime_events WHERE event_id=$1) AS exists, (SELECT payload FROM mad_realtime_events WHERE event_id=$1) AS payload',
         [event.eventId],
       );
-      if (seen.exists) return;
+      if (seen.exists) {
+        const prior = seen.payload ? parseKitchenEvent(seen.payload) : null;
+        if (
+          !prior ||
+          prior.eventId !== event.eventId ||
+          prior.type !== event.type ||
+          prior.orderId !== event.orderId ||
+          prior.version !== event.version ||
+          prior.occurredAt !== event.occurredAt
+        )
+          throw new InvalidKitchenEvent('Conflicting event identity');
+        return;
+      }
       const [last] = await manager.query<{ version: string }[]>(
         'SELECT version FROM mad_realtime_versions WHERE order_id=$1',
         [event.orderId],
@@ -72,11 +89,18 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
           Boolean(stale),
         ],
       );
-      if (!stale)
+      if (!stale) {
         await manager.query(
           'INSERT INTO mad_realtime_versions(order_id,version) VALUES ($1,$2) ON CONFLICT(order_id) DO UPDATE SET version=EXCLUDED.version',
           [event.orderId, event.version],
         );
+        // An invalidation for the latest version replaces unsent older ones.
+        // Retain their inbox receipts, but do not replay superseded notifications.
+        await manager.query(
+          'UPDATE mad_realtime_events SET delivered_at=now() WHERE order_id=$1 AND version<$2 AND delivered_at IS NULL',
+          [event.orderId, event.version],
+        );
+      }
     });
   }
   private async attach() {
@@ -147,7 +171,11 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
             () => {
               channel.ack(message);
             },
-            () => {
+            (error: unknown) => {
+              if (error instanceof InvalidKitchenEvent) {
+                channel.nack(message, false, false);
+                return;
+              }
               // Closing requeues unacknowledged delivery without a tight retry loop.
               this.gateway.healthy = false;
               void connection.close().catch(() => undefined);

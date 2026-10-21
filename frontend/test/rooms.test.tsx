@@ -120,6 +120,19 @@ describe('DDP-028 room board', () => {
     });
     expect(screen.getByRole('status')).toHaveTextContent('five attempts');
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
+    const ticketCalls = () =>
+      fetchMock.mock.calls.filter(([url]) => String(url).includes('ticket'))
+        .length;
+    expect(ticketCalls()).toBe(6);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60000);
+    });
+    expect(ticketCalls()).toBe(6);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(ticketCalls()).toBe(7);
   });
   it('does not restore protected data when a late snapshot follows ticket rejection', async () => {
     let finish!: (response: Response) => void;

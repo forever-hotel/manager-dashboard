@@ -3,6 +3,9 @@
 Source review: 2026-10-21. These are implemented contracts, not a claim of
 cross-service acceptance. MAD is the subsystem name; DDP is the ticket prefix.
 No OpenAPI endpoint or generated Swagger UI is currently provided.
+Ownership, undecided interfaces and proposed policy resolutions are recorded in
+the [DDP-038 pack](contracts/DDP_038_CONTRACT_PACK.md); proposals are not new
+implemented permissions or provider-approved wire contracts.
 The [method/path inventory](contracts/endpoint-inventory.csv) enumerates every
 current REST controller route, including public health aliases and denied task
 mutations. It was extracted statically without starting the application.
@@ -247,6 +250,9 @@ CANCELLED is excluded. Task category ROOM_CLEANING/EXTRA_TOWELS/WATER_BOTTLES/
 MAINTENANCE/LAUNDRY/FOOD_DELIVERY/OTHER; priority HIGH/NORMAL. Completed tasks have
 completedAt, other statuses null. ALL methods on `/mad/tasks/:id/{claim,assign,
 complete}` reject authorized managers with403; no room/kitchen/task mutation API.
+Task pagination uses decimal digits only. Task snapshots validate unique IDs,
+filter/page consistency and exact updated_at microsecond revisions, and project
+only documented public fields. Inconsistent source data returns sanitized503.
 
 Report types: bookings, revenue, worker-performance, staff (worker-performance
 alias, **not staff credentials**), food-orders, service-requests, occupancy,
@@ -262,6 +268,11 @@ filename, bounds and signature. Pagination in UI does not restrict the export
 cohort. Missing data is not an invented zero-valued report.
 
 ## Events and WebSocket transport
+
+See [DDP-039 transport reliability](REALTIME_GUIDE.md) for immutable kitchen event
+identities, superseded invalidations, exact ticket expiry, reconnect and auth-race
+behavior. Permanent kitchen ID conflicts are dead-lettered, not acknowledged as
+duplicates. No schema or public event shape changed.
 
 Producer contracts use durable topic `hotel.events`, persistent messages and
 publisher confirms after the source transaction/outbox commits. Envelope max8192
@@ -309,8 +320,10 @@ See [stock guide](STOCK_EVENTS_GUIDE.md) and [exact types](src/stock/stock-event
 
 Promotion transactions currently write private outbox rows with event_type
 `promotion.upsert`/`promotion.deleted`, event_id, promo_id, promotion_version and
-payload equal to Promotion. No broker wire envelope/website delivery/ack consumer
-is implemented (DDP-040). Complaint outbox payload is `{type:"complaint.status_changed",
+payload equal to Promotion. DDP-040 now adds opt-in confirmed broker publication
+with envelope `{eventId,type,promotionId,version,occurredAt,promotion}`; the HW
+consumer/checkout and application acknowledgement remain external/pending. See
+[publication and HW contract](PROMOTION_SYNC_GUIDE.md). Complaint outbox payload is `{type:"complaint.status_changed",
 complaintId,version,previousStatus,status,referencedWorkerId,occurredAt}`; event_id
 is a separate column, **not inside this payload**. No note is published. Its
 downstream notifications integration remains pending. Neither outbox persistence

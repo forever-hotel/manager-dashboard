@@ -3,7 +3,11 @@ import { DataSource } from 'typeorm';
 import { Server, Socket } from 'socket.io';
 import { AuthService } from '../auth/auth.service';
 import { RealtimeGateway, KitchenEvent } from './realtime.gateway';
-import { parseKitchenEvent, RealtimeConsumer } from './realtime.consumer';
+import {
+  InvalidKitchenEvent,
+  parseKitchenEvent,
+  RealtimeConsumer,
+} from './realtime.consumer';
 import { RealtimeController } from './realtime.controller';
 import type { AuthenticatedRequest } from '../auth/jwt-auth.guard';
 const event: KitchenEvent = {
@@ -16,6 +20,13 @@ const event: KitchenEvent = {
 describe('DDP-039 event validation and persistence', () => {
   it('accepts only versioned timestamped kitchen events and discards unknown fields', () => {
     expect(parseKitchenEvent({ ...event, secret: 'hidden' })).toEqual(event);
+    expect(
+      parseKitchenEvent({
+        ...event,
+        eventId: event.eventId.toUpperCase(),
+        orderId: event.orderId.toUpperCase(),
+      }),
+    ).toEqual(event);
     for (const value of [
       null,
       1,
@@ -53,7 +64,7 @@ describe('DDP-039 event validation and persistence', () => {
     query
       .mockClear()
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ exists: true }]);
+      .mockResolvedValueOnce([{ exists: true, payload: event }]);
     await service.accept(event);
     expect(query).toHaveBeenCalledTimes(2);
     query
@@ -66,6 +77,25 @@ describe('DDP-039 event validation and persistence', () => {
       expect.stringContaining('INSERT INTO mad_realtime_events'),
       expect.arrayContaining([true]),
     );
+  });
+  it('rejects reuse of a persisted event ID with different content without writing', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ exists: true, payload: event }]);
+    const service = new RealtimeConsumer(
+      new ConfigService(),
+      {
+        transaction: (
+          work: (manager: { query: typeof query }) => Promise<void>,
+        ) => work({ query }),
+      } as unknown as DataSource,
+      {} as RealtimeGateway,
+    );
+    await expect(
+      service.accept({ ...event, version: 3 }),
+    ).rejects.toBeInstanceOf(InvalidKitchenEvent);
+    expect(query).toHaveBeenCalledTimes(2);
   });
   it('leaves dispatch pending on send failure and marks it only after send succeeds', async () => {
     const query = jest
@@ -201,7 +231,7 @@ describe('DDP-039 one-use ticket and session enforcement', () => {
     const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
     try {
       sock.handshake.auth.ticket = gateway.ticket('private').ticket;
-      clock.mockReturnValue(now + 31000);
+      clock.mockReturnValue(now + 30000);
       expect(await authorize()).toBeInstanceOf(Error);
       for (let i = 0; i < 1000; i++) gateway.ticket('private');
       expect(() => gateway.ticket('private')).toThrow();
@@ -229,4 +259,22 @@ describe('DDP-039 one-use ticket and session enforcement', () => {
     ).toEqual({ ticket: 'one-use' });
     expect(ticket).toHaveBeenCalledWith('private');
   });
+  it.each([
+    [null],
+    [[]],
+    ['invalid'],
+    [{ ticket: 1 }],
+    [{ ticket: 'oversized'.repeat(100) }],
+  ])(
+    'rejects malformed handshake auth without exposing an exception: %j',
+    async (auth: unknown) => {
+      const { gateway, sock, authorize } = setup();
+      try {
+        sock.handshake.auth = auth as Socket['handshake']['auth'];
+        expect(await authorize()).toEqual(new Error('UNAUTHENTICATED'));
+      } finally {
+        gateway.onModuleDestroy();
+      }
+    },
+  );
 });
