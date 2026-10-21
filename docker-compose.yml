@@ -22,6 +22,7 @@ services:
       NODE_ENV: development
       PORT: 4000
       MAD_REALTIME_ENABLED: "true"
+      MAD_PROMOTIONS_PUBLISH_ENABLED: ${MAD_PROMOTIONS_PUBLISH_ENABLED:-false}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://mad:mad-local-only@mad-rabbitmq:5672}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       DB_HOST: ${DB_HOST:?Set DB_HOST}

@@ -2,8 +2,11 @@
 
 DDP-037 reconciliation, 2026-10-21. This is a description of existing implemented
 choices and user-approved policies, not a newly negotiated cross-team contract.
-No formal ADR file was found in the supplied checkout; none is invented or marked
-approved. DDP-038 must record actual owner approvals/ADR links where required.
+DDP-038 now provides a [contract pack](contracts/DDP_038_CONTRACT_PACK.md),
+[metric examples](contracts/DDP_038_METRIC_EXAMPLES.md),
+[blocking-decision register](contracts/DDP_038_REVIEW_REGISTER.md) and an actual
+new [ADR-038-001](contracts/decisions/ADR-038-001.md). The ADR records existing
+choices and proposals; cross-team/supervisor approval remains pending.
 
 | Decision                    | Current implementation / source                                                                                                              | Remaining agreement/evidence                                                                                                            |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |

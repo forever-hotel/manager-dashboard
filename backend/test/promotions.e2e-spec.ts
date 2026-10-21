@@ -15,6 +15,13 @@ import {
   promotionView,
 } from '../src/promotions/promotions.service';
 import { seedLocalAuth } from './local-auth-fixture';
+import { ConfigService } from '@nestjs/config';
+import { connect } from 'amqplib';
+import {
+  PromotionBroker,
+  PromotionMessage,
+} from '../src/promotions/promotion-broker';
+import { PromotionPublicationWorker } from '../src/promotions/promotion-publication.worker';
 
 type Promotion = ReturnType<typeof promotionView>;
 describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
@@ -64,6 +71,10 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
     await database.query(
       readFileSync('../deploy/neon-mad-promotion-lifecycle.sql', 'utf8'),
     );
+    await database.query(
+      readFileSync('../deploy/neon-mad-promotion-publication.sql', 'utf8'),
+    );
+    await database.query(`GRANT UPDATE ON mad_promotion_outbox TO "${role}"`);
     await database.query(`GRANT SELECT,INSERT ON mad_promotion_outbox TO "${role}";
       GRANT DELETE ON mad_promotion_room_types TO "${role}";
       CREATE TABLE bookings(booking_id uuid PRIMARY KEY,promo_id uuid REFERENCES mad_promotion_codes(promo_id) ON DELETE SET NULL,total_amount integer NOT NULL)`);
@@ -75,7 +86,13 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         ConfigModule.forRoot({
           isGlobal: true,
           ignoreEnvFile: true,
-          load: [() => ({ JWT_SECRET: secret, JWT_ISSUER: 'mad' })],
+          load: [
+            () => ({
+              JWT_SECRET: secret,
+              JWT_ISSUER: 'mad',
+              MAD_PROMOTIONS_PUBLISH_ENABLED: 'false',
+            }),
+          ],
         }),
         TypeOrmModule.forRoot({
           type: 'postgres',
@@ -116,6 +133,178 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
       .set('Authorization', 'Bearer ' + provider.issue('manager'))
       .send(body);
   }
+  it('TC-MAD-040-AC2/AC3: reference atomic HW checkout admits only one final redemption and retains history', async () => {
+    // This SQL is a contract fixture, not a production HW checkout endpoint.
+    const created = (await post({ ...payload, maxRedemptions: 2 }).expect(201))
+      .body as Promotion;
+    await database.query(
+      'UPDATE mad_promotion_codes SET current_redemptions=1 WHERE promo_id=$1',
+      [created.id],
+    );
+    const historicalBooking = randomUUID();
+    await database.query('INSERT INTO bookings VALUES ($1,$2,7500)', [
+      historicalBooking,
+      created.id,
+    ]);
+    const reserveAndBook = `WITH reserved AS (
+      UPDATE mad_promotion_codes SET current_redemptions=current_redemptions+1
+      WHERE promo_id=$1 AND status='ACTIVE' AND deleted_at IS NULL
+        AND current_redemptions<max_redemptions
+        AND valid_from<=$3::timestamptz AND $3::timestamptz<valid_until
+        AND EXISTS(SELECT 1 FROM mad_promotion_room_types r WHERE r.promo_id=$1 AND r.room_type_id=$4)
+      RETURNING promo_id
+    ) INSERT INTO bookings(booking_id,promo_id,total_amount)
+      SELECT $2,promo_id,7500 FROM reserved RETURNING booking_id`;
+    const results = await Promise.all(
+      [randomUUID(), randomUUID()].map((id) =>
+        database.query<{ booking_id: string }[]>(reserveAndBook, [
+          created.id,
+          id,
+          '2026-10-16T00:00:00Z',
+          roomId,
+        ]),
+      ),
+    );
+    expect(results.map((rows) => rows.length).sort()).toEqual([0, 1]);
+    expect(
+      await database.query(
+        'SELECT current_redemptions FROM mad_promotion_codes WHERE promo_id=$1',
+        [created.id],
+      ),
+    ).toEqual([{ current_redemptions: 2 }]);
+    await action(created.id, 0, 'delete').expect(200);
+    expect(
+      await database.query(
+        'SELECT booking_id FROM bookings WHERE booking_id=$1',
+        [historicalBooking],
+      ),
+    ).toHaveLength(1);
+    expect(
+      await database.query(reserveAndBook, [
+        created.id,
+        randomUUID(),
+        '2026-10-16T00:00:00Z',
+        roomId,
+      ]),
+    ).toEqual([]);
+  });
+  it('TC-MAD-040-AC3: persists failure and retries the same event after restart without losing pending work', async () => {
+    await post().expect(201);
+    const config = new ConfigService({
+      MAD_PROMOTIONS_PUBLISH_ENABLED: 'true',
+    });
+    const failed = jest.fn().mockRejectedValue(new Error('HW offline'));
+    const runtime = app.get(DataSource);
+    const worker = new PromotionPublicationWorker(config, runtime, {
+      publish: failed,
+    } as unknown as PromotionBroker);
+    await worker.processOnce();
+    const [pending] = await database.query<
+      {
+        event_id: string;
+        published_at: Date | null;
+        attempts: number;
+        last_error: string;
+      }[]
+    >(
+      'SELECT event_id,published_at,attempts,last_error FROM mad_promotion_outbox',
+    );
+    expect(pending).toMatchObject({
+      published_at: null,
+      attempts: 1,
+      last_error: 'PROMOTION_PUBLICATION_FAILED',
+    });
+    const publish = jest.fn().mockResolvedValue(undefined);
+    const restarted = new PromotionPublicationWorker(config, runtime, {
+      publish,
+    } as unknown as PromotionBroker);
+    await database.query(
+      "UPDATE mad_promotion_outbox SET next_attempt_at=now()+interval '1 hour'",
+    );
+    await restarted.processOnce();
+    expect(publish).not.toHaveBeenCalled(); // Durable backoff survives restart.
+    await database.query(
+      "UPDATE mad_promotion_outbox SET next_attempt_at=now()-interval '1 second'",
+    );
+    const other = new PromotionPublicationWorker(config, runtime, {
+      publish,
+    } as unknown as PromotionBroker);
+    await Promise.all([restarted.processOnce(), other.processOnce()]);
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({ eventId: pending.event_id }),
+    );
+    expect(
+      await database.query(
+        'SELECT event_id FROM mad_promotion_outbox WHERE published_at IS NULL',
+      ),
+    ).toEqual([]);
+  });
+  it('TC-MAD-040-AC1: routes a committed publication through a real confirmed broker contract queue', async () => {
+    const url = process.env.TEST_RABBITMQ_URL;
+    if (!url || new URL(url).pathname !== '/mad_test')
+      throw new Error('TEST_RABBITMQ_URL must use disposable mad_test vhost');
+    const connection = await connect(url);
+    const channel = await connection.createChannel();
+    try {
+      await channel.assertExchange('hotel.events', 'topic', { durable: true });
+      const queue = await channel.assertQueue('', { exclusive: true });
+      await channel.bindQueue(queue.queue, 'hotel.events', 'promotion.*');
+      const created = (await post().expect(201)).body as Promotion;
+      const config = new ConfigService({
+        MAD_PROMOTIONS_PUBLISH_ENABLED: 'true',
+        RABBITMQ_URL: url,
+      });
+      const publisher = new PromotionPublicationWorker(
+        config,
+        app.get(DataSource),
+        new PromotionBroker(config),
+      );
+      await publisher.processOnce();
+      const delivery = await channel.get(queue.queue, { noAck: false });
+      expect(delivery).not.toBe(false);
+      if (!delivery) throw new Error('Missing committed event');
+      const event = JSON.parse(delivery.content.toString()) as PromotionMessage;
+      expect(event).toMatchObject({
+        type: 'promotion.upsert',
+        promotionId: created.id,
+        version: 0,
+        promotion: {
+          code: 'AUTUMN_26',
+          discountType: 'PERCENTAGE',
+          discountValue: 25,
+          roomTypeIds: [roomId],
+        },
+      });
+      expect(delivery.properties.messageId).toBe(event.eventId);
+      channel.ack(delivery);
+      for (const [version, kind] of [
+        [0, 'deactivate'],
+        [1, 'delete'],
+      ] as const) {
+        await action(created.id, version, kind).expect(200);
+        await publisher.processOnce();
+        const next = await channel.get(queue.queue, { noAck: false });
+        if (!next) throw new Error('Missing lifecycle publication');
+        const update = JSON.parse(next.content.toString()) as PromotionMessage;
+        expect(update.version).toBe(version + 1);
+        expect(update.type).toBe(
+          kind === 'delete' ? 'promotion.deleted' : 'promotion.upsert',
+        );
+        expect(update.promotion.status).toBe('INACTIVE');
+        if (kind === 'delete')
+          expect(update.promotion.deletedAt).not.toBeNull();
+        channel.ack(next);
+      }
+      expect(
+        await database.query(
+          'SELECT event_id FROM mad_promotion_outbox WHERE published_at IS NULL',
+        ),
+      ).toEqual([]);
+    } finally {
+      await connection.close();
+    }
+  }, 30000);
   function get(path: string) {
     return request(app.getHttpServer())
       .get(path)
