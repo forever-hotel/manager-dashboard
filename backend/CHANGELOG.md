@@ -1,5 +1,18 @@
 # Change log
 
+## Unreleased - DDP-039
+
+- Complete the existing broker/socket transport with immutable kitchen event-ID
+  checks, permanent-conflict dead-lettering and transactional retirement of unsent
+  older invalidations while retaining durable receipts.
+- Reject malformed socket handshake auth and expire tickets exactly at30seconds.
+- Prevent late kitchen snapshots from restoring protected data after ticket denial.
+- Add unit, real-database/socket and component regressions for conflict/restart,
+  authorization races and bounded/manual reconnect behavior.
+
+UI unchanged; no new SQL/env or hosted database execution. Tests remain unrun
+locally; CI and real-provider/timing acceptance pending. See [register](REALTIME_GUIDE.md).
+
 ## Unreleased - DDP-038
 
 - Add field-level ownership and cross-system API/event contract review pack.

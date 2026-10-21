@@ -160,5 +160,46 @@ describe('DDP-026 live kitchen', () => {
     });
     expect(screen.getByRole('status')).toHaveTextContent('five attempts');
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
+    const ticketCalls = () =>
+      fetchMock.mock.calls.filter(([url]) => String(url).includes('ticket'))
+        .length;
+    expect(ticketCalls()).toBe(6); // Initial connection plus five retries.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60000);
+    });
+    expect(ticketCalls()).toBe(6);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(ticketCalls()).toBe(7);
   });
+  it.each([401, 403])(
+    'never restores a late kitchen snapshot after ticket rejection %s',
+    async (status) => {
+      const socketCallsBefore = vi.mocked(io).mock.calls.length;
+      let finish!: (response: Response) => void;
+      fetchMock.mockImplementation((url: string) =>
+        url.includes('ticket')
+          ? Promise.resolve(new Response('{}', { status }))
+          : new Promise<Response>((resolve) => {
+              finish = resolve;
+            }),
+      );
+      render(<KitchenQueue />);
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          status === 401 ? 'sign in' : 'Manager access',
+        ),
+      );
+      await act(async () => {
+        finish(new Response(JSON.stringify(data)));
+      });
+      expect(screen.queryByText('Room 101')).not.toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent(
+        status === 401 ? 'sign in' : 'Manager access',
+      );
+      expect(io).toHaveBeenCalledTimes(socketCallsBefore);
+    },
+  );
 });

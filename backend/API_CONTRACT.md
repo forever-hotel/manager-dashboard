@@ -266,6 +266,11 @@ cohort. Missing data is not an invented zero-valued report.
 
 ## Events and WebSocket transport
 
+See [DDP-039 transport reliability](REALTIME_GUIDE.md) for immutable kitchen event
+identities, superseded invalidations, exact ticket expiry, reconnect and auth-race
+behavior. Permanent kitchen ID conflicts are dead-lettered, not acknowledged as
+duplicates. No schema or public event shape changed.
+
 Producer contracts use durable topic `hotel.events`, persistent messages and
 publisher confirms after the source transaction/outbox commits. Envelope max8192
 bytes: `{eventId:UUID,type:string,<entityId>,version:safeInt>=0,occurredAt:ISOoffset}`.
