@@ -1,5 +1,9 @@
 # Manager dashboard backend
 
+DDP-049: [GHCR staging delivery, host setup and recovery](../deploy/STAGING_GUIDE.md).
+Automatic develop deployment requires the documented protected Linux runner and
+private host configuration; no deployment or hosted schema changes ran locally.
+
 DDP-047: [opt-in API/socket load tools and performance verification](test/performance/README.md).
 Profile prepared; no local tests/load executed. Staging measurements and owner
 approval are required before performance acceptance.

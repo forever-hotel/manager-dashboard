@@ -1,5 +1,17 @@
 # Change log
 
+## Unreleased - DDP-049
+
+- Gate develop-only GHCR publication and protected Linux staging deployment on
+  backend/frontend/browser/container and isolated delivery-tool checks.
+- Deploy digest-pinned images with private versioned host configuration, manual
+  schema compatibility attestation, readiness and HTTPS login/API/logout smoke.
+- Retain the previous healthy manifest/config reference for serialized rollback;
+  fail the job after recovery and never run SQL or delete database/storage data.
+- Add isolated recovery/smoke tests, host setup guide and acceptance register.
+  Tests/deployment remain unrun locally; real infrastructure/coverage/drill and
+  peer acceptance evidence remain pending. No UI or API implementation changes.
+
 ## Unreleased - DDP-048
 
 - Add global keyboard focus indicators, inert mobile-navigation background and
