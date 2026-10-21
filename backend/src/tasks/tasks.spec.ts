@@ -21,7 +21,7 @@ const task = {
   submittedAt: '2026-10-20T00:00:00Z',
   updatedAt: '2026-10-20T00:00:00Z',
   completedAt: null,
-  version: 2,
+  version: Date.parse('2026-10-20T00:00:00Z') * 1000,
 };
 const event = {
   eventId: id,
@@ -38,21 +38,20 @@ describe('DDP-042 task snapshots', () => {
     const service = new TasksService({ query } as unknown as DataSource);
     const dto = Object.assign(new TasksQueryDto(), {
       status: 'UNASSIGNED',
-      worker: id,
-      page: 2,
+      page: 1,
       pageSize: 10,
     });
     expect(await new TasksController(service).list(dto)).toMatchObject({
       tasks: [task],
       source: 'WKMS',
       readOnly: true,
-      page: 2,
+      page: 1,
     });
     expect(query).toHaveBeenLastCalledWith(expect.stringContaining('SELECT'), [
       'UNASSIGNED',
-      id,
+      null,
       10,
-      10,
+      0,
       null,
     ]);
     expect(await service.find(id)).toEqual(task);
@@ -102,6 +101,11 @@ describe('DDP-042 task snapshots', () => {
         { assignee: { id, name: null } },
         { version: -1 },
         { version: 1.5 },
+        { version: task.version + 1 },
+        { roomNumber: ' '.repeat(2) },
+        { roomNumber: '12345678901' },
+        { updatedAt: '2026-10-20T00:00:00' },
+        { submittedAt: '2026-02-30T00:00:00Z' },
         { updatedAt: 'bad' },
         { submittedAt: 'bad' },
         { status: 'COMPLETED' },
@@ -131,6 +135,10 @@ describe('DDP-042 task snapshots', () => {
       { pageSize: 101 },
       { pageSize: 0 },
       { page: 'x' },
+      { page: '1e2' },
+      { page: '0x10' },
+      { pageSize: '1.0' },
+      { page: ['1', '2'] },
       { extra: 1 },
     ]) {
       expect(
@@ -142,6 +150,46 @@ describe('DDP-042 task snapshots', () => {
         ).length,
       ).toBeGreaterThan(0);
     }
+  });
+  it('projects public fields and rejects duplicate, incomplete or mismatched snapshots', async () => {
+    const query = jest.fn();
+    const service = new TasksService({ query } as unknown as DataSource);
+    const row = {
+      queried_at: new Date('2026-10-20T01:00:00Z'),
+      total: 1,
+      tasks: [task],
+    };
+    query.mockResolvedValueOnce([
+      { ...row, tasks: [{ ...task, password: 'private' }] },
+    ]);
+    expect((await service.snapshot(new TasksQueryDto())).tasks).toEqual([task]);
+    for (const source of [
+      { ...row, tasks: [] },
+      { ...row, total: 2, tasks: [task, task] },
+      { ...row, queried_at: new Date('invalid') },
+      { ...row, tasks: [null] },
+      { ...row, tasks: [{ ...task, assignee: { id, name: ' ' } }] },
+    ]) {
+      query.mockResolvedValueOnce([source]);
+      await expect(service.snapshot(new TasksQueryDto())).rejects.toMatchObject(
+        { status: 503 },
+      );
+    }
+    for (const filter of [{ status: 'ASSIGNED' }, { worker: id }]) {
+      query.mockResolvedValueOnce([row]);
+      await expect(
+        service.snapshot(Object.assign(new TasksQueryDto(), filter)),
+      ).rejects.toMatchObject({ status: 503 });
+    }
+    query.mockResolvedValueOnce([row]);
+    await expect(
+      service.find('77f4568c-89ab-4c12-b321-123456789012'),
+    ).rejects.toMatchObject({ status: 503 });
+    query.mockResolvedValueOnce([{ ...row, tasks: [] }]);
+    expect(await service.snapshot({ page: 2, pageSize: 20 })).toMatchObject({
+      total: 1,
+      tasks: [],
+    });
   });
   it('validates event envelopes and strips producer task data', () => {
     expect(parseTaskEvent({ ...event, task: { secret: 'hidden' } })).toEqual(
@@ -185,7 +233,7 @@ describe('DDP-042 task snapshots', () => {
     await consumer.accept(event);
     expect(query).toHaveBeenLastCalledWith(
       expect.stringContaining('INSERT INTO mad_task_versions'),
-      [id, 2],
+      [id, task.version],
     );
     query
       .mockClear()
@@ -197,7 +245,7 @@ describe('DDP-042 task snapshots', () => {
       .mockClear()
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: false }])
-      .mockResolvedValueOnce([{ version: '3' }]);
+      .mockResolvedValueOnce([{ version: String(task.version + 1) }]);
     await consumer.accept(event);
     expect(query).toHaveBeenLastCalledWith(
       expect.stringContaining('INSERT INTO mad_task_events'),

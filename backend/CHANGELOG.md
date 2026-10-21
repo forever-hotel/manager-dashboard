@@ -1,5 +1,17 @@
 # Change log
 
+## Unreleased - DDP-042
+
+- Harden the existing WKMS task feed with exact revision checks, strict timestamps,
+  unique identities, filter/page consistency and explicit public-field projection.
+- Align backend pagination with decimal-only frontend validation.
+- Extend unit/integration coverage for source integrity, protected mutation denial
+  and authoritative reload after a missed update during disconnect.
+- Preserve the UI and existing response contract; no additional SQL/env changes.
+
+Tests unrun locally. CI, WKMS owner authorization/publishing and staging acceptance
+remain pending. See [deployment and acceptance register](OPERATIONS_GUIDE.md).
+
 ## Unreleased - DDP-040
 
 - Add opt-in transactional promotion outbox publication with persistent mandatory

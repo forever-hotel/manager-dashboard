@@ -1,5 +1,8 @@
 # Manager dashboard backend
 
+DDP-042: [read-only worker task feed, deployment and acceptance register](OPERATIONS_GUIDE.md).
+Existing UI is preserved; no additional SQL or environment changes are required.
+
 DDP-040: [promotion publisher setup and proposed HW checkout contract](PROMOTION_SYNC_GUIDE.md).
 Publication defaults disabled; review the new manual SQL before enabling it.
 

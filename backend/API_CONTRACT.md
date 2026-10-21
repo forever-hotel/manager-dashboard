@@ -250,6 +250,9 @@ CANCELLED is excluded. Task category ROOM_CLEANING/EXTRA_TOWELS/WATER_BOTTLES/
 MAINTENANCE/LAUNDRY/FOOD_DELIVERY/OTHER; priority HIGH/NORMAL. Completed tasks have
 completedAt, other statuses null. ALL methods on `/mad/tasks/:id/{claim,assign,
 complete}` reject authorized managers with403; no room/kitchen/task mutation API.
+Task pagination uses decimal digits only. Task snapshots validate unique IDs,
+filter/page consistency and exact updated_at microsecond revisions, and project
+only documented public fields. Inconsistent source data returns sanitized503.
 
 Report types: bookings, revenue, worker-performance, staff (worker-performance
 alias, **not staff credentials**), food-orders, service-requests, occupancy,
