@@ -1,5 +1,45 @@
 # Change log
 
+## Unreleased - DDP-040
+
+- Add opt-in transactional promotion outbox publication with persistent mandatory
+  routing, broker confirms, stable IDs and database-backed capped backoff.
+- Add a manual outbox retry-column/index/grant supplement; startup runs no SQL.
+- Add publisher unit/integration tests and explicit test-only HW consumer/checkout
+  contract fixtures for eligibility, lifecycle, history and atomic final use.
+- Document proposed HW wire/checkout semantics and remaining owner/staging gates.
+
+UI unchanged. Tests unrun locally; publisher defaults disabled. Actual website
+consumer, idempotent checkout/payment enforcement and staging acceptance remain
+pending, not replaced by reference fixtures. See [guide/register](PROMOTION_SYNC_GUIDE.md).
+
+## Unreleased - DDP-039
+
+- Complete the existing broker/socket transport with immutable kitchen event-ID
+  checks, permanent-conflict dead-lettering and transactional retirement of unsent
+  older invalidations while retaining durable receipts.
+- Reject malformed socket handshake auth and expire tickets exactly at30seconds.
+- Prevent late kitchen snapshots from restoring protected data after ticket denial.
+- Add unit, real-database/socket and component regressions for conflict/restart,
+  authorization races and bounded/manual reconnect behavior.
+
+UI unchanged; no new SQL/env or hosted database execution. Tests remain unrun
+locally; CI and real-provider/timing acceptance pending. See [register](REALTIME_GUIDE.md).
+
+## Unreleased - DDP-038
+
+- Add field-level ownership and cross-system API/event contract review pack.
+- Record explicit blocking decisions for session/hash policy, Kitchen Manager
+  scope, UI timing, complaint/staff writes, schema compatibility and CI differences.
+- Add hand-calculated calendar, revenue/refund, capacity, cohort, threshold and
+  proposed task-limit boundary/concurrency examples.
+- Create ADR-038-001 and link the actual review/approval register. Owner names,
+  delivery dates, external adoption and supervisor acceptance remain pending.
+
+Documentation only; no runtime/UI changes, tests, hosted SQL or external messages.
+DDP-038 is prepared for review, not marked Done. See
+[the acceptance register](contracts/DDP_038_REVIEW_REGISTER.md).
+
 ## Unreleased — DDP-037
 
 - Reconcile implemented REST/BFF/event contracts, validation, permissions,

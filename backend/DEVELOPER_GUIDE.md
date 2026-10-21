@@ -147,6 +147,13 @@ Current local Compose is for development, not a production deployment template.
 
 ## Manual database prerequisites (no automatic migrations)
 
+DDP-040 publication additionally requires
+`deploy/neon-mad-promotion-publication.sql` after the lifecycle supplement and
+reviewed outbox SELECT/UPDATE grants. Enable MAD_PROMOTIONS_PUBLISH_ENABLED only
+after HW's durable queue/bindings and the proposed consumer contract are ready.
+See [promotion sync guide](PROMOTION_SYNC_GUIDE.md). It defaults false; no frontend
+configuration change is needed. Broker confirmation does not prove HW checkout.
+
 The database owner must compare the actual Neon schema first; do not blindly
 reapply a friend's old full schema or run every SQL file alphabetically. Use a
 backup/change window for shared data. Current shared tables must include staff,

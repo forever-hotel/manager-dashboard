@@ -59,11 +59,11 @@ export default function KitchenQueue() {
             signal: controller.signal,
           },
         );
-        if (stopped) return;
+        if (stopped || authFailed) return;
         if (failure(response.status)) return;
         if (!response.ok) throw new Error();
         const data = kitchenSnapshotSchema.parse(await response.json());
-        if (stopped) return;
+        if (stopped || authFailed) return;
         setSnapshot(data);
         setMessage(
           healthy
@@ -73,11 +73,11 @@ export default function KitchenQueue() {
               : 'Live updates unavailable. Showing the last snapshot.',
         );
       } catch {
-        if (!stopped)
+        if (!stopped && !authFailed)
           setMessage('Kitchen data is stale or unavailable. Retry to refresh.');
       } finally {
         loading = false;
-        if (dirty && !stopped) {
+        if (dirty && !stopped && !authFailed) {
           dirty = false;
           void refresh();
         }
@@ -113,13 +113,13 @@ export default function KitchenQueue() {
           credentials: 'same-origin',
           signal: controller.signal,
         });
-        if (stopped || failure(response.status)) return;
+        if (stopped || authFailed || failure(response.status)) return;
         if (!response.ok) throw new Error();
         const data = (await response.json()) as {
           ticket: string;
           socketUrl: string;
         };
-        if (stopped) return;
+        if (stopped || authFailed) return;
         socket = io(data.socketUrl, {
           path: '/mad/socket.io',
           transports: ['websocket'],

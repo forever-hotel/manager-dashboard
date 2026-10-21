@@ -320,6 +320,55 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
       await database.query('SELECT version FROM mad_realtime_versions'),
     ).toEqual([{ version: '2' }]);
   });
+  it('TC-MAD-039-AC2: supersedes unsent older work durably and rejects conflicting IDs across restart', async () => {
+    const consumer = app.get(RealtimeConsumer);
+    const id = await order('PLACED');
+    const first = {
+      eventId: randomUUID(),
+      type: 'kitchen.order.changed' as const,
+      orderId: id,
+      version: 1,
+      occurredAt: '2026-10-19T01:00:00Z',
+    };
+    const latest = { ...first, eventId: randomUUID(), version: 2 };
+    await consumer.accept(first);
+    await consumer.accept(latest);
+    const restarted = new RealtimeConsumer(
+      app.get(ConfigService),
+      database,
+      app.get(RealtimeGateway),
+    );
+    await restarted.accept(latest);
+    await expect(restarted.accept({ ...latest, version: 3 })).rejects.toThrow(
+      'Conflicting event identity',
+    );
+    expect(
+      await database.query(
+        'SELECT version FROM mad_realtime_events WHERE delivered_at IS NULL',
+      ),
+    ).toEqual([{ version: '2' }]);
+    expect(
+      await database.query('SELECT version FROM mad_realtime_versions'),
+    ).toEqual([{ version: '2' }]);
+    expect(
+      await database.query('SELECT event_id FROM mad_realtime_events'),
+    ).toHaveLength(2);
+    const client = await socket(await ticket());
+    try {
+      const delivered = new Promise<unknown>((resolve) =>
+        client.once('kitchen.order.changed', resolve),
+      );
+      await restarted.dispatch();
+      expect(await delivered).toEqual(latest);
+      expect(
+        await database.query(
+          'SELECT event_id FROM mad_realtime_events WHERE delivered_at IS NULL',
+        ),
+      ).toEqual([]);
+    } finally {
+      client.disconnect();
+    }
+  });
   it('TC-MAD-039-AC1/041-AC2: sends a committed broker event over the real socket and reconciles source version', async () => {
     const url = process.env.TEST_RABBITMQ_URL;
     if (!url || new URL(url).pathname !== '/mad_test')

@@ -3,7 +3,7 @@ import { connect } from 'amqplib';
 import type { ChannelModel, Channel, ConsumeMessage } from 'amqplib';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
-import { RealtimeConsumer } from './realtime.consumer';
+import { InvalidKitchenEvent, RealtimeConsumer } from './realtime.consumer';
 import { RealtimeGateway } from './realtime.gateway';
 jest.mock('amqplib', () => ({ connect: jest.fn() }));
 const event = {
@@ -116,6 +116,26 @@ describe('DDP-039 durable broker lifecycle', () => {
       expect(channel.ack).not.toHaveBeenCalled();
       expect(connection.close).toHaveBeenCalled();
       expect(gateway.healthy).toBe(false);
+    } finally {
+      await consumer.onModuleDestroy();
+    }
+  });
+  it('dead-letters conflicting event identities without acknowledging or reconnecting', async () => {
+    const { consumer, channel, connection } = setup();
+    consumer.onModuleInit();
+    await jest.advanceTimersByTimeAsync(1);
+    try {
+      jest
+        .spyOn(consumer, 'accept')
+        .mockRejectedValue(new InvalidKitchenEvent('Conflict'));
+      const message = {
+        content: Buffer.from(JSON.stringify(event)),
+      } as ConsumeMessage;
+      channel.consume.mock.calls[0][1](message);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(channel.nack).toHaveBeenCalledWith(message, false, false);
+      expect(channel.ack).not.toHaveBeenCalled();
+      expect(connection.close).not.toHaveBeenCalled();
     } finally {
       await consumer.onModuleDestroy();
     }

@@ -1,5 +1,9 @@
 # Kitchen overview and live transport
 
+DDP-039 reliability updates: [transport guide](REALTIME_GUIDE.md). Conflicting
+event-ID reuse is dead-lettered; unsent older kitchen invalidations are retired
+when the latest version commits. Existing SQL is sufficient; no new migration.
+
 DDP-026 frontend, DDP-041 snapshot API and the kitchen path through DDP-039.
 Implementation date: 2026-10-20. No hosted SQL has been executed.
 
@@ -109,11 +113,12 @@ Durable MAD queue: `mad.kitchen`; invalid messages go to `mad.kitchen.dead`.
 
 KMS must update its source order and insert an outbox event in the same transaction.
 Use a strictly increasing updated_at, e.g. `greatest(clock_timestamp(), updated_at
-+ interval '1 microsecond')`, deriving version from that returned value. Item
-changes must bump the parent timestamp too. Publish creation, status changes and
-cancellations after commit with persistent delivery and publisher confirms. Retry
-the same UUID after an uncertain publish result. MAD does not implement the
-external KMS producer/outbox or claim that it already follows this contract.
+
+- interval '1 microsecond')`, deriving version from that returned value. Item
+  changes must bump the parent timestamp too. Publish creation, status changes and
+  cancellations after commit with persistent delivery and publisher confirms. Retry
+  the same UUID after an uncertain publish result. MAD does not implement the
+  external KMS producer/outbox or claim that it already follows this contract.
 
 Events invalidate the view; source snapshots remain authoritative. MAD validates
 the message and transactionally persists its UUID and latest per-order version

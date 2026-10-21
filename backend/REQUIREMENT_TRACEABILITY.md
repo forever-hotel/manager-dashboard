@@ -8,8 +8,9 @@ case IDs remain in feature tests/registers; [Sprint 6 register](release/v0.2.0/a
 records its exact acceptance rows.
 
 [Contract decisions](CONTRACT_DECISIONS.md) applies to each row. Formal ADR files
-were not supplied/found; DDP-038 owner approvals and actual ADR links are pending,
-not fabricated. [API reference](API_CONTRACT.md) links exact request/response
+were not supplied at the original review. DDP-038 has since added
+[ADR-038-001](contracts/decisions/ADR-038-001.md) with owner/supervisor approval
+explicitly pending. [API reference](API_CONTRACT.md) links exact request/response
 sources; [changelog/register](CHANGELOG.md) records DDP-037 review status.
 
 | Requirement          | Scope                                                                                       | Tickets                                                                | Code / candidate tests                                                                                                                                                                                                                       | Implementation / acceptance limits                                                                                                               |
