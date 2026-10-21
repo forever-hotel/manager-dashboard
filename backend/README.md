@@ -1,5 +1,10 @@
 # Manager dashboard backend
 
+DDP-046: [real-service verification pack](integration/DDP_046_VERIFICATION.md),
+[case register](integration/acceptance-register.csv) and
+[execution evidence record](integration/EVIDENCE.md).
+Prepared only: staging is not ready; real-provider acceptance remains pending.
+
 DDP-045: [task-limit settings, manual SQL and WKMS handoff](TASK_LIMIT_GUIDE.md).
 MAD saves remain pending until real WKMS activation confirms their exact version.
 

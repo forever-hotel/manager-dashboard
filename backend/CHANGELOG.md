@@ -1,5 +1,16 @@
 # Change log
 
+## Unreleased - DDP-046
+
+- Prepare real-service integration procedures and a 45-case acceptance register
+  covering all 22 MD requirements, task limits, critical cross-system flows,
+  authorization/recovery and 14 CSV/PDF report variants.
+- Add candidate/provider revision, persistent fixture and owner sign-off evidence
+  requirements, distinguishing local contract fixtures from real providers.
+- No application, UI, schema or executable changes; no tests or SQL executed.
+  Staging is not ready, so DDP-046 remains unaccepted. See the
+  [verification pack](integration/DDP_046_VERIFICATION.md).
+
 ## Unreleased - DDP-045
 
 - Add versioned manager task-limit GET/PATCH and Settings form using approved

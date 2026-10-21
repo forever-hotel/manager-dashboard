@@ -1,5 +1,10 @@
 # Requirement traceability ? DDP-037
 
+DDP-046 adds the [real-provider verification pack](integration/DDP_046_VERIFICATION.md)
+and [case register](integration/acceptance-register.csv). All 22 MD identifiers
+below have staging journeys; execution remains pending because staging is not
+ready. Candidate test-file presence is not acceptance evidence.
+
 Reviewed 2026-10-21. The 22 MD identifiers (including suffixes) and additional
 SRS/SDS obligations below follow the local planning requirement matrix. MAD ticket
 IDs are displayed as DDP per project naming. This is source/test-file traceability,
