@@ -531,8 +531,16 @@ export default function PromotionsDashboard() {
       {/* Promotions table */}
       <section className="mb-10">
         <h2 className="font-medium text-[12px] text-black mb-3">Promotions</h2>
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div
+          className="border border-gray-200 rounded-lg overflow-x-auto"
+          tabIndex={0}
+          role="region"
+          aria-label="Promotion register data"
+        >
           <table className="w-full text-left border-collapse">
+            <caption className="sr-only">
+              Promotions matching current filters
+            </caption>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 {[

@@ -122,6 +122,24 @@ describe('DDP-029 staff management', () => {
       );
     },
   );
+  it('DDP-048: focuses confirmation and returns focus to its opener on Escape', async () => {
+    render(<StaffAccounts />);
+    await screen.findByText('Test Worker');
+    const trigger = screen.getByRole('button', { name: 'Reset pwd' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const confirmation = screen.getByRole('alertdialog');
+    expect(confirmation).toHaveFocus();
+    expect(confirmation).toHaveAccessibleDescription(
+      /invalidates existing sessions/,
+    );
+    fireEvent.keyDown(confirmation, { key: 'Escape' });
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(fetchMock.mock.calls.some(([, options]) => options?.method)).toBe(
+      false,
+    );
+  });
   it('AC3: retains form input on conflicts and supports deliberate version reload', async () => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');

@@ -415,8 +415,16 @@ export default function ComplaintsDashboard({
         <h2 className="font-medium text-[12px] text-black mb-3">
           Complaint register
         </h2>
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div
+          className="border border-gray-200 rounded-lg overflow-x-auto"
+          tabIndex={0}
+          role="region"
+          aria-label="Complaint register data"
+        >
           <table className="w-full text-left border-collapse">
+            <caption className="sr-only">
+              Complaints matching current filters
+            </caption>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 {[

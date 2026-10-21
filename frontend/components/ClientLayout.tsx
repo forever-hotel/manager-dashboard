@@ -37,7 +37,10 @@ export function ClientLayout({
       );
       const first = items[0];
       const last = items.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
+      if (!items.includes(document.activeElement as HTMLElement)) {
+        event.preventDefault();
+        first?.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last?.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -116,6 +119,7 @@ export function ClientLayout({
         />
         <div
           id="dashboard-content"
+          inert={open}
           tabIndex={-1}
           className="flex-1 min-w-0 md:pl-[220px]"
         >

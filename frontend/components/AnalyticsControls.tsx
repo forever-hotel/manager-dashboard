@@ -84,7 +84,12 @@ export function DataTable({
   rows: (string | number)[][];
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div
+      className="overflow-x-auto"
+      tabIndex={0}
+      role="region"
+      aria-label={caption}
+    >
       <table className="w-full text-left border-collapse">
         <caption className="font-medium text-[11px] text-black mb-3 text-left">
           {caption}

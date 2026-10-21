@@ -45,6 +45,16 @@ export default function StaffAccounts() {
   const [refresh, setRefresh] = useState(0);
   const lock = useRef(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  const confirmationRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!confirm) return;
+    const previous = document.activeElement;
+    confirmationRef.current?.focus();
+    return () => {
+      if (previous instanceof HTMLElement && previous.isConnected)
+        previous.focus();
+    };
+  }, [confirm]);
   const query = new URLSearchParams({
     page: String(page),
     pageSize: '20',
@@ -408,9 +418,18 @@ export default function StaffAccounts() {
       </section>
       {confirm && (
         <section
+          ref={confirmationRef}
+          tabIndex={-1}
           role="alertdialog"
           aria-modal="false"
           aria-labelledby="staff-confirm-title"
+          aria-describedby="staff-confirm-description"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && !busy) {
+              event.preventDefault();
+              setConfirm(null);
+            }
+          }}
           className="border border-gray-200 rounded-lg p-5 mb-4"
         >
           <h2 id="staff-confirm-title" className="font-medium text-[12px]">
@@ -419,7 +438,10 @@ export default function StaffAccounts() {
               : 'Deactivate account'}{' '}
             for {confirm.staff.name}?
           </h2>
-          <p className="font-normal text-[11px] my-3">
+          <p
+            id="staff-confirm-description"
+            className="font-normal text-[11px] my-3"
+          >
             {confirm.action === 'reset'
               ? 'This invalidates existing sessions and emails new temporary credentials.'
               : 'This blocks access and invalidates existing sessions.'}
@@ -519,8 +541,16 @@ export default function StaffAccounts() {
             {listError} Use Refresh directory to retry.
           </p>
         )}
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div
+          className="border border-gray-200 rounded-lg overflow-x-auto"
+          tabIndex={0}
+          role="region"
+          aria-label="Staff directory data"
+        >
           <table className="w-full text-left border-collapse">
+            <caption className="sr-only">
+              Staff accounts matching current filters
+            </caption>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 {[

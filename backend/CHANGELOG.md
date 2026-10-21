@@ -1,5 +1,16 @@
 # Change log
 
+## Unreleased - DDP-048
+
+- Add global keyboard focus indicators, inert mobile-navigation background and
+  accessible staff-confirmation focus, description, Escape and return behavior.
+- Make data-table regions keyboard scrollable, add missing table captions and
+  preserve the desktop design while allowing narrow/zoomed control reflow.
+- Add WCAG 2.1 A/AA browser scans using directly declared axe-core, keyboard and
+  viewport cases, component regressions and the manual accessibility register.
+- Tests remain unrun locally; screen-reader, actual zoom, contrast-state review,
+  CI/coverage and staging acceptance remain pending. No API/schema changes.
+
 ## Unreleased - DDP-047
 
 - Add opt-in 100/300-session mixed read API and authenticated persistent socket

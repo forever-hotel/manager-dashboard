@@ -1,5 +1,8 @@
 # Manager dashboard frontend
 
+DDP-048: [accessibility changes, checks and manual review](ACCESSIBILITY_GUIDE.md).
+Automated tests are authored but unrun locally; WCAG/staging acceptance is pending.
+
 Next.js uses Tailwind, server-side API forwarding and HttpOnly authentication
 cookies. The current UI and login/password-change/logout behavior are retained.
 
