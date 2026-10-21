@@ -1,5 +1,8 @@
 # Manager dashboard backend
 
+DDP-045: [task-limit settings, manual SQL and WKMS handoff](TASK_LIMIT_GUIDE.md).
+MAD saves remain pending until real WKMS activation confirms their exact version.
+
 DDP-044: [staff directory/read validation and acceptance register](STAFF_UI_GUIDE.md).
 No additional SQL, environment or UI changes are required.
 

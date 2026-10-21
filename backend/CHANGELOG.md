@@ -1,5 +1,20 @@
 # Change log
 
+## Unreleased - DDP-045
+
+- Add versioned manager task-limit GET/PATCH and Settings form using approved
+  integer bounds1..10/default3 and assigned ASSIGNED/IN_PROGRESS/ESCALATED cohort.
+- Separate requested from WKMS-confirmed policy; persist history and retain the
+  previous effective version through pending changes and provider failures.
+- Prepare manual request/history/confirmation schema and restricted WKMS-only
+  shared-DB confirmation function; startup runs no SQL or task mutations.
+- Add unit, BFF/component and disposable database coverage, including a clearly
+  test-only WKMS activation/claim concurrency reference and permission boundaries.
+- Extend coverage/integrity configuration. No new env/dependencies; actual WKMS
+  adoption, role grants, CI/staging and full acceptance remain pending.
+
+Tests and hosted SQL unrun. See [handoff/register](TASK_LIMIT_GUIDE.md).
+
 ## Unreleased - DDP-044
 
 - Complete existing staff list/detail reads with explicit safe projections,

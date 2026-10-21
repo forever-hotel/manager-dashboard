@@ -27,6 +27,7 @@ import { RoomsController } from '../rooms/rooms.controller';
 import { StaffController } from '../staff/staff.controller';
 import { TasksController } from '../tasks/tasks.controller';
 import { NotificationsController } from '../notifications/notifications.controller';
+import { TaskLimitController } from '../settings/task-limit.controller';
 // Real JWT/guard/session logic with isolated storage; feature e2e suites cover PostgreSQL.
 const controllers = [
   AnalyticsController,
@@ -42,6 +43,7 @@ const controllers = [
   StaffController,
   TasksController,
   NotificationsController,
+  TaskLimitController,
 ];
 const routes = controllers.flatMap((controller) => {
   const prefix = Reflect.getMetadata(PATH_METADATA, controller) as string;
