@@ -84,8 +84,17 @@ test('mobile and keyboard navigation keep all destinations reachable', async ({
     'Tasks',
     'Reports',
     'Settings',
-  ])
-    await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
+  ]) {
+    const link = page
+      .getByRole('navigation', { name: 'Dashboard' })
+      .getByRole('link', {
+        name: name === 'Notifications' ? /^Notifications (?:\d+|\?)$/ : name,
+        exact: true,
+      });
+    await expect(link).toBeVisible();
+    if (name === 'Notifications')
+      await expect(link).toHaveAttribute('href', '/notifications');
+  }
   const settings = page.getByRole('link', { name: 'Settings', exact: true });
   await settings.focus();
   await expect(settings).toBeFocused();

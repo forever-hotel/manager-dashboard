@@ -2,6 +2,8 @@ import { DataSource } from 'typeorm';
 import { KitchenService } from './kitchen.service';
 import { KitchenController } from './kitchen.controller';
 import { KitchenQueryDto } from './kitchen-query.dto';
+import { Test } from '@nestjs/testing';
+import { getDataSourceToken } from '@nestjs/typeorm';
 const now = new Date('2026-10-19T06:00:00Z');
 const updatedAt = '2026-10-19T01:00:00.123456Z';
 const order = {
@@ -36,6 +38,30 @@ function setup(source: unknown = empty) {
   };
 }
 describe('DDP-041 kitchen snapshot', () => {
+  it('resolves the explicit database token and optional clock through Nest', async () => {
+    const query = jest.fn().mockResolvedValue([{ snapshot: empty }]);
+    const module = await Test.createTestingModule({
+      providers: [
+        KitchenService,
+        { provide: getDataSourceToken(), useValue: { query } },
+        { provide: 'KITCHEN_CLOCK', useValue: () => now },
+      ],
+    }).compile();
+    try {
+      const response = await module
+        .get(KitchenService)
+        .snapshot(new KitchenQueryDto());
+      expect(response.asOf).toBe(now.toISOString());
+      expect(query).toHaveBeenCalledWith(expect.any(String), [
+        null,
+        20,
+        0,
+        now.toISOString(),
+      ]);
+    } finally {
+      await module.close();
+    }
+  });
   it('uses the current system time when the optional kitchen clock is not injected', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(now);
