@@ -36,6 +36,27 @@ function setup(source: unknown = empty) {
   };
 }
 describe('DDP-041 kitchen snapshot', () => {
+  it('uses the current system time when the optional kitchen clock is not injected', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(now);
+    try {
+      const query = jest.fn().mockResolvedValue([{ snapshot: empty }]);
+      const service = new KitchenService({ query } as unknown as DataSource);
+
+      const response = await service.snapshot(new KitchenQueryDto());
+
+      expect(response.asOf).toBe(now.toISOString());
+      expect(response.orders).toEqual([]);
+      expect(query).toHaveBeenCalledWith(expect.any(String), [
+        null,
+        20,
+        0,
+        now.toISOString(),
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
   it('returns valid empty pages with parameterized filters and a consistent clock', async () => {
     const { service, query } = setup();
     const response = await new KitchenController(service).orders(
