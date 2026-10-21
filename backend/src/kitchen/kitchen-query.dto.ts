@@ -1,18 +1,21 @@
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+
+const pageNumber = ({ value }: { value: unknown }) =>
+  typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
 
 export class KitchenQueryDto {
   @IsOptional()
   @IsIn(['PLACED', 'IN_PREPARATION', 'READY', 'DELIVERED'])
   status?: string;
 
-  @Type(() => Number)
+  @Transform(pageNumber)
   @IsInt()
   @Min(1)
   @Max(100000)
   page = 1;
 
-  @Type(() => Number)
+  @Transform(pageNumber)
   @IsInt()
   @Min(1)
   @Max(100)

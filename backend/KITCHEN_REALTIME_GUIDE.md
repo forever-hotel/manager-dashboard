@@ -40,6 +40,8 @@ routing and cross-instance fanout before deployment.
 after first password change. Missing/invalid sessions return 401; disallowed roles
 or first-login sessions return 403. Invalid/duplicate/unknown filters return 400.
 Status is optional; page defaults to 1 (maximum 100000), pageSize to 20 (maximum100).
+Pagination accepts decimal digit strings only; scientific notation, hexadecimal,
+fractions and repeated parameters are rejected.
 
 Mapping: PLACED = Pending; IN_PREPARATION = In Preparation; READY = Ready for
 Delivery; DELIVERED = Delivered. CANCELLED orders disappear. Open orders have no
@@ -59,6 +61,36 @@ unsafe numeric results return sanitized 503, never fabricated zero counts. All
 responses are no-store. Offset pagination is a current view, not a frozen export;
 concurrent changes can shift pages. The panel shows 100 orders/page with global
 counts. Other food analytics cards/top-items mock content is outside DDP-026.
+
+### DDP-041 source integrity and verification
+
+The read model validates UUID identities, unique orders, the four supported states,
+bounded room/meal labels, explicit-offset timestamps, safe integer quantities and
+exact microsecond revisions. Counts, filtered totals and page lengths must agree.
+Only documented response fields are projected; extra source fields are discarded.
+Unknown source states, delivered orders without a completion timestamp and invalid
+eligible item quantities make the source unavailable (503), rather than silently
+disappearing into an apparently empty snapshot. A valid empty database or a page
+beyond the last result still returns 200 with truthful global counts.
+
+No additional schema supplement or frontend change is required for this work.
+The existing realtime supplement and runtime read grants remain prerequisites.
+KMS must still confirm the delivered-retention policy and implement its committed
+event publisher; this repository cannot establish that external agreement.
+
+Verification register (tests authored; execution and CI evidence pending):
+
+| Acceptance | Coverage |
+| --- | --- |
+| TC-MAD-041-AC1 | Unit snapshots for all four states; PostgreSQL filtering, pagination, item sums, cancellation exclusion and inclusive retention boundaries |
+| TC-MAD-041-AC2 | Existing PostgreSQL/RabbitMQ/Socket.IO integration checks committed source revisions against snapshot versions and duplicate handling |
+| TC-MAD-041-AC3 | Empty and beyond-last pages, invalid filters, malformed snapshots, missing completion timestamps, denied sources and sanitized unavailable responses |
+| Authorization | Existing integration checks missing/invalid sessions, non-manager roles and first-login restrictions |
+
+Run the backend unit coverage and kitchen realtime integration suite in CI against
+isolated test services. Do not run these integration tests against Neon. Passing
+CI, external KMS contract adoption and staging propagation measurements remain
+release acceptance requirements; implementation does not constitute that evidence.
 
 ## KMS producer contract
 
