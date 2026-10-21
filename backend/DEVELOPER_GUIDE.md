@@ -321,3 +321,10 @@ evidence. Do not claim DDP-040 publication, DDP-043 notifications, DDP-045 task
 limits or final DDP-046 integration acceptance when their implementation/evidence
 is absent. The setup reviewer must still execute this runbook on a clean checkout
 and record SHA, tool versions, commands/results and evidence before AC2 closes.
+
+## DDP-043 notification prerequisites
+
+Manually review/apply `deploy/neon-mad-notifications.sql` after auth and complaint
+supplements and adapt its restricted-role grants. No startup migration or new env
+setting is added. Source tables must be readable; receipt storage must be writable.
+See [notification API, UI and acceptance register](NOTIFICATIONS_GUIDE.md).

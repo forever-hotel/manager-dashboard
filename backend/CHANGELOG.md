@@ -1,5 +1,19 @@
 # Change log
 
+## Unreleased - DDP-043
+
+- Add source-derived complaint/stock snapshots and per-manager read receipts.
+- Connect the Notifications panel, dashboard alert area and navigation badge using
+  shared counts, safe detail links, stale/retry states and authenticated updates.
+- Reconcile current source state after changes/reconnect; reading never resolves
+  the underlying complaint/stock issue or removes it from active counts.
+- Prepare manual receipt SQL and unit, BFF, component and real PostgreSQL/socket
+  integration coverage. No new environment variables/dependencies.
+- Extend coverage scope and the reviewed Vitest integrity hash accordingly.
+
+SQL and tests unrun locally. CI/coverage and staging acceptance pending; see
+[deployment/register](NOTIFICATIONS_GUIDE.md).
+
 ## Unreleased - completion audit through DDP-042
 
 - Record every ticket's implementation source, candidate verification and remaining

@@ -26,7 +26,12 @@ const errorText = (e: unknown) =>
 export default function ComplaintsDashboard({
   initialWorkerId = '',
   initialStatus = '',
-}: { initialWorkerId?: string; initialStatus?: string } = {}) {
+  initialComplaintId,
+}: {
+  initialWorkerId?: string;
+  initialStatus?: string;
+  initialComplaintId?: string;
+} = {}) {
   const [rows, setRows] = useState<Complaint[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -40,9 +45,13 @@ export default function ComplaintsDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [counts, setCounts] = useState<{ open: number; review: number }>();
-  const [selectedId, setSelectedId] = useState<string>();
+  const [selectedId, setSelectedId] = useState<string | undefined>(
+    initialComplaintId,
+  );
   const [detail, setDetail] = useState<ComplaintDetail>();
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(
+    Boolean(initialComplaintId),
+  );
   const [detailError, setDetailError] = useState('');
   const [note, setNote] = useState('');
   const [notice, setNotice] = useState('');
@@ -142,6 +151,28 @@ export default function ComplaintsDashboard({
       if (!controller.signal.aborted) setDetailLoading(false);
     }
   }
+  useEffect(() => {
+    if (!initialComplaintId) return;
+    const controller = new AbortController();
+    detailController.current = controller;
+    void complaintRequest(
+      '/' + initialComplaintId,
+      complaintDetailSchema,
+      'GET',
+      undefined,
+      controller.signal,
+    )
+      .then((value) => {
+        if (!controller.signal.aborted) setDetail(value);
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setDetailError(errorText(error));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setDetailLoading(false);
+      });
+    return () => controller.abort();
+  }, [initialComplaintId]);
   function open(row: Complaint, element: HTMLButtonElement) {
     if (
       note &&

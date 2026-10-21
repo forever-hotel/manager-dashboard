@@ -147,3 +147,15 @@ reach unauthenticated/non-manager callers. Confirm Secure cookies, HTTPS/WSS,
 response headers and no direct public backend bypass. Do not mark AC1/AC2 or
 final AC3/release acceptance passed until this evidence exists and the high
 dependency finding has its required release disposition/retest.
+
+## DDP-043 inventory addition
+
+Protected GET `/mad/notifications` and PATCH `/mad/notifications/:type/:id/read`
+use the existing manager guard and safe envelopes. The BFF `/api/notifications`
+keeps tokens server-side and checks same-origin JSON mutations. Only receipt rows
+are writable; complaint descriptions/internal notes are never projected. The
+current source-derived count includes read issues. Socket invalidations disclose
+only an opaque revision/time, with session enforcement on each send. Candidate
+coverage: notifications unit, real-database/socket integration and frontend BFF/
+component suites, plus the protected endpoint inventory. Tests not run locally;
+this addition does not constitute a fresh dependency/security acceptance result.

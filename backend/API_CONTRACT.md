@@ -373,3 +373,18 @@ Example promotion draft (replace roomTypeIds with an existing test room type):
 
 Examples are illustrative fixtures, not executed evidence. Keep browser code on
 the BFF; direct bearer examples are for trusted integration tooling only.
+
+## Persistent notifications - DDP-043
+
+GET `/mad/notifications?page=1&pageSize=20` returns a manager-specific active-issue
+snapshot: items, global total/unread, complaint/stock counts, page/pageSize/queriedAt.
+PATCH `/mad/notifications/:type/:id/read` accepts only a current revision, with no
+query fields. Type is COMPLAINT/STOCK; ID UUID. Marking read does not change active
+counts or resolve source issues. Missing/invalid session401, disallowed403,
+invalid400, inactive/missing404, stale409, unavailable503. Responses are no-store.
+
+The BFF exposes `/api/notifications` and its read path, with server-held cookie
+sessions and same-origin JSON mutations. Shared state supplies the panel, dashboard
+alert area and navigation badge. Authenticated `notifications.changed` invalidates
+snapshots; `notifications.transport.status` reports source reconciliation health.
+See [exact fields, examples/policies, SQL and register](NOTIFICATIONS_GUIDE.md).

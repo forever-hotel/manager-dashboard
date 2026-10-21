@@ -1,5 +1,8 @@
 # Manager dashboard backend
 
+DDP-043: [persistent notifications, manual SQL and acceptance register](NOTIFICATIONS_GUIDE.md).
+Apply the reviewed notification receipt supplement manually before using this feature.
+
 [DDP-001 through DDP-042 source audit](DDP_001_042_AUDIT.md) records implementation
 references and remaining acceptance/external-owner work. The prepared
 [v0.1.0 gate](SPRINT_5_READINESS.md) remains unaccepted until CI/staging evidence.
