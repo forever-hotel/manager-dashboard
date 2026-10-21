@@ -388,3 +388,13 @@ sessions and same-origin JSON mutations. Shared state supplies the panel, dashbo
 alert area and navigation badge. Authenticated `notifications.changed` invalidates
 snapshots; `notifications.transport.status` reports source reconciliation health.
 See [exact fields, examples/policies, SQL and register](NOTIFICATIONS_GUIDE.md).
+
+## Staff directory completion - DDP-044
+
+GET `/mad/staff` retains its search/role/status filters and safe directory response.
+Pagination is decimal digits only. GET `/mad/staff/:id` accepts no query fields;
+unknown/manager IDs404, invalid input400, missing/invalid session401, disallowed403,
+invalid/unavailable source503. Stable sorting, matching totals, unique UUIDs,
+profile allowlists and current delivery state are validated before returning data.
+The BFF additionally verifies requested IDs, filters and page/pageSize. Response
+fields and UI remain unchanged. See [staff contract and register](STAFF_UI_GUIDE.md).

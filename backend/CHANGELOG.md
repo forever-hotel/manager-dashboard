@@ -1,5 +1,19 @@
 # Change log
 
+## Unreleased - DDP-044
+
+- Complete existing staff list/detail reads with explicit safe projections,
+  source/profile validation, unique identities and consistent counts/pages.
+- Align decimal pagination, control-character search validation and detail query
+  rejection across backend and BFF; verify requested IDs, filters and pages.
+- Extend unit, BFF and real-database coverage for deterministic search/order,
+  inactive discovery, credential privacy, denied grants and non-mutating reads.
+- Preserve UI, response fields and nullable legacy profile values; no SQL/env or
+  dependency changes. Add the critical directory branch coverage target90%.
+
+Tests unrun locally; CI/coverage and staging acceptance pending. See
+[contract/register](STAFF_UI_GUIDE.md).
+
 ## Unreleased - DDP-043
 
 - Add source-derived complaint/stock snapshots and per-manager read receipts.

@@ -96,6 +96,28 @@ async function handle(request: NextRequest, context: Context) {
           ? staffDetail
           : staffPage;
   const parsed = schema.safeParse(result.data);
+  if (method === 'GET' && parsed.success) {
+    if (
+      detail &&
+      'staffId' in parsed.data &&
+      parsed.data.staffId.toLowerCase() !== path[0].toLowerCase()
+    )
+      return reply({ code: 'SERVICE_UNAVAILABLE' }, 503);
+    if (!detail && 'items' in parsed.data) {
+      const params = new URLSearchParams(query);
+      if (
+        parsed.data.page !== Number(params.get('page')) ||
+        parsed.data.pageSize !== Number(params.get('pageSize')) ||
+        parsed.data.items.some(
+          (item) =>
+            (params.has('role') && item.role !== params.get('role')) ||
+            (params.has('status') &&
+              item.isActive !== (params.get('status') === 'active')),
+        )
+      )
+        return reply({ code: 'SERVICE_UNAVAILABLE' }, 503);
+    }
+  }
   return parsed.success
     ? reply(parsed.data, expected)
     : reply({ code: 'SERVICE_UNAVAILABLE' }, 503);

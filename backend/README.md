@@ -1,5 +1,8 @@
 # Manager dashboard backend
 
+DDP-044: [staff directory/read validation and acceptance register](STAFF_UI_GUIDE.md).
+No additional SQL, environment or UI changes are required.
+
 DDP-043: [persistent notifications, manual SQL and acceptance register](NOTIFICATIONS_GUIDE.md).
 Apply the reviewed notification receipt supplement manually before using this feature.
 

@@ -113,6 +113,9 @@
       "json-summary"
     ],
     "coverageThreshold": {
+      "./src/staff/staff-directory.service.ts": {
+        "branches": 90
+      },
       "./src/notifications/notifications.service.ts": {
         "branches": 90
       },
