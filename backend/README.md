@@ -1,5 +1,9 @@
 # Manager dashboard backend
 
+DDP-038: [ownership and integration contract pack](contracts/DDP_038_CONTRACT_PACK.md),
+[deterministic metric examples](contracts/DDP_038_METRIC_EXAMPLES.md) and
+[decisions awaiting owner review](contracts/DDP_038_REVIEW_REGISTER.md).
+
 NestJS provides manager authentication, staff management, analytics, promotions,
 complaints, read-only operational feeds, exports and authenticated event delivery.
 

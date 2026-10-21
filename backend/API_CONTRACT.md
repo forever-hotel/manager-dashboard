@@ -3,6 +3,9 @@
 Source review: 2026-10-21. These are implemented contracts, not a claim of
 cross-service acceptance. MAD is the subsystem name; DDP is the ticket prefix.
 No OpenAPI endpoint or generated Swagger UI is currently provided.
+Ownership, undecided interfaces and proposed policy resolutions are recorded in
+the [DDP-038 pack](contracts/DDP_038_CONTRACT_PACK.md); proposals are not new
+implemented permissions or provider-approved wire contracts.
 The [method/path inventory](contracts/endpoint-inventory.csv) enumerates every
 current REST controller route, including public health aliases and denied task
 mutations. It was extracted statically without starting the application.

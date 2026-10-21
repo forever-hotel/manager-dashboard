@@ -1,5 +1,19 @@
 # Change log
 
+## Unreleased - DDP-038
+
+- Add field-level ownership and cross-system API/event contract review pack.
+- Record explicit blocking decisions for session/hash policy, Kitchen Manager
+  scope, UI timing, complaint/staff writes, schema compatibility and CI differences.
+- Add hand-calculated calendar, revenue/refund, capacity, cohort, threshold and
+  proposed task-limit boundary/concurrency examples.
+- Create ADR-038-001 and link the actual review/approval register. Owner names,
+  delivery dates, external adoption and supervisor acceptance remain pending.
+
+Documentation only; no runtime/UI changes, tests, hosted SQL or external messages.
+DDP-038 is prepared for review, not marked Done. See
+[the acceptance register](contracts/DDP_038_REVIEW_REGISTER.md).
+
 ## Unreleased — DDP-037
 
 - Reconcile implemented REST/BFF/event contracts, validation, permissions,
