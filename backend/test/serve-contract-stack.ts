@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { ReportsModule } from '../src/reports/reports.module';
 // TEST-ONLY provider and database. Never imported by the application or container build.
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
@@ -34,7 +37,17 @@ async function main() {
   runtime.username = role;
   runtime.password = 'integration-only';
   const secret = 'browser-test-only-secret-at-least-32-characters';
-  await seedLocalAuth(database, secret, role);
+  const accounts = await seedLocalAuth(database, secret, role);
+  await database.query(
+    readFileSync(resolve(__dirname, 'report-browser-fixture.sql'), 'utf8'),
+  );
+  await database.query(
+    "INSERT INTO wkms_tasks VALUES(gen_random_uuid(),$1,'COMPLETED',now()-interval '1 hour',now(),now())",
+    [accounts.ids.get('worker')],
+  );
+  await database.query(
+    `GRANT SELECT ON mad_booking_analytics,payments,kms_food_orders,kms_food_order_items,wkms_tasks,foss_complaints,foss_service_requests,mad_occupancy_rooms,mad_occupancy_allocations,mad_occupancy_maintenance TO "${role}"`,
+  );
   const module = await Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({
@@ -53,6 +66,7 @@ async function main() {
         synchronize: false,
       }),
       AuthModule,
+      ReportsModule,
     ],
     controllers: [HealthController],
   }).compile();

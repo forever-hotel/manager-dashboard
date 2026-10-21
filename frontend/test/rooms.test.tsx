@@ -44,7 +44,7 @@ afterEach(() => {
 describe('DDP-028 room board', () => {
   it('AC1/AC3: renders all four states on actual source floors without mutation controls', async () => {
     render(<RoomsPage />);
-    await screen.findByText('101');
+    await screen.findByLabelText(/^Room 101,/);
     expect(screen.getByText('Floor 0')).toBeVisible();
     expect(screen.getByText('Floor 2')).toBeVisible();
     for (const room of data.rooms)
@@ -58,7 +58,7 @@ describe('DDP-028 room board', () => {
   });
   it('AC2: rereads authoritative data on events and reconnect', async () => {
     render(<RoomsPage />);
-    await screen.findByText('101');
+    await screen.findByLabelText(/^Room 101,/);
     await waitFor(() => expect(handlers['room.status.changed']).toBeDefined());
     data.rooms[0].status = 'OCCUPIED';
     data.rooms[0].label = 'Occupied';
@@ -76,26 +76,26 @@ describe('DDP-028 room board', () => {
   });
   it('keeps last data visible on network failure and supports retry', async () => {
     render(<RoomsPage />);
-    await screen.findByText('101');
+    await screen.findByLabelText(/^Room 101,/);
     fetchMock.mockRejectedValueOnce(new Error('offline'));
     await act(async () => {
       handlers['room.status.changed']();
     });
     expect(screen.getByRole('status')).toHaveTextContent('stale');
-    expect(screen.getByText('101')).toBeVisible();
+    expect(screen.getByLabelText(/^Room 101,/)).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await screen.findByText('101');
+    await screen.findByLabelText(/^Room 101,/);
   });
   it.each([401, 403])(
     'clears protected data after authorization failure %s',
     async (status) => {
       render(<RoomsPage />);
-      await screen.findByText('101');
+      await screen.findByLabelText(/^Room 101,/);
       fetchMock.mockResolvedValueOnce(new Response('{}', { status }));
       await act(async () => {
         handlers['room.status.changed']();
       });
-      expect(screen.queryByText('101')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/^Room 101,/)).not.toBeInTheDocument();
       expect(screen.getByRole('status')).toHaveTextContent(
         status === 401 ? 'sign in' : 'Manager access',
       );
@@ -137,7 +137,7 @@ describe('DDP-028 room board', () => {
     await act(async () => {
       finish(new Response(JSON.stringify(data)));
     });
-    expect(screen.queryByText('101')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Room 101,/)).not.toBeInTheDocument();
   });
   it('marks disconnect stale and reconnects using a fresh ticket', async () => {
     vi.useFakeTimers();

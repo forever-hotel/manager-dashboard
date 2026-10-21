@@ -1,7 +1,13 @@
 # Manager dashboard backend
 
-NestJS provides manager login, forced first-password change, session revocation,
-staff account provisioning with SendGrid delivery, and booking/occupancy analytics.
+NestJS provides manager authentication, staff management, analytics, promotions,
+complaints, read-only operational feeds, exports and authenticated event delivery.
+
+Start with the [clean-checkout developer guide](DEVELOPER_GUIDE.md),
+[complete API/event reference](API_CONTRACT.md),
+[MD requirement traceability](REQUIREMENT_TRACEABILITY.md),
+[current contract decisions](CONTRACT_DECISIONS.md) and
+[documentation changelog/verification register](CHANGELOG.md).
 
 Use Node 22 and configure `backend/.env` from `.env.example` for direct development.
 From this directory:
@@ -31,7 +37,9 @@ Detailed local references are in `../docs/guides/`, `../docs/implementation/`,
 ## Staff password reset (DDP-013)
 
 `POST /mad/staff/:id/reset-password` requires a manager bearer token after the
-manager's first password change. Send no body. Success is HTTP 200 with
+manager's first password change. Send JSON `{ "version": 0 }` using the current
+version from GET; the backend permits an omitted version for legacy callers,
+but the dashboard BFF requires it. Success is HTTP 200 with
 `{staffId, deliveryId, deliveryStatus: "pending"}`; credentials are never returned.
 Unknown/non-staff IDs return 404, malformed UUIDs 400, inactive staff 409, missing
 or invalid sessions 401, and unauthorized/first-login managers 403. Storage or
@@ -544,3 +552,15 @@ outstanding staging/scaling verification. No tests or hosted SQL were run locall
 `room.status.changed` updates reuse the authorized socket transport with a separate
 durable queue and watermark store. See [the room contract and setup](ROOM_STATUS_GUIDE.md)
 for manual SQL, source ownership, FDS publishing and pending acceptance checks.
+
+## DDP-035 security review
+
+See [the security review and acceptance register](SECURITY_REVIEW.md) for endpoint
+inventory, hardening, dependency findings and pending CI/staging evidence.
+No tests or hosted database changes were executed locally.
+
+## DDP-036 Sprint 6 acceptance
+
+See [Sprint 6 readiness](SPRINT_6_READINESS.md) for the 58-row acceptance register,
+missing prerequisites, CI requirements and unpublished v0.2.0 review pack.
+The acceptance gate remains open until actual CI/staging evidence is attached.

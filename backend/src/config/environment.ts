@@ -47,6 +47,10 @@ export function validateEnvironment(env: Record<string, unknown>) {
     throw new Error(
       'Configuration: DB_SYNCHRONIZE must be false; the shared schema is managed externally',
     );
+  if (env.NODE_ENV === 'production' && env.DB_LOGGING === 'true')
+    throw new Error(
+      'Configuration: DB_LOGGING must be false in production to protect query parameters',
+    );
   const required = (name: string) => {
     const value = env[name];
     if (typeof value !== 'string' || !value.trim())

@@ -199,7 +199,9 @@ describe('DDP-029 staff management', () => {
       target: { value: 'invalid' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
-    await screen.findByText(/phone \(7?15 digits/);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'phone (7?15 digits, optional +)',
+    );
     expect(screen.getByLabelText('Full name')).toHaveValue('New Worker');
     expect(fetchMock.mock.calls.some(([, o]) => o?.method)).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));

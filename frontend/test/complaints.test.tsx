@@ -72,7 +72,7 @@ describe('DDP-022 complaint register', () => {
     const table = within(screen.getByRole('table'));
     expect(table.getByText('No worker referenced')).toBeVisible();
     expect(table.getByText(complaint().description)).toBeVisible();
-    expect(table.getByText('Submitted')).toBeVisible();
+    expect(table.getByRole('cell', { name: 'Submitted' })).toBeVisible();
     fireEvent.change(screen.getByLabelText('Status'), {
       target: { value: 'UNDER_REVIEW' },
     });

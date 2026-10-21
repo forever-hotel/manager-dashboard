@@ -1,4 +1,5 @@
 'use client';
+import ReportDownload from './ReportDownload';
 import { useEffect, useState } from 'react';
 import { AnalyticsError } from '@/lib/analytics';
 import {
@@ -103,6 +104,12 @@ export default function OccupancyCalendar({
           </button>
         </div>
       </div>
+      {data && (
+        <ReportDownload
+          type="occupancy"
+          filters={{ from: data.from, to: data.to }}
+        />
+      )}
       <div className="border border-gray-200 rounded-lg p-5 space-y-5">
         <p className="font-normal text-[10.5px] text-black/60">
           Asia/Colombo dates. Capacity means active rooms excluding maintenance.

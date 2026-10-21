@@ -43,7 +43,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
       .getResponse<Response>()
       .status(status)
       .json({
-        code: custom?.code ?? codes[status] ?? 'INTERNAL_ERROR',
+        code:
+          (status < 500 ? custom?.code : undefined) ??
+          codes[status] ??
+          'INTERNAL_ERROR',
         message,
         ...(status === 400 && Array.isArray(custom?.message)
           ? { details: custom.message }
@@ -56,6 +59,9 @@ export function configureHttp(app: INestApplication) {
   // Authentication responses and protected data must never be cached by intermediaries.
   app.use((_request: unknown, response: Response, next: () => void) => {
     response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader('X-Frame-Options', 'DENY');
+    response.setHeader('Referrer-Policy', 'no-referrer');
     next();
   });
   app.useGlobalPipes(
