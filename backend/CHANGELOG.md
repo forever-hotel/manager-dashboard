@@ -1,5 +1,15 @@
 # Change log
 
+## Unreleased - DDP-047
+
+- Add opt-in 100/300-session mixed read API and authenticated persistent socket
+  load tools, sanitized results, per-route percentiles and missed-load detection.
+- Add commit-to-receipt/render evidence evaluation and proposed baseline comparison,
+  with isolated timing tests, runbook and acceptance/evidence registers.
+- Keep workload/latency approval and DDP-046/DDP-054 prerequisites explicit. No
+  performance tests or SQL executed; no UI, application or schema changes.
+  Actual capacity and performance acceptance remain unverified.
+
 ## Unreleased - DDP-046
 
 - Prepare real-service integration procedures and a 45-case acceptance register

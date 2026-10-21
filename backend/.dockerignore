@@ -3,6 +3,7 @@ dist
 .git
 .gitignore
 coverage
+performance-results
 .npm-cache
 test
 *.md

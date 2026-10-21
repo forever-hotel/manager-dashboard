@@ -1,5 +1,9 @@
 # Manager dashboard backend
 
+DDP-047: [opt-in API/socket load tools and performance verification](test/performance/README.md).
+Profile prepared; no local tests/load executed. Staging measurements and owner
+approval are required before performance acceptance.
+
 DDP-046: [real-service verification pack](integration/DDP_046_VERIFICATION.md),
 [case register](integration/acceptance-register.csv) and
 [execution evidence record](integration/EVIDENCE.md).
