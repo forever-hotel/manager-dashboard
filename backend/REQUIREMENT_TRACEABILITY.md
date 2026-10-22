@@ -46,6 +46,10 @@ sources; [changelog/register](CHANGELOG.md) records DDP-037 review status.
 | SRS 12.1.3           | Sidebar; non-colour alternatives; legend; persistent alerts; exports in each analytics view | DDP-007, DDP-015, DDP-016, DDP-031, DDP-032, DDP-033, DDP-043, DDP-048 | [Sidebar.tsx](../frontend/components/Sidebar.tsx); [navigation.test.tsx](../frontend/test/navigation.test.tsx); [reports.test.tsx](../frontend/test/reports.test.tsx)                                                                        | Delivered UI paths exist; persistent alert portion pending DDP-043, accessibility/acceptance evidence pending.                                   |
 | SDS 6.1 / SRS NFR-12 | Manager login/logout, staff session expiry and forced first-password change                 | DDP-005, DDP-008, DDP-012, DDP-013, DDP-014, DDP-055                   | [auth.service.ts](src/auth/auth.service.ts); [foundation.e2e-spec.ts](test/foundation.e2e-spec.ts); [auth.spec.ts](../frontend/test/browser/auth.spec.ts)                                                                                    | Implemented paths/candidate tests present; CI and real-provider acceptance pending.                                                              |
 
+The [DDP-052 manager UAT pack](uat/UAT_GUIDE.md) provides58 proposed cases,
+including all22 MD requirements, explicit per-role/export variants and blank
+client/supervisor decision fields. It records no execution or acceptance.
+
 All rows additionally require appropriate DDP-046 real-service evidence, DDP-054
 completeness review and DDP-052 manager acceptance before claiming final delivery.
 A test filename is a candidate coverage link, not verified execution or proof of

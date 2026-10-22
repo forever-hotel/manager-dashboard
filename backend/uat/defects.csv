@@ -1,0 +1,1 @@
+finding_id,issue_link,scenario_ids,requirements,summary,severity,expected_result,actual_result,reproduction_and_fixture_ids,candidate_sha,provider_revisions,owner_person,owner_team,status,fix_pr,fix_sha,retest_tester,retest_date,retest_result,retest_evidence,limitation_workaround,residual_risk,target_date,manager_disposition,supervisor_disposition,approval_evidence

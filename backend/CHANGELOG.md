@@ -1,5 +1,14 @@
 # Change log
 
+## Unreleased - DDP-052
+
+- Prepare requirement-mapped manager UAT journeys, per-role/export variants,
+  readiness gaps and an empty real-finding triage/retest register.
+- Add actual client/supervisor sign-off fields without pre-populated approvals;
+  preserve open provider, implementation and prerequisite-evidence blockers.
+- Documentation only: no tests, application/UI changes, SQL or UAT execution.
+  Manager acceptance and week15 rehearsal readiness remain unaccepted.
+
 ## Unreleased - DDP-051
 
 - Prepare a main-only manual release workflow validating final CI, trusted staging

@@ -1,5 +1,8 @@
 # Manager dashboard backend
 
+DDP-052: [manager UAT scenarios, triage and actual sign-off record](uat/UAT_GUIDE.md).
+Prepared only: real manager/supervisor execution and approval remain pending.
+
 DDP-051: [immutable release package, protected workflow and rollback rehearsal](../deploy/release/RELEASE_GUIDE.md).
 Production is disabled until owner configuration/approval; no release or rehearsal
 ran locally. Real platform hooks and two-minute recovery evidence remain pending.
