@@ -1,9 +1,9 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -48,16 +48,14 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     await database.query(
       'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)',
     );
-    await database.query(readFileSync('../deploy/neon-mad-auth.sql', 'utf8'));
+    await database.query(readSchemaSection('auth'));
     await database.query(`CREATE TYPE food_order_status AS ENUM ('PLACED','IN_PREPARATION','READY','DELIVERED','CANCELLED');
       CREATE TABLE kms_food_orders(order_id uuid PRIMARY KEY,room_number varchar(10) NOT NULL,meal_period text NOT NULL,status food_order_status NOT NULL,placed_at timestamptz NOT NULL,updated_at timestamptz NOT NULL,delivered_at timestamptz);
       CREATE TABLE kms_food_order_items(order_item_id uuid PRIMARY KEY,order_id uuid REFERENCES kms_food_orders(order_id),quantity integer NOT NULL CHECK(quantity>0));
       GRANT SELECT(order_id,room_number,meal_period,status,placed_at,updated_at,delivered_at) ON kms_food_orders TO "${role}";
       GRANT SELECT(order_id,quantity) ON kms_food_order_items TO "${role}";
       GRANT SELECT ON mad_revoked_sessions TO "${role}"`);
-    await database.query(
-      readFileSync('../deploy/neon-mad-realtime.sql', 'utf8'),
-    );
+    await database.query(readSchemaSection('realtime'));
     await database.query(
       `GRANT SELECT,INSERT,UPDATE ON mad_realtime_events,mad_realtime_versions TO "${role}"`,
     );

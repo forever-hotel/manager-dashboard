@@ -1,9 +1,9 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -43,7 +43,7 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
     await database.query(
       'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)',
     );
-    await database.query(readFileSync('../deploy/neon-mad-auth.sql', 'utf8'));
+    await database.query(readSchemaSection('auth'));
     // Relax completion constraints only to test corrupt legacy timestamps.
     await database.query(`CREATE TYPE task_status AS ENUM ('UNASSIGNED','ASSIGNED','IN_PROGRESS','COMPLETED','ESCALATED');
       CREATE TYPE complaint_status AS ENUM ('SUBMITTED','UNDER_REVIEW','RESOLVED');

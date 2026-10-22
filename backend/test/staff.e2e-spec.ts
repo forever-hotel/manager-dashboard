@@ -1,3 +1,4 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -90,14 +91,15 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
-    for (const file of [
-      'ci-schema.sql',
-      'neon-mad-auth.sql',
-      'neon-mad-staff.sql',
+    for (const sql of [
+      readFileSync(
+        resolve(__dirname, 'fixtures/container-smoke-schema.sql'),
+        'utf8',
+      ),
+      readSchemaSection('auth'),
+      readSchemaSection('staff'),
     ])
-      await database.query(
-        readFileSync(resolve(__dirname, '../../deploy', file), 'utf8'),
-      );
+      await database.query(sql);
     await database.query(`GRANT SELECT, INSERT, UPDATE ON staff_users TO "${role}";
       GRANT SELECT ON mad_revoked_sessions TO "${role}";
       GRANT SELECT, INSERT, UPDATE ON mad_staff_deliveries TO "${role}"`);

@@ -1,5 +1,0 @@
--- DDP-024 optional MANUAL grant template. No schema changes, no startup execution.
--- Owner: replace mad_runtime with the dedicated MAD role if reads are missing.
--- GRANT SELECT(request_id,status,submitted_at,completed_at,updated_at)
---   ON public.foss_service_requests TO mad_runtime;
--- No write permissions, guest fields or WKMS task access required.

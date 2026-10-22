@@ -6,10 +6,7 @@ services:
       POSTGRES_PASSWORD: ci-only-password
       POSTGRES_DB: mad_test
     volumes:
-      - ./deploy/ci-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./deploy/neon-mad-auth.sql:/docker-entrypoint-initdb.d/02-auth.sql:ro
-      - ./deploy/neon-mad-supplement.sql:/docker-entrypoint-initdb.d/03-reporting.sql:ro
-      - ./deploy/neon-mad-staff.sql:/docker-entrypoint-initdb.d/04-staff.sql:ro
+      - ./deploy/forever-hotel.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d mad_test"]
       interval: 5s

@@ -1,6 +1,0 @@
--- DDP-023: optional MANUAL grant template; no schema/data changes required.
--- Run as the owner only after replacing mad_runtime with the dedicated MAD role.
--- Existing equivalent read grants need not be repeated. Never run at startup.
--- GRANT SELECT(order_id,placed_at,status,updated_at) ON public.kms_food_orders TO mad_runtime;
--- GRANT SELECT(order_id,menu_item_id,name,quantity,updated_at) ON public.kms_food_order_items TO mad_runtime;
--- MAD requires no INSERT/UPDATE/DELETE or guest/allergy/special-note access.

@@ -1,9 +1,9 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -43,7 +43,7 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
     await database.query(
       'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)',
     );
-    await database.query(readFileSync('../deploy/neon-mad-auth.sql', 'utf8'));
+    await database.query(readSchemaSection('auth'));
     // Deliberately allow timestamp inconsistencies to exercise corrupt legacy data.
     await database.query(`CREATE TYPE service_request_status AS ENUM ('SUBMITTED','ASSIGNED','IN_PROGRESS','COMPLETED');
       CREATE TABLE foss_service_requests(request_id uuid PRIMARY KEY,status service_request_status NOT NULL,submitted_at timestamptz NOT NULL,completed_at timestamptz,updated_at timestamptz NOT NULL);

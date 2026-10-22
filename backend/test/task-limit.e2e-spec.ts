@@ -1,9 +1,9 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -43,11 +43,9 @@ describe('DDP-045 policy API and reference WKMS handoff on disposable PostgreSQL
     await database.query(
       'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)',
     );
-    await database.query(readFileSync('../deploy/neon-mad-auth.sql', 'utf8'));
+    await database.query(readSchemaSection('auth'));
     provider = await seedLocalAuth(database, secret, role);
-    await database.query(
-      readFileSync('../deploy/neon-mad-task-limit.sql', 'utf8'),
-    );
+    await database.query(readSchemaSection('task-limit'));
     await database.query(`GRANT SELECT ON mad_revoked_sessions,mad_task_limit_policy,mad_task_limit_history,mad_task_limit_ack TO "${role}";
    GRANT UPDATE(requested_limit,version,updated_by,updated_at) ON mad_task_limit_policy TO "${role}";
    GRANT INSERT ON mad_task_limit_history TO "${role}";
@@ -160,9 +158,7 @@ describe('DDP-045 policy API and reference WKMS handoff on disposable PostgreSQL
     expect(
       ((await get().expect(200)).body as { confirmedAt: string }).confirmedAt,
     ).toBe(confirmed.confirmedAt);
-    await database.query(
-      readFileSync('../deploy/neon-mad-task-limit.sql', 'utf8'),
-    );
+    await database.query(readSchemaSection('task-limit'));
     expect((await get().expect(200)).body as unknown).toMatchObject({
       limit: 2,
       version: 1,

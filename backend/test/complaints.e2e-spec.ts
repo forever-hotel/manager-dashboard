@@ -1,9 +1,9 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -48,7 +48,7 @@ describe('DDP-021 complaints with disposable PostgreSQL', () => {
     await database.query(
       'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY, password_hash text)',
     );
-    await database.query(readFileSync('../deploy/neon-mad-auth.sql', 'utf8'));
+    await database.query(readSchemaSection('auth'));
     // Shared-schema complaint subset; unrelated booking/order/request FKs are
     // outside this fixture. Privacy, status, worker FK and resolution invariant match.
     await database.query(`CREATE TYPE complaint_status AS ENUM ('SUBMITTED','UNDER_REVIEW','RESOLVED');
@@ -57,9 +57,7 @@ describe('DDP-021 complaints with disposable PostgreSQL', () => {
       status complaint_status NOT NULL DEFAULT 'SUBMITTED', resolution_notes text,
       submitted_at timestamptz NOT NULL, resolved_at timestamptz,
       CHECK ((status='RESOLVED' AND resolved_at IS NOT NULL) OR (status<>'RESOLVED' AND resolved_at IS NULL)))`);
-    await database.query(
-      readFileSync('../deploy/neon-mad-complaints.sql', 'utf8'),
-    );
+    await database.query(readSchemaSection('complaints'));
     await database.query(`GRANT SELECT ON mad_revoked_sessions TO "${role}";
       GRANT SELECT(complaint_id,category,description,referenced_worker_id,submitted_at,status,resolved_at),UPDATE(status,resolved_at) ON foss_complaints TO "${role}";
       GRANT SELECT,INSERT,UPDATE ON mad_complaint_state TO "${role}";

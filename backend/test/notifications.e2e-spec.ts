@@ -1,9 +1,9 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { io, Socket } from 'socket.io-client';
@@ -43,16 +43,14 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
     await database.query(
       'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)',
     );
-    await database.query(readFileSync('../deploy/neon-mad-auth.sql', 'utf8'));
+    await database.query(readSchemaSection('auth'));
     await database.query(`CREATE TABLE foss_complaints(complaint_id uuid PRIMARY KEY,category text,status text,submitted_at timestamptz,description text,resolution_notes text);
   CREATE TABLE mad_complaint_state(complaint_id uuid PRIMARY KEY,version integer);
   CREATE TABLE kms_menu_items(menu_item_id uuid PRIMARY KEY,name text,stock_status text,updated_at timestamptz);
   GRANT SELECT ON mad_revoked_sessions,mad_complaint_state TO "${role}";
   GRANT SELECT(complaint_id,category,status,submitted_at) ON foss_complaints TO "${role}";
   GRANT SELECT(menu_item_id,name,stock_status,updated_at) ON kms_menu_items TO "${role}";`);
-    await database.query(
-      readFileSync('../deploy/neon-mad-notifications.sql', 'utf8'),
-    );
+    await database.query(readSchemaSection('notifications'));
     await database.query(
       `GRANT SELECT,INSERT,UPDATE ON mad_notification_reads TO "${role}"`,
     );

@@ -1,9 +1,9 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -45,7 +45,7 @@ describe('DDP-023 food orders with disposable PostgreSQL', () => {
     await database.query(
       'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)',
     );
-    await database.query(readFileSync('../deploy/neon-mad-auth.sql', 'utf8'));
+    await database.query(readSchemaSection('auth'));
     // Minimal reporting fixture: shared PK/FK/unique/quantity contracts, no guest data.
     await database.query(`CREATE TYPE food_order_status AS ENUM ('PLACED','IN_PREPARATION','READY','DELIVERED','CANCELLED');
       CREATE TABLE kms_menu_items(menu_item_id uuid PRIMARY KEY,name text NOT NULL);

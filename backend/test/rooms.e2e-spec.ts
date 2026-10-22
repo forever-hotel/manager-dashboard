@@ -1,9 +1,9 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -47,12 +47,12 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
     await database.query(
       'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)',
     );
-    await database.query(readFileSync('../deploy/neon-mad-auth.sql', 'utf8'));
+    await database.query(readSchemaSection('auth'));
     await database.query(`CREATE TYPE room_status AS ENUM ('OCCUPIED','VACANT','UNDER_MAINTENANCE','REQUIRES_CLEANING');
       CREATE TABLE room_types(room_type_id uuid PRIMARY KEY,type_name text NOT NULL);
       CREATE TABLE rooms(room_number varchar(10) PRIMARY KEY,room_type_id uuid REFERENCES room_types(room_type_id),status room_status NOT NULL,updated_at timestamptz NOT NULL,floor integer NOT NULL DEFAULT 1);
       GRANT SELECT ON rooms,room_types,mad_revoked_sessions TO "${role}"`);
-    await database.query(readFileSync('../deploy/neon-mad-rooms.sql', 'utf8'));
+    await database.query(readSchemaSection('rooms'));
     await database.query(
       `GRANT SELECT,INSERT,UPDATE ON mad_room_versions,mad_room_events TO "${role}"`,
     );

@@ -1,3 +1,4 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
@@ -62,18 +63,12 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
       readFileSync('test/fixtures/promotion-schema.sql', 'utf8'),
     );
     await migrate(database, role);
-    await database.query(
-      readFileSync('../deploy/neon-mad-promotions.sql', 'utf8'),
-    );
+    await database.query(readSchemaSection('promotions'));
     await database.query(
       `GRANT SELECT,INSERT ON mad_promotion_room_types TO "${role}"`,
     );
-    await database.query(
-      readFileSync('../deploy/neon-mad-promotion-lifecycle.sql', 'utf8'),
-    );
-    await database.query(
-      readFileSync('../deploy/neon-mad-promotion-publication.sql', 'utf8'),
-    );
+    await database.query(readSchemaSection('promotion-lifecycle'));
+    await database.query(readSchemaSection('promotion-publication'));
     await database.query(`GRANT UPDATE ON mad_promotion_outbox TO "${role}"`);
     await database.query(`GRANT SELECT,INSERT ON mad_promotion_outbox TO "${role}";
       GRANT DELETE ON mad_promotion_room_types TO "${role}";

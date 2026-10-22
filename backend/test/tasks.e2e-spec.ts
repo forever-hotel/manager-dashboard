@@ -1,9 +1,9 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -47,10 +47,10 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
     await database.query(
       'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)',
     );
-    await database.query(readFileSync('../deploy/neon-mad-auth.sql', 'utf8'));
+    await database.query(readSchemaSection('auth'));
     await database.query(`CREATE TABLE wkms_tasks(task_id uuid PRIMARY KEY,room_number varchar(10) NOT NULL,category text NOT NULL,priority text NOT NULL,status text NOT NULL,assigned_worker_id uuid REFERENCES staff_users(worker_id),submitted_at timestamptz NOT NULL,completed_at timestamptz,updated_at timestamptz NOT NULL);
       GRANT SELECT ON wkms_tasks,mad_revoked_sessions TO "${role}"`);
-    await database.query(readFileSync('../deploy/neon-mad-tasks.sql', 'utf8'));
+    await database.query(readSchemaSection('tasks'));
     await database.query(
       `GRANT SELECT,INSERT,UPDATE ON mad_task_versions,mad_task_events TO "${role}"`,
     );

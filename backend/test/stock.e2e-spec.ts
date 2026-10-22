@@ -1,9 +1,9 @@
+import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -59,11 +59,11 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
     await database.query(
       'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)',
     );
-    await database.query(readFileSync('../deploy/neon-mad-auth.sql', 'utf8'));
+    await database.query(readSchemaSection('auth'));
     await database.query(`CREATE TYPE menu_item_stock_status AS ENUM ('AVAILABLE','LOW_STOCK','UNAVAILABLE','TEMPORARILY_DISABLED');
       CREATE TABLE kms_menu_items(menu_item_id uuid PRIMARY KEY,name varchar(255) NOT NULL,stock_status menu_item_stock_status NOT NULL,updated_at timestamptz NOT NULL);
       GRANT SELECT ON kms_menu_items,mad_revoked_sessions TO "${role}"`);
-    await database.query(readFileSync('../deploy/neon-mad-stock.sql', 'utf8'));
+    await database.query(readSchemaSection('stock'));
     await database.query(
       `GRANT SELECT,INSERT,UPDATE ON mad_stock_alerts,mad_stock_events TO "${role}"`,
     );

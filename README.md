@@ -7,8 +7,8 @@ login; MAD manages manager login and mandatory initial password change.
 ## Local startup
 
 1. Configure the root `.env` using `.env.example`; preserve private secrets.
-2. Have the database owner review and manually apply the required shared schema
-   and MAD SQL supplements in `deploy/`. Startup never changes the schema.
+2. Have the database owner review and manually run `deploy/forever-hotel.sql`
+   in Neon SQL Editor. Startup never changes the schema.
 3. Place the separate gateway checkout in `api-gateway/`, or set
    `API_GATEWAY_CONTEXT` to its location.
 4. Run `docker compose up -d --build`, then open http://localhost:3000.
@@ -29,3 +29,21 @@ at the hosted development or production database.
 
 Staging and release configuration remains in `deploy/` and `.github/workflows/`.
 Markdown files are not runtime dependencies.
+
+## Manual database setup
+
+`deploy/forever-hotel.sql` contains the complete supplied shared schema and all
+MAD additions in one transaction. Run it manually as the schema owner after
+reviewing/backing up the target database; it contains no existing Neon data.
+On an empty public schema it creates the shared tables. With an existing shared
+schema it skips shared-table creation and applies the MAD additions. An incomplete
+shared schema stops with a missing-table message; it is not silently replaced.
+Existing passwords, flags, policy values and business data are not reset. Existing
+object definitions are not automatically repaired by IF NOT EXISTS. Review the
+commented grants using actual restricted MAD/WKMS role names. Real room history
+and other business data are not invented or seeded.
+
+Local startup only mounts `deploy/gateway.routes.local.json`. CI additionally
+uses `deploy/compose.ci.yml` and initializes disposable PostgreSQL with the full
+schema. Other retained deployment/operations/release tools are used by the
+existing workflows and scheduled infrastructure, rather than local app startup.

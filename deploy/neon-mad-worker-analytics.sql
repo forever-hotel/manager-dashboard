@@ -1,9 +1,0 @@
--- DDP-025 optional manual reporting grants. No schema change is required.
--- The database owner must substitute the dedicated runtime role and review
--- these grants with WKMS/FOSS. No commands execute automatically.
--- GRANT SELECT(worker_id,full_name,role,is_active,updated_at)
---   ON public.staff_users TO mad_runtime;
--- GRANT SELECT(assigned_worker_id,status,submitted_at,completed_at,updated_at)
---   ON public.wkms_tasks TO mad_runtime;
--- GRANT SELECT(referenced_worker_id,status,submitted_at,updated_at)
---   ON public.foss_complaints TO mad_runtime;
