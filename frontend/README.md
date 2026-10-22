@@ -212,6 +212,11 @@ REST and one-use ticket issuance continue through the existing BFF/gateway.
 See [setup, SQL and producer requirements](../backend/KITCHEN_REALTIME_GUIDE.md).
 No local tests were run; CI and real KMS staging verification remain pending.
 
-# Low-demand promotion suggestions
+## Low-demand promotion suggestions
 
-See [DDP-057 implementation and verification](DDP_057_IMPLEMENTATION.md) for the Analytics alert section, configurable forecast threshold, safe promotion date prefill and pending acceptance evidence.
+Analytics loads the next 14 hotel-local dates through the authenticated, no-store
+low-booking BFF. It shows below-threshold occupancy, unknown-capacity dates and
+distinct loading/error/retry states, plus direct PDF/CSV forecast downloads. Create
+Promotion opens the existing form with editable Colombo midnight-to-next-midnight
+dates. Invalid/repeated date query values are ignored; navigation never saves or
+activates a promotion. Existing validation and explicit save actions still apply.

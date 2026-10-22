@@ -6,11 +6,6 @@ submission requirements and institutional privacy rules before finalizing.
 
 ## Sprint review and retrospective index
 
-Include all required sprints, not just the retained release drafts. The existing
-[v0.1.0 retrospective](../release/v0.1.0/RETROSPECTIVE.draft.md) and
-[v0.2.0 retrospective](../release/v0.2.0/RETROSPECTIVE.draft.md) are drafts, not
-evidence that the meetings occurred. Link actual reviewed records separately.
-
 | Sprint / date | Actual participants | Review/demo evidence | Retrospective/actions | Action owners/due dates | Reviewer |
 | ------------- | ------------------- | -------------------- | --------------------- | ----------------------- | -------- |
 |               |                     |                      |                       |                         |          |

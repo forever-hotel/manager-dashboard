@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { AnalyticsError } from '@/lib/analytics';
 import { loadLowDemand, type LowDemand } from '@/lib/low-demand';
+import ReportDownload from './ReportDownload';
 
 export default function LowDemandAlerts() {
   const [data, setData] = useState<LowDemand>();
@@ -100,6 +101,7 @@ export default function LowDemandAlerts() {
           <p className="text-[10px] text-black/60 mt-3">
             Reporting timestamp: {data.freshness.queriedAt}
           </p>
+          <ReportDownload type="low-booking-alerts" filters={{}} />
         </>
       )}
     </section>

@@ -7,6 +7,24 @@ afterEach(() => vi.unstubAllGlobals());
 const response = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status });
 describe('DDP-057 low-demand suggestions', () => {
+  it('TC-MAD-031-AC1 / TC-MAD-057-AC1: exports the current low-demand forecast directly without unrelated period filters', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(response(lowDemand()))
+      .mockResolvedValue(response({}, 503));
+    vi.stubGlobal('fetch', fetcher);
+    render(<LowDemandAlerts />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Export CSV' }));
+    await screen.findByRole('alert');
+    expect(fetcher).toHaveBeenCalledWith(
+      '/api/reports/low-booking-alerts?format=csv',
+      expect.objectContaining({ credentials: 'same-origin' }),
+    );
+    expect(screen.getByRole('button', { name: 'Export PDF' })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Retry download' }),
+    ).toBeVisible();
+  });
   it('TC-MAD-057-AC1: displays forecast dates, expected occupancy, threshold and a non-mutating promotion link', async () => {
     const fetcher = vi.fn().mockResolvedValue(response(lowDemand()));
     vi.stubGlobal('fetch', fetcher);

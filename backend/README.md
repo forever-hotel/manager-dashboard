@@ -1,9 +1,5 @@
 # Manager dashboard backend
 
-DDP-054: [Sprint 7 functional-completeness audit and v0.3.0 gate](SPRINT_7_READINESS.md).
-Source mappings reviewed; missing low-demand UI and provider/evidence blockers
-keep the gate unaccepted. Notes/retrospective remain unpublished drafts.
-
 DDP-053: [demonstration, submission and staff handover package](delivery/DELIVERY_GUIDE.md).
 Drafts/scripts are prepared; actual rehearsal, v1.0.0 publication and assessment/
 handover approvals remain pending. No tests, seed/reset or release ran locally.
@@ -40,10 +36,6 @@ No additional SQL, environment or UI changes are required.
 
 DDP-043: [persistent notifications, manual SQL and acceptance register](NOTIFICATIONS_GUIDE.md).
 Apply the reviewed notification receipt supplement manually before using this feature.
-
-[DDP-001 through DDP-042 source audit](DDP_001_042_AUDIT.md) records implementation
-references and remaining acceptance/external-owner work. The prepared
-[v0.1.0 gate](SPRINT_5_READINESS.md) remains unaccepted until CI/staging evidence.
 
 DDP-042: [read-only worker task feed, deployment and acceptance register](OPERATIONS_GUIDE.md).
 Existing UI is preserved; no additional SQL or environment changes are required.
@@ -616,16 +608,22 @@ See [the security review and acceptance register](SECURITY_REVIEW.md) for endpoi
 inventory, hardening, dependency findings and pending CI/staging evidence.
 No tests or hosted database changes were executed locally.
 
-## DDP-036 Sprint 6 acceptance
+## Staff credential delivery
 
-See [Sprint 6 readiness](SPRINT_6_READINESS.md) for the 58-row acceptance register,
-missing prerequisites, CI requirements and unpublished v0.2.0 review pack.
-The acceptance gate remains open until actual CI/staging evidence is attached.
+Provisioning and password reset queue encrypted temporary credentials. Delivery
+reuses the same account/password for at most five attempts, with 30/60/120/240-second
+retry delays. Payloads are purged after acceptance/cancellation or 24 hours; cleanup
+also runs with sending disabled, while MAD is running. Provider acceptance is not
+inbox-delivery confirmation. Terminal cancellation requires review before an
+explicit new password reset; restarts never reset passwords. Keep DB_LOGGING=false
+and retain STAFF_CREDENTIALS_KEY while encrypted deliveries remain outstanding.
+Each subsystem owns first-login/password/session enforcement.
 
-# Staff credential email
+## Revenue policy
 
-See [DDP-055 delivery and retry contract](DDP_055_IMPLEMENTATION.md) for bounded retries, encrypted-payload retention, recovery and pending provider acceptance evidence.
-
-## Comparable revenue
-
-See [DDP-056 revenue contract](DDP_056_IMPLEMENTATION.md) for the approved completed-payment recognition policy, exact LKR units, calendar comparisons and verification register.
+Revenue sums COMPLETED payments by paid_at in integer LKR cents, using whole
+calendar day/week/month periods in Asia/Colombo with Monday-start weeks. REFUNDED,
+PENDING and FAILED rows are excluded; this is not a refund-event ledger. A zero
+previous total returns a null comparison with PREVIOUS_REVENUE_ZERO. Unavailable
+or invalid payment data returns 503 rather than fabricated zero totals. See the
+[API contract](API_CONTRACT.md) for the response and approved metric rules.

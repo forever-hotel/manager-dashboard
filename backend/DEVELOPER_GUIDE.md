@@ -1,10 +1,8 @@
-# Clean-checkout setup and maintenance — DDP-037
+# Clean-checkout setup and maintenance
 
-Reviewed against current configuration on 2026-10-21. This is a source-checked
-runbook; a clean-checkout reviewer execution is still pending. No tests or hosted
-SQL were run while writing it. [API reference](API_CONTRACT.md),
-[requirement traceability](REQUIREMENT_TRACEABILITY.md),
-[security review](SECURITY_REVIEW.md), [Sprint 6 gate](SPRINT_6_READINESS.md).
+Use this runbook with the [API contract](API_CONTRACT.md),
+[requirement traceability](REQUIREMENT_TRACEABILITY.md) and
+[security review](SECURITY_REVIEW.md). Schema changes remain manual.
 
 ## Prerequisites and separate repository
 

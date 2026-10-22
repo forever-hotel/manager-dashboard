@@ -255,3 +255,14 @@ requirements remain enforced by CI and must not be marked passed from this entry
 - Connect Analytics to existing low-booking alerts through a validated, session-protected frontend BFF.
 - Show dates, expected occupancy, configured threshold and distinct empty/unknown/retry states; open the existing promotion form with editable Colombo date boundaries and no automatic save.
 - Add component/BFF regression coverage and the frontend implementation register. Tests remain unrun locally; CI and staging acceptance are pending. No SQL changes.
+
+## Completion audit: DDP-001 through DDP-057
+
+- Map all 57 tickets and 173 original acceptance criteria to current source and candidate tests/review artifacts; retain explicit external implementation, infrastructure and acceptance blockers.
+- Add missing direct PDF/CSV downloads to the low-demand section using existing controls and regression coverage, preserving the established layout/styles.
+- Reconcile current MD-04/notification traceability while retaining historical audit baselines. No tests, SQL, deployments, releases or approvals are claimed.
+
+## Documentation cleanup
+
+- Remove redundant ticket implementation/audit reports and draft sprint release packs with duplicate CSV registers.
+- Consolidate current operational notes in the READMEs and remove references to deleted reports. Preserve docs/, active contracts, procedures and verification scenarios.
