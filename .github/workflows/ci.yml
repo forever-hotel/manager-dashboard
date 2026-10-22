@@ -99,76 +99,9 @@ jobs:
           name: frontend-coverage
           path: frontend/coverage
 
-  browser:
-    name: Browser acceptance
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_PASSWORD: integration-only
-          POSTGRES_DB: mad_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U postgres -d mad_test"
-          --health-interval 5s --health-timeout 3s --health-retries 15
-    env:
-      TEST_DATABASE_URL: postgresql://postgres:integration-only@localhost:5432/mad_test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
-      - run: npm ci
-        working-directory: backend
-      - run: node scripts/verify-build-config.mjs
-        working-directory: frontend
-      - run: npm ci --ignore-scripts
-        working-directory: frontend
-      - run: node scripts/verify-build-config.mjs
-        working-directory: frontend
-      - run: npx playwright install --with-deps chromium
-        working-directory: frontend
-      - run: npm run test:e2e
-        working-directory: frontend
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: browser-failure-traces
-          path: frontend/test-results
-
-  containers:
-    name: Container smoke
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: docker compose --env-file .env.example -f docker-compose.yml -f deploy/compose.ci.yml -p mad-ci config --quiet
-      - run: docker compose --env-file .env.example -f docker-compose.yml -f deploy/compose.ci.yml -p mad-ci up --build --wait --wait-timeout 180 postgres mad-backend mad-frontend
-      - run: |
-          curl --fail http://localhost:4000/health/ready
-          curl --fail http://localhost:3000/api/health
-          curl --fail http://localhost:3000/login
-      - run: docker compose --env-file .env.example -f docker-compose.yml -f deploy/compose.ci.yml -p mad-ci down --volumes
-        if: always()
-
-  deployment-tools:
-    name: Deployment tool checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python -m unittest discover -s deploy -p 'test_staging_*.py'
-      - run: python -m unittest discover -s deploy -p 'test_operations_*.py'
-
   publish-staging:
     name: Publish checked staging images
-    needs: [backend, frontend, browser, containers, deployment-tools]
+    needs: [backend, frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:

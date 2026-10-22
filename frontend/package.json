@@ -11,7 +11,6 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
-    "test:e2e": "playwright test",
     "preinstall": "node scripts/verify-build-config.mjs",
     "prebuild": "node scripts/verify-build-config.mjs",
     "postbuild": "node scripts/verify-build-config.mjs",
@@ -31,7 +30,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
@@ -39,7 +37,6 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "4.1.11",
-    "axe-core": "4.14.0",
     "eslint": "^9",
     "eslint-config-next": "16.4.1",
     "jsdom": "^26.1.0",

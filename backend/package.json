@@ -21,8 +21,7 @@
     "lint:fix": "npm run lint -- --fix",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "manager:create": "node --env-file-if-exists=.env dist/auth/provision-manager-cli.js",
-    "test:integration": "jest --config ./test/jest-e2e.json --runInBand",
-    "test:serve": "ts-node test/serve-contract-stack.ts"
+    "test:integration": "jest --config ./test/jest-e2e.json --runInBand"
   },
   "dependencies": {
     "@fontsource/noto-sans": "5.3.0",

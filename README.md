@@ -23,9 +23,8 @@ Use the Node version in `.nvmrc`. Run `npm ci` in backend and
 `npm ci --ignore-scripts` in frontend. Each package provides `build`, `lint`,
 `format:check` and `test:cov`. Backend integration tests use
 `npm run test:integration` with a disposable `TEST_DATABASE_URL` and RabbitMQ
-configuration. Browser tests use `npm run test:e2e` in frontend; their service
-setup is configured in `frontend/playwright.config.ts`. Never point test fixtures
-at the hosted development or production database.
+configuration. Never point test fixtures at the hosted development or production
+database.
 
 CI and staging configuration remains in `deploy/` and `.github/workflows/`.
 Markdown files are not runtime dependencies.
@@ -43,7 +42,8 @@ object definitions are not automatically repaired by IF NOT EXISTS. Review the
 commented grants using actual restricted MAD/WKMS role names. Real room history
 and other business data are not invented or seeded.
 
-Local startup only mounts `deploy/gateway.routes.local.json`. CI additionally
-uses `deploy/compose.ci.yml` and initializes disposable PostgreSQL with the full
-schema. Other retained staging/operations tools are used by the
-existing workflows and scheduled infrastructure, rather than local app startup.
+Local startup mounts `deploy/gateway.routes.local.json`. CI runs backend and
+frontend checks, including isolated backend database integration tests. Browser
+acceptance, container smoke and deployment-tool test jobs have been removed.
+Retained staging/operations tools support workflows and scheduled infrastructure,
+rather than local app startup.

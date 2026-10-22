@@ -2,7 +2,7 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY scripts/verify-build-config.mjs scripts/build-config-integrity.json ./scripts/
-COPY postcss.config.mjs next.config.ts eslint.config.mjs vitest.config.ts playwright.config.ts ./
+COPY postcss.config.mjs next.config.ts eslint.config.mjs vitest.config.ts ./
 # Check host-supplied config before dependencies or Next.js can execute it.
 # Optional native packages are supplied by the lockfile; dependency lifecycle
 # scripts are deliberately disabled in this build.
