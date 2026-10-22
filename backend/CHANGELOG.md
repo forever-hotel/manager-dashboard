@@ -1,5 +1,14 @@
 # Change log
 
+## Unreleased - DDP-054
+
+- Audit all22 MD requirements and supplementary UI/task/session obligations with
+  explicit backend/BFF/UI/integration/test references and source/evidence status.
+- Record missing low-demand UI and real-provider/prerequisite/CI evidence blockers;
+  retain a blocked v0.3.0 gate with unpublished notes/retrospective and blank reviews.
+- Correct current traceability pointers without rewriting historic acceptance.
+  Documentation only; no tests, executable/UI/schema change or release publication.
+
 ## Unreleased - DDP-053
 
 - Prepare all-requirement live demo mapping, realistic synthetic fixtures,

@@ -1,5 +1,9 @@
 # Manager dashboard backend
 
+DDP-054: [Sprint 7 functional-completeness audit and v0.3.0 gate](SPRINT_7_READINESS.md).
+Source mappings reviewed; missing low-demand UI and provider/evidence blockers
+keep the gate unaccepted. Notes/retrospective remain unpublished drafts.
+
 DDP-053: [demonstration, submission and staff handover package](delivery/DELIVERY_GUIDE.md).
 Drafts/scripts are prepared; actual rehearsal, v1.0.0 publication and assessment/
 handover approvals remain pending. No tests, seed/reset or release ran locally.
