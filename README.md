@@ -26,7 +26,8 @@ Use the Node version in `.nvmrc`. Run `npm ci` in backend and
 configuration. Never point test fixtures at the hosted development or production
 database.
 
-CI and staging configuration remains in `deploy/` and `.github/workflows/`.
+CI configuration remains in `.github/workflows/ci.yml`. It runs only backend and
+frontend checks; automatic image publication and staging deployment are removed.
 Markdown files are not runtime dependencies.
 
 ## Manual database setup
@@ -45,5 +46,5 @@ and other business data are not invented or seeded.
 Local startup mounts `deploy/gateway.routes.local.json`. CI runs backend and
 frontend checks, including isolated backend database integration tests. Browser
 acceptance, container smoke and deployment-tool test jobs have been removed.
-Retained staging/operations tools support workflows and scheduled infrastructure,
-rather than local app startup.
+Retained operations tools support scheduled infrastructure rather than local app
+startup.

@@ -3,8 +3,22 @@ import json
 import os
 from datetime import datetime, timezone
 from uuid import uuid4
-from urllib.request import build_opener, Request
-from staging_smoke import NoRedirect, origin
+from urllib.request import build_opener, Request, HTTPRedirectHandler
+from urllib.parse import urlsplit
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def origin(value):
+    parsed = urlsplit(value)
+    if (parsed.scheme != 'https' or not parsed.hostname or parsed.username
+            or parsed.password or parsed.path not in ('', '/')
+            or parsed.query or parsed.fragment):
+        raise ValueError('Expected HTTPS origin')
+    return value.rstrip('/')
 
 
 def observe(app, gateway, client=None):
