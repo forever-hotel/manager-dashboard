@@ -1,6 +1,0 @@
-gap_id,requirement_or_ticket,description,required_owner_role,accountable_person,issue_link,status,closure_evidence
-GAP-UAT-ENV,DDP-052,No current UAT staging/fixture/session/reviewer details supplied,QA and hotel manager/supervisor,,,OPEN_PRECONDITION_GAP,
-GAP-UAT-MD04,MD-04;DDP-057,Visible low-demand suggestion/date-prefill action missing from reviewed Analytics source,Frontend owner,,,OPEN_IMPLEMENTATION_GAP,
-GAP-UAT-PROVIDERS,MD-05c;MD-14;MD-15;MD-15b;MD-16;MD-16b;SRS6.3,Actual HW checkout/staff first-login-session enforcement/WKMS claim adoption evidence pending,HW/FDS/FOSS/KMS/WKMS owners,,,OPEN_PROVIDER_EVIDENCE_GAP,
-GAP-UAT-GATES,DDP-035;DDP-047;DDP-048;DDP-050;DDP-054,Accepted prerequisite/current CI/coverage and manual verification evidence not supplied,QA/security/infrastructure/release reviewers,,,OPEN_EVIDENCE_GAP,
-GAP-UAT-DECISIONS,DDP-038,Owner/supervisor contract decision reviews including Kitchen Manager partial access remain pending,Subsystem/security owners and supervisor,,,OPEN_DECISION_GAP,
