@@ -249,3 +249,9 @@ requirements remain enforced by CI and must not be marked passed from this entry
 - Review completed-payment revenue against the approved LKR/calendar policy; reject malformed aggregate values instead of coercing them into zero totals.
 - Extend unit and disposable-database regression cases for invalid aggregates and rounded negative comparisons; document the API policy and acceptance register.
 - Preserve existing UI and database schema. Tests remain unrun locally; CI and payment-owner reconciliation are pending.
+
+## DDP-057
+
+- Connect Analytics to existing low-booking alerts through a validated, session-protected frontend BFF.
+- Show dates, expected occupancy, configured threshold and distinct empty/unknown/retry states; open the existing promotion form with editable Colombo date boundaries and no automatic save.
+- Add component/BFF regression coverage and the frontend implementation register. Tests remain unrun locally; CI and staging acceptance are pending. No SQL changes.

@@ -1,5 +1,6 @@
 'use client';
 import ReportDownload from './ReportDownload';
+import LowDemandAlerts from './LowDemandAlerts';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   AnalyticsError,
@@ -173,6 +174,7 @@ export default function AnalyticsDashboard({
           </p>
         </>
       )}
+      <LowDemandAlerts />
       {children}
     </main>
   );

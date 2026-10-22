@@ -54,6 +54,17 @@ function fill() {
 const mutations = (fetcher: ReturnType<typeof setup>) =>
   fetcher.mock.calls.filter(([, init]) => init?.method !== 'GET');
 describe('DDP-020 promotion management', () => {
+  it('TC-MAD-057-AC2: opens the existing create form with only dates prefilled and makes no mutation', async () => {
+    const fetcher = setup();
+    render(<PromotionsDashboard initialDate="2028-02-29" />);
+    await ready();
+    expect(screen.getByLabelText('Valid from')).toHaveValue('2028-02-29T00:00');
+    expect(screen.getByLabelText('Valid until')).toHaveValue(
+      '2028-03-01T00:00',
+    );
+    expect(screen.getByLabelText('Promo code')).toHaveValue('');
+    expect(mutations(fetcher)).toHaveLength(0);
+  });
   beforeEach(() => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-16T00:00:00Z'));

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { promotionDates } from '@/lib/low-demand';
 import {
   createSchema,
   editSchema,
@@ -17,10 +18,15 @@ import {
   type RoomType,
 } from '@/lib/promotions';
 
-export default function PromotionsDashboard() {
+export default function PromotionsDashboard({
+  initialDate,
+}: { initialDate?: string } = {}) {
   const [promos, setPromos] = useState<Promotion[]>([]);
   const [rooms, setRooms] = useState<RoomType[]>([]);
-  const [form, setForm] = useState<PromotionForm>({ ...emptyForm });
+  const [form, setForm] = useState<PromotionForm>(() => ({
+    ...emptyForm,
+    ...promotionDates(initialDate),
+  }));
   const [editing, setEditing] = useState<Promotion>();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
