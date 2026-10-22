@@ -1,5 +1,9 @@
 # Manager dashboard backend
 
+DDP-053: [demonstration, submission and staff handover package](delivery/DELIVERY_GUIDE.md).
+Drafts/scripts are prepared; actual rehearsal, v1.0.0 publication and assessment/
+handover approvals remain pending. No tests, seed/reset or release ran locally.
+
 DDP-052: [manager UAT scenarios, triage and actual sign-off record](uat/UAT_GUIDE.md).
 Prepared only: real manager/supervisor execution and approval remain pending.
 

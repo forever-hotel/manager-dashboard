@@ -1,5 +1,14 @@
 # Change log
 
+## Unreleased - DDP-053
+
+- Prepare all-requirement live demo mapping, realistic synthetic fixtures,
+  controlled reset/fallback recording plan and manager/operator walkthrough.
+- Add submission artifact index, final report/v1.0.0 note drafts and blank
+  review/retrospective/contribution/peer-evaluation/handover records.
+- Documentation only: no tests, app/UI/schema changes, seed/reset or release.
+  Actual delivery rehearsal, artifact access, release and approvals remain pending.
+
 ## Unreleased - DDP-052
 
 - Prepare requirement-mapped manager UAT journeys, per-role/export variants,
