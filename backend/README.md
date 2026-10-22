@@ -1,5 +1,9 @@
 # Manager dashboard backend
 
+DDP-050: [structured audit, diagnostics and recovery runbook](OPERATIONS_RUNBOOK.md).
+Collector/retention, monitoring and backup templates require owner installation
+and evidence. No tests, backups, restores or hosted schema changes ran locally.
+
 DDP-049: [GHCR staging delivery, host setup and recovery](../deploy/STAGING_GUIDE.md).
 Automatic develop deployment requires the documented protected Linux runner and
 private host configuration; no deployment or hosted schema changes ran locally.

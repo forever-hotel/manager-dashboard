@@ -69,12 +69,12 @@ an arbitrary PR revision. The runner must not also execute untrusted PR jobs.
 
 Set repository variables (non-secret):
 
-| Variable | Example / meaning |
-| --- | --- |
+| Variable                  | Example / meaning                                                         |
+| ------------------------- | ------------------------------------------------------------------------- |
 | STAGING_PUBLIC_API_ORIGIN | `https://gateway.staging.example` (publish-time and smoke gateway origin) |
-| STAGING_APP_ORIGIN | `https://mad.staging.example` (TLS frontend origin) |
-| STAGING_CONFIG_DIR | `/opt/mad/staging/config/v1` |
-| STAGING_STATE_DIR | `/opt/mad/staging/state` |
+| STAGING_APP_ORIGIN        | `https://mad.staging.example` (TLS frontend origin)                       |
+| STAGING_CONFIG_DIR        | `/opt/mad/staging/config/v1`                                              |
+| STAGING_STATE_DIR         | `/opt/mad/staging/state`                                                  |
 
 These must be real origins with no path/query/userinfo. Do not override public
 API origin differently in the environment: build-time and deployment values must
@@ -108,7 +108,10 @@ do not silently bypass the gateway when it fails.
 change already completed:
 
 ```json
-{"username":"staging-smoke-manager","password":"replace-with-private-value"}
+{
+  "username": "staging-smoke-manager",
+  "password": "replace-with-private-value"
+}
 ```
 
 Never reuse production credentials. Login can update authentication counters and
@@ -119,7 +122,11 @@ It does not provision accounts, change passwords or write hotel business data.
 compatibility with the current candidate AND retained recovery images:
 
 ```json
-{"revision":"reviewed-manual-schema-id","backwardCompatible":true,"approval":"DB-owner review/evidence reference"}
+{
+  "revision": "reviewed-manual-schema-id",
+  "backwardCompatible": true,
+  "approval": "DB-owner review/evidence reference"
+}
 ```
 
 This is an explicit owner attestation, not automatic schema introspection or
@@ -192,6 +199,9 @@ tokens/passwords. Current implementation preserves data but does not prove a
 real rollback until the drill runs.
 
 ## Tests and outstanding acceptance
+
+DDP-050 additionally requires the private loopback TCP1514 rsyslog collector before
+starting the staging backend. See [operations setup](../backend/OPERATIONS_RUNBOOK.md).
 
 The new hosted deployment-tool job runs isolated Python unittest doubles for
 success, schema/pull/readiness/smoke failure, rollback failure, first-deploy cleanup,

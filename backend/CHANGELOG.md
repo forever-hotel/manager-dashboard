@@ -1,5 +1,15 @@
 # Change log
 
+## Unreleased - DDP-050
+
+- Add allowlisted mutation/error audit with actor/correlation/outcome and bounded
+  metrics; manager-only diagnostics and sequential dependency-state monitoring.
+- Add private collector/400 daily archive templates, HTTPS readiness probes,
+  conservative monthly reporting and scoped backup/read-only reconciliation.
+- Add unit/API and isolated probe/report cases plus owner-led recovery/retention
+  acceptance register. Tests remain unrun locally; infrastructure, coverage,
+  restore and monthly evidence remain pending. No UI or hosted schema change.
+
 ## Unreleased - DDP-049
 
 - Gate develop-only GHCR publication and protected Linux staging deployment on

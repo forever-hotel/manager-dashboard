@@ -1,6 +1,12 @@
 # Standalone staging manifest. Infrastructure owns gateway, broker, DB and TLS.
 services:
   mad-backend:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: tcp://127.0.0.1:1514
+        syslog-format: rfc5424micro
+        tag: mad-backend
     image: ${MAD_BACKEND_IMAGE:?Digest-pinned backend image required}
     env_file: ${MAD_STAGING_CONFIG_DIR:?Private configuration directory required}/backend.env
     environment:
