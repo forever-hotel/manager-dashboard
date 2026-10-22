@@ -1,0 +1,57 @@
+# Standalone staging manifest. Infrastructure owns gateway, broker, DB and TLS.
+services:
+  mad-backend:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: tcp://127.0.0.1:1514
+        syslog-format: rfc5424micro
+        tag: mad-backend
+    image: ${MAD_BACKEND_IMAGE:?Digest-pinned backend image required}
+    env_file: ${MAD_STAGING_CONFIG_DIR:?Private configuration directory required}/backend.env
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      FRONTEND_URL: ${MAD_STAGING_ORIGIN:?HTTPS frontend origin required}
+      DB_SYNCHRONIZE: "false"
+      DB_LOGGING: "false"
+    ports: ["127.0.0.1:4000:4000"]
+    networks: [staging]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+    init: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+  mad-frontend:
+    image: ${MAD_FRONTEND_IMAGE:?Digest-pinned frontend image required}
+    env_file: ${MAD_STAGING_CONFIG_DIR}/frontend.env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_ORIGIN: ${MAD_STAGING_ORIGIN}
+    ports: ["127.0.0.1:3000:3000"]
+    networks: [staging]
+    depends_on:
+      mad-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+    init: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+networks:
+  staging:
+    external: true
+    name: mad-staging

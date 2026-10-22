@@ -59,6 +59,43 @@ describe('Dashboard shell', () => {
       expect.objectContaining({ method: 'POST', body: '{}' }),
     );
   });
+  it('DDP-048: isolates the open navigation and restores focus on Escape', () => {
+    render(
+      <ClientLayout session={session}>
+        <p>Protected content</p>
+      </ClientLayout>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Open navigation' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect(document.getElementById('dashboard-content')).toHaveAttribute(
+      'inert',
+    );
+    expect(screen.getByRole('link', { name: 'Analytics' })).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(document.getElementById('dashboard-content')).not.toHaveAttribute(
+      'inert',
+    );
+    expect(trigger).toHaveFocus();
+  });
+  it('DDP-048: keeps forward and reverse Tab inside open navigation', () => {
+    render(
+      <ClientLayout session={session}>
+        <p>Protected content</p>
+      </ClientLayout>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+    const toggle = screen.getByRole('button', { name: 'Close navigation' });
+    const logout = screen.getByRole('button', { name: 'Logout' });
+    toggle.focus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(logout).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(toggle).toHaveFocus();
+    screen.getByRole('link', { name: 'Skip to content' }).focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(toggle).toHaveFocus();
+  });
   it('keeps logout retryable when the server fails', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response('{}', { status: 503 }));
     render(<Sidebar open close={() => {}} username="manager" />);

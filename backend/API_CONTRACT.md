@@ -1,5 +1,10 @@
 # MAD API and event reference — DDP-037
 
+DDP-050 adds manager-only `GET /mad/operations/status` and server-generated
+`X-Correlation-ID` response headers. Status200 can describe degraded dependencies;
+see [audit/monitoring contract](OPERATIONS_RUNBOOK.md). No credentials or raw errors
+are exposed; normal401/403 session boundaries apply.
+
 Source review: 2026-10-21. These are implemented contracts, not a claim of
 cross-service acceptance. MAD is the subsystem name; DDP is the ticket prefix.
 No OpenAPI endpoint or generated Swagger UI is currently provided.

@@ -94,7 +94,12 @@ export default function TaskQueue() {
           </button>
         </div>
       )}
-      <div className="overflow-x-auto">
+      <div
+        className="overflow-x-auto"
+        tabIndex={0}
+        role="region"
+        aria-label="Task queue data"
+      >
         <table className="w-full text-left text-[10.5px] text-black">
           <caption className="sr-only">
             Read-only tasks matching current filters

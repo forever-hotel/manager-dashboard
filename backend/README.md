@@ -1,5 +1,24 @@
 # Manager dashboard backend
 
+DDP-053: [demonstration, submission and staff handover package](delivery/DELIVERY_GUIDE.md).
+Drafts/scripts are prepared; actual rehearsal, v1.0.0 publication and assessment/
+handover approvals remain pending. No tests, seed/reset or release ran locally.
+
+DDP-052: [manager UAT scenarios, triage and actual sign-off record](uat/UAT_GUIDE.md).
+Prepared only: real manager/supervisor execution and approval remain pending.
+
+DDP-051: [immutable release package, protected workflow and rollback rehearsal](../deploy/release/RELEASE_GUIDE.md).
+Production is disabled until owner configuration/approval; no release or rehearsal
+ran locally. Real platform hooks and two-minute recovery evidence remain pending.
+
+DDP-050: [structured audit, diagnostics and recovery runbook](OPERATIONS_RUNBOOK.md).
+Collector/retention, monitoring and backup templates require owner installation
+and evidence. No tests, backups, restores or hosted schema changes ran locally.
+
+DDP-049: [GHCR staging delivery, host setup and recovery](../deploy/STAGING_GUIDE.md).
+Automatic develop deployment requires the documented protected Linux runner and
+private host configuration; no deployment or hosted schema changes ran locally.
+
 DDP-047: [opt-in API/socket load tools and performance verification](test/performance/README.md).
 Profile prepared; no local tests/load executed. Staging measurements and owner
 approval are required before performance acceptance.

@@ -1,2 +1,35 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
+
+/* Keyboard focus must remain visible on every native control and scroll region. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid #111827;
+  outline-offset: 3px;
+  scroll-margin-block: 5rem;
+}
+
+/* Keep existing desktop layout; allow controls to wrap at narrow/zoomed widths. */
+@media (max-width: 767px) {
+  #dashboard-content main {
+    padding-inline: 1rem;
+  }
+  #dashboard-content .grid-cols-3,
+  #dashboard-content .grid-cols-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #dashboard-content .col-span-2,
+  #dashboard-content .col-span-3 {
+    grid-column: 1 / -1;
+  }
+  #dashboard-content .flex {
+    flex-wrap: wrap;
+  }
+  #dashboard-content input,
+  #dashboard-content select,
+  #dashboard-content textarea {
+    max-width: 100%;
+  }
+  #dashboard-content :where(h1, h2, p, dd, li) {
+    overflow-wrap: anywhere;
+  }
+}
