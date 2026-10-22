@@ -237,3 +237,9 @@ clean-checkout command transcript with secrets redacted, final SHA/tool versions
 CI artifacts and actual owner ADR/contract links to close acceptance. Code
 coverage for this documentation-only change is N/A; delivered application coverage
 requirements remain enforced by CI and must not be marked passed from this entry.
+
+# DDP-055
+
+- Bound staff credential delivery to five attempts and a 24-hour encrypted-payload window, with cleanup even when email sending is disabled.
+- Preserve accounts/passwords across delivery retries and clarify terminal delivery status without changing the staff layout.
+- Add unit/disposable-database regression cases and the delivery maintenance/acceptance contract. Tests remain unrun locally; real-provider acceptance is pending.

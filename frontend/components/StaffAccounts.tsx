@@ -616,8 +616,9 @@ export default function StaffAccounts() {
                         pending: 'Queued for delivery',
                         sent: 'Email accepted by provider',
                         failed:
-                          'Delivery failed ? check email and contact administrator; automatic retries may be pending.',
-                        cancelled: 'Delivery cancelled',
+                          'Delivery failed; automatic retries are pending within the delivery window.',
+                        cancelled:
+                          'Delivery cancelled or expired; review the account before requesting a new password.',
                         none: 'No delivery record',
                       }[s.deliveryStatus]
                     }

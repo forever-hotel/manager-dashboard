@@ -275,13 +275,14 @@ describe('DDP-012 retry worker', () => {
       password_change_required: true,
       session_version: 0,
     },
+    attempts = 1,
   ) {
     const cipher = new CredentialCipher(config());
     const delivery = {
       delivery_id: 'delivery',
       worker_id: 'staff',
       encrypted_credentials: cipher.encrypt('delivery', credentials),
-      attempts: 1,
+      attempts,
       credential_version: 0,
     };
     const query = jest
@@ -326,6 +327,19 @@ describe('DDP-012 retry worker', () => {
       true,
     );
   });
+  it('TC-MAD-055-AC2: purges credentials on the fifth failed attempt without resetting the account', async () => {
+    const { worker, query, send } = setup(undefined, 5);
+    send.mockRejectedValue(new Error('private provider response'));
+    await worker.processOnce();
+    expect(query.mock.calls[2][0]).toContain('EMAIL_RETRY_EXHAUSTED');
+    expect(query.mock.calls[2][0]).toContain('encrypted_credentials=NULL');
+    expect(query.mock.calls[2][1]).toEqual(['delivery', expect.any(String)]);
+    expect(
+      query.mock.calls.every(
+        ([sql]) => !sql.includes('UPDATE public.staff_users'),
+      ),
+    ).toBe(true);
+  });
   it.each([
     null,
     { is_active: false, password_change_required: true, session_version: 0 },
@@ -360,17 +374,19 @@ describe('DDP-012 retry worker', () => {
       jest.useRealTimers();
     }
   });
-  it('does no work while delivery is disabled', async () => {
-    const query = jest.fn();
+  it('purges expired payloads without sending while delivery is disabled', async () => {
+    const query = jest.fn().mockResolvedValue([]);
     const worker = new StaffDeliveryWorker(
       { query },
       new ConfigService(),
       new CredentialCipher(config()),
       new SendGridService(config()),
     );
-    worker.onApplicationBootstrap();
     await worker.processOnce();
     await worker.onApplicationShutdown();
-    expect(query).not.toHaveBeenCalled();
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('EMAIL_PAYLOAD_EXPIRED'),
+      [expect.any(String), false],
+    );
   });
 });

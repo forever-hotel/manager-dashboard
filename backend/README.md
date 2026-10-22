@@ -621,3 +621,7 @@ No tests or hosted database changes were executed locally.
 See [Sprint 6 readiness](SPRINT_6_READINESS.md) for the 58-row acceptance register,
 missing prerequisites, CI requirements and unpublished v0.2.0 review pack.
 The acceptance gate remains open until actual CI/staging evidence is attached.
+
+# Staff credential email
+
+See [DDP-055 delivery and retry contract](DDP_055_IMPLEMENTATION.md) for bounded retries, encrypted-payload retention, recovery and pending provider acceptance evidence.
