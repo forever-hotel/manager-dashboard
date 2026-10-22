@@ -1,12 +1,20 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
-COPY . .
+COPY package.json package-lock.json ./
+COPY scripts/verify-build-config.mjs scripts/build-config-integrity.json ./scripts/
+COPY postcss.config.mjs next.config.ts eslint.config.mjs vitest.config.ts playwright.config.ts ./
 # Check host-supplied config before dependencies or Next.js can execute it.
 # Optional native packages are supplied by the lockfile; dependency lifecycle
 # scripts are deliberately disabled in this build.
-RUN node scripts/verify-build-config.mjs \
-    && npm ci --ignore-scripts --no-audit --no-fund --fetch-timeout=60000 --fetch-retries=1 \
+# Keep verified npm downloads across failed builds and retry transient timeouts.
+# Source-only edits do not invalidate the dependency installation layer.
+RUN --mount=type=cache,id=mad-frontend-npm,target=/root/.npm,sharing=locked \
+    node scripts/verify-build-config.mjs \
+    && npm ci --ignore-scripts --no-audit --no-fund --prefer-offline \
+        --fetch-timeout=300000 --fetch-retries=3 \
+        --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=60000 --maxsockets=5 \
     && node scripts/verify-build-config.mjs
+COPY . .
 ARG NEXT_PUBLIC_API_URL=http://localhost:8080
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build && node scripts/verify-build-config.mjs
