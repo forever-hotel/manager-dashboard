@@ -60,10 +60,31 @@ services:
       PORT: 8080
       MAD_SERVICE_URL: http://mad-backend:4000
       ALLOWED_ORIGINS: ${APP_ORIGIN:-http://localhost:3000}
-      ROUTES_FILE: config/routes.local.json
-    configs:
-      - source: gateway_routes
-        target: /app/config/routes.local.json
+      ROUTES_JSON: |
+        [
+          {
+            "id": "mad-auth",
+            "enabled": true,
+            "prefix": "/mad/auth",
+            "rewritePrefix": "/auth",
+            "upstreamEnv": "MAD_SERVICE_URL",
+            "cookieNames": [
+              "mad_session",
+              "mad_csrf"
+            ]
+          },
+          {
+            "id": "mad",
+            "enabled": true,
+            "prefix": "/mad",
+            "rewritePrefix": "/mad",
+            "upstreamEnv": "MAD_SERVICE_URL",
+            "cookieNames": [
+              "mad_session",
+              "mad_csrf"
+            ]
+          }
+        ]
     ports:
       - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
     depends_on:
@@ -104,31 +125,3 @@ services:
 
 volumes:
   mad-rabbitmq-data:
-
-configs:
-  gateway_routes:
-    content: |
-      [
-        {
-          "id": "mad-auth",
-          "enabled": true,
-          "prefix": "/mad/auth",
-          "rewritePrefix": "/auth",
-          "upstreamEnv": "MAD_SERVICE_URL",
-          "cookieNames": [
-            "mad_session",
-            "mad_csrf"
-          ]
-        },
-        {
-          "id": "mad",
-          "enabled": true,
-          "prefix": "/mad",
-          "rewritePrefix": "/mad",
-          "upstreamEnv": "MAD_SERVICE_URL",
-          "cookieNames": [
-            "mad_session",
-            "mad_csrf"
-          ]
-        }
-      ]
