@@ -625,3 +625,7 @@ The acceptance gate remains open until actual CI/staging evidence is attached.
 # Staff credential email
 
 See [DDP-055 delivery and retry contract](DDP_055_IMPLEMENTATION.md) for bounded retries, encrypted-payload retention, recovery and pending provider acceptance evidence.
+
+## Comparable revenue
+
+See [DDP-056 revenue contract](DDP_056_IMPLEMENTATION.md) for the approved completed-payment recognition policy, exact LKR units, calendar comparisons and verification register.

@@ -243,3 +243,9 @@ requirements remain enforced by CI and must not be marked passed from this entry
 - Bound staff credential delivery to five attempts and a 24-hour encrypted-payload window, with cleanup even when email sending is disabled.
 - Preserve accounts/passwords across delivery retries and clarify terminal delivery status without changing the staff layout.
 - Add unit/disposable-database regression cases and the delivery maintenance/acceptance contract. Tests remain unrun locally; real-provider acceptance is pending.
+
+## DDP-056
+
+- Review completed-payment revenue against the approved LKR/calendar policy; reject malformed aggregate values instead of coercing them into zero totals.
+- Extend unit and disposable-database regression cases for invalid aggregates and rounded negative comparisons; document the API policy and acceptance register.
+- Preserve existing UI and database schema. Tests remain unrun locally; CI and payment-owner reconciliation are pending.
