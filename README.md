@@ -27,7 +27,7 @@ configuration. Browser tests use `npm run test:e2e` in frontend; their service
 setup is configured in `frontend/playwright.config.ts`. Never point test fixtures
 at the hosted development or production database.
 
-Staging and release configuration remains in `deploy/` and `.github/workflows/`.
+CI and staging configuration remains in `deploy/` and `.github/workflows/`.
 Markdown files are not runtime dependencies.
 
 ## Manual database setup
@@ -45,5 +45,5 @@ and other business data are not invented or seeded.
 
 Local startup only mounts `deploy/gateway.routes.local.json`. CI additionally
 uses `deploy/compose.ci.yml` and initializes disposable PostgreSQL with the full
-schema. Other retained deployment/operations/release tools are used by the
+schema. Other retained staging/operations tools are used by the
 existing workflows and scheduled infrastructure, rather than local app startup.

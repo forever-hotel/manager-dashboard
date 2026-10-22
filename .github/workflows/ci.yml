@@ -165,7 +165,6 @@ jobs:
           python-version: '3.12'
       - run: python -m unittest discover -s deploy -p 'test_staging_*.py'
       - run: python -m unittest discover -s deploy -p 'test_operations_*.py'
-      - run: python -m unittest discover -s deploy -p 'test_release_*.py'
 
   publish-staging:
     name: Publish checked staging images
@@ -235,7 +234,6 @@ jobs:
       MAD_STAGING_CONFIG_DIR: ${{ vars.STAGING_CONFIG_DIR }}
       MAD_STAGING_ORIGIN: ${{ vars.STAGING_APP_ORIGIN }}
       MAD_STAGING_API_ORIGIN: ${{ vars.STAGING_PUBLIC_API_ORIGIN }}
-      DOCKER_CONFIG: ${{ runner.temp }}/mad-staging-docker-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
       - name: Reject superseded develop revision
@@ -243,6 +241,13 @@ jobs:
         run: |
           current="$(git ls-remote origin refs/heads/develop | cut -f1)"
           test "$current" = "$GITHUB_SHA"
+      - name: Configure private Docker credentials directory
+        shell: bash
+        run: |
+          umask 077
+          docker_config="$RUNNER_TEMP/mad-staging-docker-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          mkdir -p "$docker_config"
+          echo "DOCKER_CONFIG=$docker_config" >> "$GITHUB_ENV"
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io

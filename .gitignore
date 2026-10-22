@@ -8,8 +8,6 @@ docs
 api-gateway
 branch_structure.json
 deployment-result.json
-release-result.json
-accepted-staging/
 __pycache__/
 temp_auto_push.bat
 temp_interactive_push.bat
