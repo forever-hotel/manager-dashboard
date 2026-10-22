@@ -1,4 +1,5 @@
 method,backend_path,gateway_path,permission,controller_source
+GET,/mad/operations/status,/mad/operations/status,Manager; password change completed,src/operations/operations.controller.ts
 GET,/mad/analytics/revenue,/mad/analytics/revenue,Manager; password change completed,src/analytics/analytics.controller.ts
 GET,/mad/analytics/overview,/mad/analytics/overview,Manager; password change completed,src/analytics/analytics.controller.ts
 GET,/mad/analytics/bookings,/mad/analytics/bookings,Manager; password change completed,src/analytics/analytics.controller.ts

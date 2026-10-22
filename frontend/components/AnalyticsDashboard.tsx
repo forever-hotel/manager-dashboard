@@ -1,5 +1,6 @@
 'use client';
 import ReportDownload from './ReportDownload';
+import LowDemandAlerts from './LowDemandAlerts';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   AnalyticsError,
@@ -173,6 +174,7 @@ export default function AnalyticsDashboard({
           </p>
         </>
       )}
+      <LowDemandAlerts />
       {children}
     </main>
   );
@@ -277,7 +279,12 @@ function BookingTrend({ data }: { data: Overview }) {
             Day of month (Asia/Colombo)
           </text>
         </svg>
-        <div className="overflow-x-auto mt-4">
+        <div
+          className="overflow-x-auto mt-4"
+          tabIndex={0}
+          role="region"
+          aria-label="Daily booking data"
+        >
           <table className="w-full text-left border-collapse text-[10.5px]">
             <caption className="text-left font-medium mb-2">
               Daily booking data ? {data.bookings.period}

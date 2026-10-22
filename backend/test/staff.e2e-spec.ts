@@ -269,7 +269,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       await database.query(`GRANT INSERT ON mad_staff_deliveries TO "${role}"`);
     }
   });
-  it('TC-MAD-012-AC3: retries provider failure using the same account and credentials', async () => {
+  it('TC-MAD-055-AC1 / TC-MAD-012-AC3: retries provider failure using the same account and credentials then records acceptance and purges the payload', async () => {
     await post().expect(201);
     const send = jest
       .fn()
@@ -306,6 +306,98 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     expect(send).toHaveBeenCalledTimes(2);
     expect(send.mock.calls[0]).toEqual(send.mock.calls[1]);
     expect(await count()).toBe(1);
+  });
+  it('TC-MAD-055-AC2: fifth provider rejection is terminal and preserves the account password', async () => {
+    const created = await post().expect(201);
+    const { staffId } = created.body as { staffId: string };
+    const [before] = await database.query<Record<string, unknown>[]>(
+      'SELECT password_hash,session_version FROM staff_users WHERE worker_id=$1',
+      [staffId],
+    );
+    await database.query('UPDATE mad_staff_deliveries SET attempts=4');
+    const send = jest
+      .fn()
+      .mockRejectedValue(new Error('private provider content'));
+    const worker = new StaffDeliveryWorker(
+      runtime,
+      new ConfigService({ ...config, STAFF_EMAIL_ENABLED: 'true' }),
+      cipher,
+      { send },
+    );
+    await worker.processOnce();
+    await worker.processOnce();
+    expect(send).toHaveBeenCalledTimes(1);
+    const [delivery] = await database.query<Record<string, unknown>[]>(
+      'SELECT status,attempts,encrypted_credentials,last_error_code FROM mad_staff_deliveries',
+    );
+    expect(delivery).toEqual({
+      status: 'cancelled',
+      attempts: 5,
+      encrypted_credentials: null,
+      last_error_code: 'EMAIL_RETRY_EXHAUSTED',
+    });
+    const [after] = await database.query<Record<string, unknown>[]>(
+      'SELECT password_hash,session_version FROM staff_users WHERE worker_id=$1',
+      [staffId],
+    );
+    expect(after).toEqual(before);
+    expect(await count()).toBe(1);
+  });
+  it('TC-MAD-055-AC3: expiry purges encrypted payloads even with sending disabled', async () => {
+    await post().expect(201);
+    await database.query(
+      "UPDATE mad_staff_deliveries SET created_at=now()-interval '24 hours'",
+    );
+    const send = jest.fn();
+    const worker = new StaffDeliveryWorker(
+      runtime,
+      new ConfigService(config),
+      cipher,
+      { send },
+    );
+    await worker.processOnce();
+    expect(send).not.toHaveBeenCalled();
+    const [delivery] = await database.query<Record<string, unknown>[]>(
+      'SELECT status,encrypted_credentials,last_error_code FROM mad_staff_deliveries',
+    );
+    expect(delivery).toEqual({
+      status: 'cancelled',
+      encrypted_credentials: null,
+      last_error_code: 'EMAIL_PAYLOAD_EXPIRED',
+    });
+    expect(await count()).toBe(1);
+  });
+  it('TC-MAD-055-AC3: retention waits for an active lease then purges without sending', async () => {
+    await post().expect(201);
+    await database.query(
+      "UPDATE mad_staff_deliveries SET created_at=now()-interval '25 hours',lease_token=$1,lease_until=now()+interval '60 seconds'",
+      [randomUUID()],
+    );
+    const send = jest.fn();
+    const worker = new StaffDeliveryWorker(
+      runtime,
+      new ConfigService({ ...config, STAFF_EMAIL_ENABLED: 'true' }),
+      cipher,
+      { send },
+    );
+    await worker.processOnce();
+    const [leased] = await database.query<Record<string, unknown>[]>(
+      'SELECT status,encrypted_credentials FROM mad_staff_deliveries',
+    );
+    expect(leased.status).toBe('pending');
+    expect(leased.encrypted_credentials).toBeTruthy();
+    await database.query(
+      "UPDATE mad_staff_deliveries SET lease_until=now()-interval '1 second'",
+    );
+    await worker.processOnce();
+    const [expired] = await database.query<Record<string, unknown>[]>(
+      'SELECT status,encrypted_credentials FROM mad_staff_deliveries',
+    );
+    expect(expired).toEqual({
+      status: 'cancelled',
+      encrypted_credentials: null,
+    });
+    expect(send).not.toHaveBeenCalled();
   });
   function reset(id: string, session = token()) {
     return request(app.getHttpServer())

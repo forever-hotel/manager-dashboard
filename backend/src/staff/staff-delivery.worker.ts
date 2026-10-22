@@ -39,7 +39,6 @@ export class StaffDeliveryWorker
   ) {}
 
   onApplicationBootstrap() {
-    if (this.config.get('STAFF_EMAIL_ENABLED') !== 'true') return;
     const tick = () => {
       if (this.running) return;
       this.running = this.processOnce()
@@ -60,19 +59,27 @@ export class StaffDeliveryWorker
   }
 
   async processOnce() {
-    if (this.config.get('STAFF_EMAIL_ENABLED') !== 'true') return;
     const lease = randomUUID();
     const rows: Delivery[] = await this.database.query(
-      `WITH candidate AS (
+      `WITH expired AS (
+      UPDATE public.mad_staff_deliveries SET status='cancelled',encrypted_credentials=NULL,
+        last_error_code=CASE WHEN created_at <= now()-interval '24 hours'
+          THEN 'EMAIL_PAYLOAD_EXPIRED' ELSE 'EMAIL_RETRY_EXHAUSTED' END,
+        lease_token=NULL,lease_until=NULL,updated_at=now()
+      WHERE status IN ('pending','failed')
+        AND (created_at <= now()-interval '24 hours' OR attempts >= 5)
+        AND (lease_until IS NULL OR lease_until < now())
+    ), candidate AS (
       SELECT delivery_id FROM public.mad_staff_deliveries
       WHERE status IN ('pending','failed') AND next_attempt_at <= now()
+        AND $2::boolean AND attempts < 5 AND created_at > now()-interval '24 hours'
         AND (lease_until IS NULL OR lease_until < now())
       ORDER BY next_attempt_at FOR UPDATE SKIP LOCKED LIMIT 1
     ), claimed AS (
       UPDATE public.mad_staff_deliveries d SET lease_token=$1, lease_until=now()+interval '60 seconds',
         attempts=attempts+1, updated_at=now() FROM candidate c WHERE d.delivery_id=c.delivery_id RETURNING d.*
     ) SELECT * FROM claimed`,
-      [lease],
+      [lease, this.config.get('STAFF_EMAIL_ENABLED') === 'true'],
     );
     const delivery = rows[0];
     if (!delivery) return;
@@ -102,6 +109,15 @@ export class StaffDeliveryWorker
       );
       await this.finish(delivery.delivery_id, lease, 'sent');
     } catch {
+      if (delivery.attempts >= 5) {
+        await this.database.query(
+          `UPDATE public.mad_staff_deliveries SET status='cancelled',encrypted_credentials=NULL,
+          last_error_code='EMAIL_RETRY_EXHAUSTED',lease_token=NULL,lease_until=NULL,updated_at=now()
+          WHERE delivery_id=$1 AND lease_token=$2`,
+          [delivery.delivery_id, lease],
+        );
+        return;
+      }
       const delay = Math.min(
         3600,
         30 * 2 ** Math.min(delivery.attempts - 1, 7),

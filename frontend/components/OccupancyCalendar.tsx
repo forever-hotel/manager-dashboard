@@ -242,7 +242,12 @@ export default function OccupancyCalendar({
                 ? describe(inspected)
                 : 'Focus or select a date to inspect its room counts and occupancy.'}
             </p>
-            <div className="overflow-x-auto">
+            <div
+              className="overflow-x-auto"
+              tabIndex={0}
+              role="region"
+              aria-label="Daily occupancy data"
+            >
               <table className="w-full text-left text-[10.5px] text-black">
                 <caption className="text-left font-medium mb-3">
                   Daily occupancy data for {month}

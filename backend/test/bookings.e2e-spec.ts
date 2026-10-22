@@ -319,7 +319,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       paidAt,
     ]);
   }
-  it('TC-DDP-056-AC1/AC3: counts LKR cents once by paid_at and excludes refunded/failed/pending payments', async () => {
+  it('TC-MAD-056-AC1/AC3: counts LKR cents once by paid_at and excludes refunded/failed/pending payments', async () => {
     clock = new Date('2026-09-27T04:00:00Z');
     const booking = randomUUID();
     await payment(10001, '2026-09-25T18:30:00Z');
@@ -351,7 +351,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       expect(result.bookings.asOf).toBe(result.revenue.asOf);
     },
   );
-  it('TC-DDP-056-AC2: empty source returns zero with an unavailable comparison, not an error', async () => {
+  it('TC-MAD-056-AC2: empty source returns zero with an unavailable comparison, not an error', async () => {
     expect((await analytics('revenue').expect(200)).body).toMatchObject({
       currentMinor: 0,
       previousMinor: 0,
@@ -380,7 +380,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       '2028-02-29T18:30:00.000Z',
     ],
   ])(
-    'TC-DDP-056-AC3: respects %s calendar boundaries across years/leap months',
+    'TC-MAD-056-AC3: respects %s calendar boundaries across years/leap months',
     async (period, now, start, previousStart, end) => {
       clock = new Date(now);
       await payment(100, previousStart);
@@ -397,6 +397,18 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       });
     },
   );
+  it('TC-MAD-056-AC1: preserves cents and rounds a negative comparison in PostgreSQL', async () => {
+    clock = new Date('2026-09-27T04:00:00Z');
+    await payment(300, '2026-09-25T18:30:00Z');
+    await payment(100, '2026-09-26T18:30:00Z');
+    await payment(900, '2026-09-25T18:30:00Z', 'REFUNDED');
+    expect((await analytics('revenue').expect(200)).body).toMatchObject({
+      currentMinor: 100,
+      previousMinor: 300,
+      percentageChange: -66.67,
+      percentageUnavailableReason: null,
+    });
+  });
   it.each(['revenue', 'overview'])(
     'protects and validates %s without writing payment data',
     async (path) => {

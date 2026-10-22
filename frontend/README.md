@@ -1,5 +1,8 @@
 # Manager dashboard frontend
 
+DDP-048: [accessibility changes, checks and manual review](ACCESSIBILITY_GUIDE.md).
+Automated tests are authored but unrun locally; WCAG/staging acceptance is pending.
+
 Next.js uses Tailwind, server-side API forwarding and HttpOnly authentication
 cookies. The current UI and login/password-change/logout behavior are retained.
 
@@ -208,3 +211,7 @@ third column. Configure `MAD_SOCKET_PUBLIC_URL` in the frontend server environme
 REST and one-use ticket issuance continue through the existing BFF/gateway.
 See [setup, SQL and producer requirements](../backend/KITCHEN_REALTIME_GUIDE.md).
 No local tests were run; CI and real KMS staging verification remain pending.
+
+# Low-demand promotion suggestions
+
+See [DDP-057 implementation and verification](DDP_057_IMPLEMENTATION.md) for the Analytics alert section, configurable forecast threshold, safe promotion date prefill and pending acceptance evidence.

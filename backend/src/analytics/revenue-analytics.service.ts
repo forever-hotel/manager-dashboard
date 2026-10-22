@@ -47,7 +47,13 @@ export class RevenueAnalyticsService {
         }[]
       >(REVENUE_SQL, [period, BOOKING_TIMEZONE, asOf]);
       const row = rows[0];
-      if (!row || Number(row.invalid) > 0)
+      if (
+        rows.length !== 1 ||
+        !row ||
+        row.invalid !== '0' ||
+        !/^\d+$/.test(row.current) ||
+        !/^\d+$/.test(row.previous)
+      )
         throw new Error('Invalid payment data');
       const current = Number(row.current),
         previous = Number(row.previous);
@@ -57,7 +63,11 @@ export class RevenueAnalyticsService {
         ![current, previous].every(
           (value) => Number.isSafeInteger(value) && value >= 0,
         ) ||
-        (percentage !== null && !Number.isFinite(percentage))
+        (previous === 0
+          ? row.percentage !== null
+          : row.percentage === null ||
+            !/^-?\d+(\.\d{1,2})?$/.test(row.percentage) ||
+            !Number.isFinite(percentage))
       )
         throw new Error('Invalid aggregate');
       return {

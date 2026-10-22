@@ -7,6 +7,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { operationsTelemetry } from '../operations/operations.telemetry';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
@@ -64,6 +65,7 @@ export function configureHttp(app: INestApplication) {
     response.setHeader('Referrer-Policy', 'no-referrer');
     next();
   });
+  app.use(operationsTelemetry.observe.bind(operationsTelemetry));
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

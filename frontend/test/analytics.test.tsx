@@ -7,6 +7,7 @@ import {
 } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
+vi.mock('@/components/LowDemandAlerts', () => ({ default: () => null }));
 import { overview } from './analytics-fixture';
 import {
   loadAnalytics,

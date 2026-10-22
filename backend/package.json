@@ -86,6 +86,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
+      "operations/**/*.ts",
       "settings/**/*.ts",
       "notifications/**/*.ts",
       "rooms/**/*.ts",
@@ -114,6 +115,9 @@
       "json-summary"
     ],
     "coverageThreshold": {
+      "./src/operations/operations.telemetry.ts": {
+        "branches": 90
+      },
       "./src/settings/task-limit.service.ts": {
         "branches": 90
       },

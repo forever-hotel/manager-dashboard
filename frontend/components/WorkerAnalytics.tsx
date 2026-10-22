@@ -163,7 +163,12 @@ export default function WorkerAnalytics() {
               >
                 {descending ? 'Descending' : 'Ascending'}
               </button>
-              <div className="overflow-x-auto">
+              <div
+                className="overflow-x-auto"
+                tabIndex={0}
+                role="region"
+                aria-label="Worker performance data"
+              >
                 <table className="w-full text-left border-collapse text-[10px]">
                   <caption className="sr-only">
                     Worker performance in minutes, current filters

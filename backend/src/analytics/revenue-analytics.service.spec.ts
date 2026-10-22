@@ -51,10 +51,21 @@ describe('DDP-056 revenue contract', () => {
   it.each(
     [
       [],
+      [undefined],
+      [row, row],
       [{ ...row, invalid: '1' }],
+      [{ ...row, invalid: 'NaN' }],
+      [{ ...row, current: '' }],
+      [{ ...row, previous: ' ' }],
+      [{ ...row, current: '1.5' }],
       [{ ...row, current: '9007199254740992' }],
+      [{ ...row, previous: '9007199254740992' }],
       [{ ...row, current: '-1' }],
       [{ ...row, percentage: 'NaN' }],
+      [{ ...row, percentage: '' }],
+      [{ ...row, percentage: '9'.repeat(400) }],
+      [{ ...row, percentage: null }],
+      [{ ...row, previous: '0', percentage: '0' }],
     ].map((rows) => ({ rows })),
   )('fails closed for invalid source aggregates %j', async ({ rows }) => {
     await expect(setup(rows).service.summary('day')).rejects.toMatchObject({
@@ -65,5 +76,17 @@ describe('DDP-056 revenue contract', () => {
     const { service, query } = setup();
     query.mockRejectedValue(new Error('private database detail'));
     await expect(service.summary('day')).rejects.toMatchObject({ status: 503 });
+  });
+  it('TC-MAD-056-AC1: preserves zero current revenue as a real 100 percent decline', async () => {
+    expect(
+      await setup([
+        { ...row, current: '0', percentage: '-100.00' },
+      ]).service.summary('day'),
+    ).toMatchObject({
+      currentMinor: 0,
+      previousMinor: 10000,
+      percentageChange: -100,
+      percentageUnavailableReason: null,
+    });
   });
 });
