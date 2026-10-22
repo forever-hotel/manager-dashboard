@@ -7,7 +7,7 @@ login; MAD manages manager login and mandatory initial password change.
 ## Local startup
 
 1. Configure the root `.env` using `.env.example`; preserve private secrets.
-2. Have the database owner review and manually run `deploy/forever-hotel.sql`
+2. Have the database owner review and manually run `docs/forever-hotel.sql`
    in Neon SQL Editor. Startup never changes the schema.
 3. Place the separate gateway checkout in `api-gateway/`, or set
    `API_GATEWAY_CONTEXT` to its location.
@@ -32,7 +32,7 @@ Markdown files are not runtime dependencies.
 
 ## Manual database setup
 
-`deploy/forever-hotel.sql` contains the complete supplied shared schema and all
+`docs/forever-hotel.sql` contains the complete supplied shared schema and all
 MAD additions in one transaction. Run it manually as the schema owner after
 reviewing/backing up the target database; it contains no existing Neon data.
 On an empty public schema it creates the shared tables. With an existing shared
@@ -43,8 +43,23 @@ object definitions are not automatically repaired by IF NOT EXISTS. Review the
 commented grants using actual restricted MAD/WKMS role names. Real room history
 and other business data are not invented or seeded.
 
-Local startup mounts `deploy/gateway.routes.local.json`. CI runs backend and
+Local startup uses gateway routes embedded in `docker-compose.yml`. CI runs backend and
 frontend checks, including isolated backend database integration tests. Browser
 acceptance, container smoke and deployment-tool test jobs have been removed.
-Retained operations tools support scheduled infrastructure rather than local app
-startup.
+No automated deployment, host monitoring or backup scripts are included.
+
+## Local gateway routes
+
+Docker Compose supplies `configs.gateway_routes.content` from `docker-compose.yml`
+as the gateway's read-only `/app/config/routes.local.json` configuration. `/mad/auth/*` is forwarded to `/auth/*` on
+the MAD backend; other `/mad/*` paths retain their prefix. The destination is
+`MAD_SERVICE_URL`, configured as `http://mad-backend:4000` inside Compose.
+The gateway routes requests; the MAD backend owns login and JWT validation.
+
+`docs/forever-hotel.sql` remains manual-only and is not mounted or executed by
+the local Compose stack or application startup.
+
+Inline configuration requires Docker Compose 2.23.1 or newer. There is no separate
+route JSON or deploy directory to maintain. `docs/` remains Git-ignored, so keep
+the full manual SQL locally; CI uses only tracked disposable SQL fixtures under
+`backend/test/fixtures/` and does not depend on local docs files.

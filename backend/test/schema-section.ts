@@ -1,4 +1,4 @@
-// Test-only access to the same reviewed SQL used for manual schema setup.
+// Test-only SQL sections retained independently of the Git-ignored manual schema.
 // Never imported by the application or invoked during startup.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -7,7 +7,7 @@ export function readSchemaSection(name: string): string {
   if (!/^[a-z]+(?:-[a-z]+)*$/.test(name))
     throw new Error('Invalid schema section name');
   const sql = readFileSync(
-    resolve(__dirname, '../../deploy/forever-hotel.sql'),
+    resolve(__dirname, 'fixtures/mad-schema.sql'),
     'utf8',
   );
   const start = `-- BEGIN MAD SECTION: ${name}\n`;

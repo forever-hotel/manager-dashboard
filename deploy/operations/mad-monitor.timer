@@ -1,9 +1,0 @@
-[Unit]
-Description=Observe MAD availability every minute
-
-[Timer]
-OnCalendar=*-*-* *:*:00
-AccuracySec=1s
-
-[Install]
-WantedBy=timers.target
