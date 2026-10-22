@@ -1,5 +1,9 @@
 # Manager dashboard backend
 
+DDP-051: [immutable release package, protected workflow and rollback rehearsal](../deploy/release/RELEASE_GUIDE.md).
+Production is disabled until owner configuration/approval; no release or rehearsal
+ran locally. Real platform hooks and two-minute recovery evidence remain pending.
+
 DDP-050: [structured audit, diagnostics and recovery runbook](OPERATIONS_RUNBOOK.md).
 Collector/retention, monitoring and backup templates require owner installation
 and evidence. No tests, backups, restores or hosted schema changes ran locally.

@@ -165,6 +165,7 @@ jobs:
           python-version: '3.12'
       - run: python -m unittest discover -s deploy -p 'test_staging_*.py'
       - run: python -m unittest discover -s deploy -p 'test_operations_*.py'
+      - run: python -m unittest discover -s deploy -p 'test_release_*.py'
 
   publish-staging:
     name: Publish checked staging images

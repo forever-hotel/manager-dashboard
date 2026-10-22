@@ -1,5 +1,16 @@
 # Change log
 
+## Unreleased - DDP-051
+
+- Prepare a main-only manual release workflow validating final CI, trusted staging
+  artifacts, unchanged application inputs and identical immutable GHCR digests.
+- Require protected target environments and exact host approvals; orchestrate
+  platform-owned prepare/switch/rollback/compatibility hooks with measured120s
+  recovery and sanitized outcomes. Production simulation is forbidden.
+- Add isolated tests, pending candidate example and owner release checklist.
+  No tests, image builds, release publication, traffic switches or SQL ran locally;
+  real platform handoff, coverage and release/rehearsal acceptance remain pending.
+
 ## Unreleased - DDP-050
 
 - Add allowlisted mutation/error audit with actor/correlation/outcome and bounded
