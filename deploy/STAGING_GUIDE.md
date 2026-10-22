@@ -200,9 +200,6 @@ real rollback until the drill runs.
 
 ## Tests and outstanding acceptance
 
-DDP-050 additionally requires the private loopback TCP1514 rsyslog collector before
-starting the staging backend. See [operations setup](../backend/OPERATIONS_RUNBOOK.md).
-
 The new hosted deployment-tool job runs isolated Python unittest doubles for
 success, schema/pull/readiness/smoke failure, rollback failure, first-deploy cleanup,
 private config, cookie flags and logout cleanup. It never reaches Docker, Neon or
