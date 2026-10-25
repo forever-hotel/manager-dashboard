@@ -14,16 +14,16 @@ const groups: {
     label: 'Overview',
     items: [
       { name: 'Analytics', href: '/analytics' },
-      { name: 'Room status', href: '/rooms' },
-    ],
+      { name: 'Room status', href: '/rooms' }
+    ]
   },
   {
     label: 'Operations',
     items: [
       { name: 'Food orders', href: '/food-orders' },
       { name: 'Service requests', href: '/service-requests' },
-      { name: 'Complaints', href: '/complaints' },
-    ],
+      { name: 'Complaints', href: '/complaints' }
+    ]
   },
   {
     label: 'Management',
@@ -34,20 +34,12 @@ const groups: {
       { name: 'Notifications', href: '/notifications' },
       { name: 'Tasks', href: '/tasks' },
       { name: 'Reports', href: '/reports' },
-      { name: 'Settings', href: '/settings' },
-    ],
-  },
+      { name: 'Settings', href: '/settings' }
+    ]
+  }
 ];
 
-export function Sidebar({
-  open,
-  close,
-  username,
-}: {
-  open: boolean;
-  close: () => void;
-  username: string;
-}) {
+export function Sidebar({ open, close, username }: { open: boolean; close: () => void; username: string }) {
   const pathname = usePathname();
   const notifications = useNotifications();
   const [pending, setPending] = useState(false);
@@ -63,7 +55,7 @@ export function Sidebar({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '{}',
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(10000)
       });
       if (!response.ok) throw new Error();
       replaceLocation('/login');
@@ -82,23 +74,17 @@ export function Sidebar({
       <div>
         {/* Logo */}
         <div className="hidden px-5 pt-6 pb-6 border-b border-gray-100 md:block">
-          <div className="font-medium text-[13px] text-black">
-            Forever Hotel
-          </div>
-          <div className="font-normal text-[10px] text-black/60">
-            Manager Dashboard
-          </div>
+          <div className="font-medium text-[13px] text-black">Forever Hotel</div>
+          <div className="font-normal text-[10px] text-black/60">Manager Dashboard</div>
         </div>
 
         {/* Navigation */}
         <nav aria-label="Dashboard" className="px-3 pt-5 space-y-6">
-          {groups.map((group) => (
+          {groups.map(group => (
             <div key={group.label}>
-              <div className="font-medium text-[10px] underline text-black px-2 mb-2">
-                {group.label}
-              </div>
+              <div className="font-medium text-[10px] underline text-black px-2 mb-2">{group.label}</div>
               <div className="space-y-1">
-                {group.items.map((item) => {
+                {group.items.map(item => {
                   const isActive = pathname === item.href;
                   return (
                     <Link
@@ -109,8 +95,7 @@ export function Sidebar({
                       aria-current={isActive ? 'page' : undefined}
                       aria-label={
                         item.href === '/notifications' && notifications
-                          ? 'Notifications ' +
-                            (notifications.snapshot?.total ?? '?')
+                          ? 'Notifications ' + (notifications.snapshot?.total ?? '?')
                           : undefined
                       }
                       className={`flex items-center justify-between w-full h-9 rounded-md px-2 transition-colors ${
@@ -119,11 +104,7 @@ export function Sidebar({
                     >
                       <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-black" />
-                        <span
-                          className={`text-[11px] text-black ${
-                            isActive ? 'font-medium' : 'font-normal'
-                          }`}
-                        >
+                        <span className={`text-[11px] text-black ${isActive ? 'font-medium' : 'font-normal'}`}>
                           {item.name}
                         </span>
                       </div>
@@ -131,9 +112,7 @@ export function Sidebar({
                         ('badge' in item && item.badge != null)) && (
                         <span
                           className={`text-[10px] text-black rounded-full w-5 h-5 flex items-center justify-center ${
-                            isActive
-                              ? 'font-medium bg-white border border-gray-200'
-                              : 'font-normal bg-gray-100'
+                            isActive ? 'font-medium bg-white border border-gray-200' : 'font-normal bg-gray-100'
                           }`}
                         >
                           {item.href === '/notifications' && notifications
@@ -154,9 +133,7 @@ export function Sidebar({
       <div>
         <div className="flex items-center gap-2 px-5 py-4 border-t border-gray-100">
           <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-            <span className="font-medium text-[10px] text-black">
-              {username.slice(0, 2).toUpperCase()}
-            </span>
+            <span className="font-medium text-[10px] text-black">{username.slice(0, 2).toUpperCase()}</span>
           </div>
           <div className="leading-tight">
             <div className="text-[10.5px] text-black">{username}</div>

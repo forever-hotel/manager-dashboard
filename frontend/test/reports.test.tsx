@@ -1,20 +1,8 @@
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import ReportDownload from '@/components/ReportDownload';
 import ReportsIndex from '@/components/ReportsIndex';
-import {
-  readReport,
-  reportQuery,
-  reportFilename,
-  MAX_DOWNLOAD_BYTES,
-} from '@/lib/reports';
+import { readReport, reportQuery, reportFilename, MAX_DOWNLOAD_BYTES } from '@/lib/reports';
 import { reportResponse, csv } from './report-fixture';
 let fetchMock: ReturnType<typeof vi.fn>;
 let click: ReturnType<typeof vi.spyOn>;
@@ -25,38 +13,32 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,
-    value: vi.fn(() => 'blob:report'),
+    value: vi.fn(() => 'blob:report')
   });
   Object.defineProperty(URL, 'revokeObjectURL', {
     configurable: true,
-    value: vi.fn(),
+    value: vi.fn()
   });
-  click = vi
-    .spyOn(HTMLAnchorElement.prototype, 'click')
-    .mockImplementation(() => undefined);
+  click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
 });
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
-  if (originalCreate)
-    Object.defineProperty(URL, 'createObjectURL', originalCreate);
+  if (originalCreate) Object.defineProperty(URL, 'createObjectURL', originalCreate);
   else Reflect.deleteProperty(URL, 'createObjectURL');
-  if (originalRevoke)
-    Object.defineProperty(URL, 'revokeObjectURL', originalRevoke);
+  if (originalRevoke) Object.defineProperty(URL, 'revokeObjectURL', originalRevoke);
   else Reflect.deleteProperty(URL, 'revokeObjectURL');
 });
 describe('DDP-031 report downloads', () => {
   it('AC1: sends current filters, names the file and revokes temporary URLs', async () => {
-    const view = render(
-      <ReportDownload type="bookings" filters={{ period: 'month' }} />,
-    );
+    const view = render(<ReportDownload type="bookings" filters={{ period: 'month' }} />);
     fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
     await waitFor(() => expect(click).toHaveBeenCalledOnce());
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/reports/bookings?format=csv&period=month',
-      expect.objectContaining({ credentials: 'same-origin' }),
+      expect.objectContaining({ credentials: 'same-origin' })
     );
     const anchor = click.mock.contexts[0] as unknown as HTMLAnchorElement;
     expect(anchor.download).toBe('bookings-2026-10-21.csv');
@@ -69,9 +51,9 @@ describe('DDP-031 report downloads', () => {
     let finish!: (response: Response) => void;
     fetchMock.mockImplementationOnce(
       () =>
-        new Promise<Response>((resolve) => {
+        new Promise<Response>(resolve => {
           finish = resolve;
-        }),
+        })
     );
     render(<ReportDownload type="bookings" />);
     fireEvent.click(screen.getByRole('button', { name: 'Export PDF' }));
@@ -91,10 +73,9 @@ describe('DDP-031 report downloads', () => {
       new Response('<html>error</html>', {
         headers: {
           'Content-Type': 'text/html',
-          'Content-Disposition':
-            'attachment; filename="bookings-2026-10-21.csv"',
-        },
-      }),
+          'Content-Disposition': 'attachment; filename="bookings-2026-10-21.csv"'
+        }
+      })
     );
     const view = render(<ReportDownload type="bookings" />);
     fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
@@ -103,55 +84,50 @@ describe('DDP-031 report downloads', () => {
     let finish!: (response: Response) => void;
     fetchMock.mockImplementationOnce(
       () =>
-        new Promise<Response>((resolve) => {
+        new Promise<Response>(resolve => {
           finish = resolve;
-        }),
+        })
     );
     fireEvent.click(screen.getByRole('button', { name: 'Retry download' }));
-    view.rerender(
-      <ReportDownload type="bookings" filters={{ period: 'month' }} />,
-    );
+    view.rerender(<ReportDownload type="bookings" filters={{ period: 'month' }} />);
     await act(async () => finish(reportResponse()));
     expect(click).not.toHaveBeenCalled();
   });
-  it.each([401, 403, 422])(
-    'shows actionable feedback for status %s',
-    async (status) => {
-      fetchMock.mockResolvedValueOnce(new Response('{}', { status }));
-      render(<ReportDownload type="bookings" />);
-      fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
-      expect(await screen.findByRole('alert')).toHaveTextContent(
-        status === 401 ? 'sign in' : status === 403 ? 'Manager' : 'too large',
-      );
-      expect(click).not.toHaveBeenCalled();
-    },
-  );
+  it.each([401, 403, 422])('shows actionable feedback for status %s', async status => {
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status }));
+    render(<ReportDownload type="bookings" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      status === 401 ? 'sign in' : status === 403 ? 'Manager' : 'too large'
+    );
+    expect(click).not.toHaveBeenCalled();
+  });
   it('AC3: Reports index chooses report, format and filters through the same flow', async () => {
     fetchMock.mockResolvedValueOnce(reportResponse('csv', 'occupancy'));
     render(<ReportsIndex />);
     const report = screen.getByRole('combobox', { name: /^Report\b/ });
     expect(report).toHaveValue('bookings');
     fireEvent.change(report, {
-      target: { value: 'occupancy' },
+      target: { value: 'occupancy' }
     });
     fireEvent.change(screen.getByLabelText('From date'), {
-      target: { value: '2026-10-01' },
+      target: { value: '2026-10-01' }
     });
     fireEvent.change(screen.getByLabelText('To date'), {
-      target: { value: '2026-10-21' },
+      target: { value: '2026-10-21' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
     await waitFor(() => expect(click).toHaveBeenCalledOnce());
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/reports/occupancy?format=csv&from=2026-10-01&to=2026-10-21',
-      expect.any(Object),
+      expect.any(Object)
     );
     expect(report).toHaveValue('occupancy');
     fireEvent.change(report, {
-      target: { value: 'staff' },
+      target: { value: 'staff' }
     });
     fireEvent.change(screen.getByLabelText('Worker ID (optional)'), {
-      target: { value: 'bad' },
+      target: { value: 'bad' }
     });
     expect(screen.getByRole('alert')).toHaveTextContent('worker ID');
     expect(screen.getByRole('button', { name: 'Export PDF' })).toBeDisabled();
@@ -161,63 +137,46 @@ describe('DDP-031 report downloads', () => {
       ['bad', 'format=csv'],
       ['bookings', 'format=csv&format=pdf'],
       ['occupancy', 'format=pdf&from=2020-01-01&to=2026-10-21'],
-      ['occupancy', 'format=pdf&from=2026-10-21&to=2026-10-01'],
+      ['occupancy', 'format=pdf&from=2026-10-21&to=2026-10-01']
     ])
       expect(() => reportQuery(type, new URLSearchParams(query))).toThrow();
-    expect(() =>
-      reportFilename(
-        'bookings',
-        'csv',
-        'attachment; filename="revenue-2026-10-21.csv"',
-      ),
-    ).toThrow();
-    expect(() =>
-      reportFilename(
-        'bookings',
-        'pdf',
-        'attachment; filename="bookings-2026-10-21.csv"',
-      ),
-    ).toThrow();
+    expect(() => reportFilename('bookings', 'csv', 'attachment; filename="revenue-2026-10-21.csv"')).toThrow();
+    expect(() => reportFilename('bookings', 'pdf', 'attachment; filename="bookings-2026-10-21.csv"')).toThrow();
     await expect(
       readReport(
         new Response('broken', {
-          headers: { 'Content-Type': 'application/pdf' },
+          headers: { 'Content-Type': 'application/pdf' }
         }),
-        'pdf',
-      ),
+        'pdf'
+      )
     ).rejects.toThrow();
     await expect(
       readReport(
         new Response(csv, {
-          headers: { 'Content-Type': 'text/csv', 'Content-Length': '1' },
+          headers: { 'Content-Type': 'text/csv', 'Content-Length': '1' }
         }),
-        'csv',
-      ),
+        'csv'
+      )
     ).rejects.toThrow();
     await expect(
       readReport(
         new Response(csv, {
           headers: {
             'Content-Type': 'text/csv',
-            'Content-Length': String(MAX_DOWNLOAD_BYTES + 1),
-          },
+            'Content-Length': String(MAX_DOWNLOAD_BYTES + 1)
+          }
         }),
-        'csv',
-      ),
+        'csv'
+      )
     ).rejects.toThrow();
     await expect(
       readReport(
         new Response(new Uint8Array(MAX_DOWNLOAD_BYTES + 1), {
-          headers: { 'Content-Type': 'text/csv' },
+          headers: { 'Content-Type': 'text/csv' }
         }),
-        'csv',
-      ),
+        'csv'
+      )
     ).rejects.toThrow();
-    await expect(
-      readReport(
-        new Response(null, { headers: { 'Content-Type': 'text/csv' } }),
-        'csv',
-      ),
-    ).rejects.toThrow();
+    await expect(readReport(new Response(null, { headers: { 'Content-Type': 'text/csv' } }), 'csv')).rejects.toThrow();
   });
 });

@@ -15,8 +15,8 @@ const eslintConfig = defineConfig([
     '.npm-cache/**',
     'coverage/**',
     'playwright-report/**',
-    'test-results/**',
-  ]),
+    'test-results/**'
+  ])
 ]);
 
 export default eslintConfig;

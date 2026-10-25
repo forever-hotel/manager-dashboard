@@ -5,10 +5,7 @@ import { TokenService } from './token.service';
 describe('Staff token policy', () => {
   const secret = 'test-only-secret-with-more-than-32-characters';
   const jwt = new JwtService({ secret });
-  const service = new TokenService(
-    jwt,
-    new ConfigService({ JWT_SECRET: secret, JWT_ISSUER: 'mad' }),
-  );
+  const service = new TokenService(jwt, new ConfigService({ JWT_SECRET: secret, JWT_ISSUER: 'mad' }));
   const now = Date.parse('2026-10-15T00:00:00Z') / 1000;
   beforeEach(() => {
     jest.useFakeTimers();
@@ -23,7 +20,7 @@ describe('Staff token policy', () => {
     ver: 0,
     jti: '22222222-2222-4222-8222-222222222222',
     iat: now,
-    exp: now + 28800,
+    exp: now + 28800
   };
   it('accepts an eight-hour HS256 staff token from the configured issuer', () => {
     expect(service.verify(jwt.sign(claims))).toEqual(claims);
@@ -45,34 +42,26 @@ describe('Staff token policy', () => {
     ['exp', undefined],
     ['exp', now - 1],
     ['exp', now + 604800],
-    ['exp', now + 28800.5],
+    ['exp', now + 28800.5]
   ])('rejects invalid %s claim (%s)', (field, value) => {
     const payload: Record<string, unknown> = { ...claims, [field]: value };
     if (value === undefined) delete payload[field];
     // jsonwebtoken supplies iat automatically unless explicitly suppressed.
-    const token = jwt.sign(
-      payload,
-      field === 'iat' && value === undefined ? { noTimestamp: true } : {},
-    );
+    const token = jwt.sign(payload, field === 'iat' && value === undefined ? { noTimestamp: true } : {});
     expect(() => service.verify(token)).toThrow('Unauthorized');
   });
-  it.each(['HS384', 'HS512'] as const)(
-    'rejects %s despite a valid signature',
-    (algorithm) => {
-      expect(() => service.verify(jwt.sign(claims, { algorithm }))).toThrow();
-    },
-  );
+  it.each(['HS384', 'HS512'] as const)('rejects %s despite a valid signature', algorithm => {
+    expect(() => service.verify(jwt.sign(claims, { algorithm }))).toThrow();
+  });
   it('rejects a different signing key and malformed input', () => {
-    expect(() =>
-      service.verify(jwt.sign(claims, { secret: 'another-secret' })),
-    ).toThrow();
+    expect(() => service.verify(jwt.sign(claims, { secret: 'another-secret' }))).toThrow();
     expect(() => service.verify('garbage')).toThrow();
   });
   it('rejects a token that expires between signature verification and claim validation', () => {
     const verify = jest.spyOn(jwt, 'verify').mockImplementationOnce(() => ({
       ...claims,
       iat: now - 28800,
-      exp: now,
+      exp: now
     }));
     try {
       expect(() => service.verify('verified-token')).toThrow('Unauthorized');
@@ -88,7 +77,7 @@ describe('Staff token policy', () => {
       sub: claims.sub,
       role: 'MANAGER',
       ver: 2,
-      aud: 'mad',
+      aud: 'mad'
     });
   });
 });

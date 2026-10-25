@@ -13,12 +13,12 @@ export const lowDemand = (): LowDemand => ({
       occupiedRooms: 1,
       eligibleRooms: 5,
       rate: 0.2,
-      promotionSuggestion: 'Consider a promotion.',
-    },
+      promotionSuggestion: 'Consider a promotion.'
+    }
   ],
   unavailableDates: [],
   freshness: {
     queriedAt: '2028-02-20T00:00:00.000Z',
-    sourceLatestUpdatedAt: null,
-  },
+    sourceLatestUpdatedAt: null
+  }
 });

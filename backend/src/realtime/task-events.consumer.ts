@@ -36,7 +36,7 @@ export function parseTaskEvent(raw: unknown): TaskEvent {
     type: e.type,
     taskId: e.taskId,
     version: Number(e.version),
-    occurredAt: e.occurredAt,
+    occurredAt: e.occurredAt
   };
 }
 @Injectable()
@@ -50,53 +50,42 @@ export class TaskEventsConsumer implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly database: DataSource,
     private readonly gateway: RealtimeGateway,
-    private readonly tasks: TasksService,
+    private readonly tasks: TasksService
   ) {}
   onModuleInit() {
-    if (this.config.get<string>('MAD_REALTIME_ENABLED') === 'true')
-      void this.tick();
+    if (this.config.get<string>('MAD_REALTIME_ENABLED') === 'true') void this.tick();
   }
   async accept(event: TaskEvent) {
     const task = await this.tasks.find(event.taskId);
     // Do not acknowledge an event until its committed source version is visible.
-    if (!task || task.version < event.version)
-      throw new Error('Task source unavailable or behind event');
+    if (!task || task.version < event.version) throw new Error('Task source unavailable or behind event');
     event = { ...event, version: task.version, task };
-    await this.database.transaction(async (manager) => {
+    await this.database.transaction(async manager => {
       // Transaction-level lock serializes versions for one task across consumers.
-      await manager.query(
-        'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
-        [event.taskId],
-      );
+      await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [event.taskId]);
       const [seen] = await manager.query<{ exists: boolean }[]>(
         'SELECT EXISTS(SELECT 1 FROM mad_task_events WHERE event_id=$1) AS exists',
-        [event.eventId],
+        [event.eventId]
       );
       if (seen.exists) return;
       const [last] = await manager.query<{ version: string }[]>(
         'SELECT version FROM mad_task_versions WHERE task_id=$1',
-        [event.taskId],
+        [event.taskId]
       );
       const stale = last && Number(last.version) >= event.version;
       await manager.query(
         'INSERT INTO mad_task_events(event_id,task_id,version,payload,delivered_at) VALUES ($1,$2,$3,$4,CASE WHEN $5 THEN now() ELSE NULL END)',
-        [
-          event.eventId,
-          event.taskId,
-          event.version,
-          JSON.stringify(event),
-          Boolean(stale),
-        ],
+        [event.eventId, event.taskId, event.version, JSON.stringify(event), Boolean(stale)]
       );
       if (!stale)
         await manager.query(
           'UPDATE mad_task_events SET delivered_at=now() WHERE task_id=$1 AND version<$2 AND delivered_at IS NULL',
-          [event.taskId, event.version],
+          [event.taskId, event.version]
         );
       if (!stale)
         await manager.query(
           'INSERT INTO mad_task_versions(task_id,version) VALUES ($1,$2) ON CONFLICT(task_id) DO UPDATE SET version=EXCLUDED.version',
-          [event.taskId, event.version],
+          [event.taskId, event.version]
         );
     });
   }
@@ -136,14 +125,14 @@ export class TaskEventsConsumer implements OnModuleInit, OnModuleDestroy {
       durable: true,
       arguments: {
         'x-dead-letter-exchange': '',
-        'x-dead-letter-routing-key': 'mad.tasks.dead',
-      },
+        'x-dead-letter-routing-key': 'mad.tasks.dead'
+      }
     });
     await channel.bindQueue('mad.tasks', 'hotel.events', 'task.changed');
     await channel.prefetch(1);
     await channel.consume(
       'mad.tasks',
-      (message) => {
+      message => {
         if (!message) {
           this.gateway.tasksHealthy = false;
           void connection.close().catch(() => undefined);
@@ -152,9 +141,7 @@ export class TaskEventsConsumer implements OnModuleInit, OnModuleDestroy {
         let event: TaskEvent;
         try {
           if (message.content.length > 8192) throw new Error();
-          event = parseTaskEvent(
-            JSON.parse(message.content.toString()) as unknown,
-          );
+          event = parseTaskEvent(JSON.parse(message.content.toString()) as unknown);
         } catch {
           channel.nack(message, false, false);
           return;
@@ -168,27 +155,22 @@ export class TaskEventsConsumer implements OnModuleInit, OnModuleDestroy {
               // Closing requeues unacknowledged delivery without a tight retry loop.
               this.gateway.tasksHealthy = false;
               void connection.close().catch(() => undefined);
-            },
+            }
           )
           .catch(() => {
             this.gateway.tasksHealthy = false;
           });
       },
-      { noAck: false },
+      { noAck: false }
     );
   }
   async dispatch() {
-    const rows = await this.database.query<
-      { event_id: string; payload: TaskEvent }[]
-    >(
-      'SELECT event_id,payload FROM mad_task_events WHERE delivered_at IS NULL ORDER BY received_at,event_id LIMIT 100',
+    const rows = await this.database.query<{ event_id: string; payload: TaskEvent }[]>(
+      'SELECT event_id,payload FROM mad_task_events WHERE delivered_at IS NULL ORDER BY received_at,event_id LIMIT 100'
     );
     for (const row of rows) {
       await this.gateway.publishTask(row.payload);
-      await this.database.query(
-        'UPDATE mad_task_events SET delivered_at=now() WHERE event_id=$1',
-        [row.event_id],
-      );
+      await this.database.query('UPDATE mad_task_events SET delivered_at=now() WHERE event_id=$1', [row.event_id]);
     }
   }
   private async tick() {
@@ -213,7 +195,7 @@ export class TaskEventsConsumer implements OnModuleInit, OnModuleDestroy {
           () => {
             void this.tick();
           },
-          this.gateway.tasksHealthy ? 250 : 5000,
+          this.gateway.tasksHealthy ? 250 : 5000
         );
         this.timer.unref();
       }

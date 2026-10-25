@@ -34,22 +34,16 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
     if (!url || !new URL(url).pathname.includes('test'))
-      throw new Error(
-        'TEST_DATABASE_URL must identify a disposable test database',
-      );
+      throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
     await admin.initialize();
     await admin.query(`CREATE DATABASE "${name}"`);
-    await admin.query(
-      `CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`,
-    );
+    await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
-    await database.query(
-      'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)',
-    );
+    await database.query('CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)');
     await database.query(readSchemaSection('auth'));
     // Relax completion constraints only to test corrupt legacy timestamps.
     await database.query(`CREATE TYPE task_status AS ENUM ('UNASSIGNED','ASSIGNED','IN_PROGRESS','COMPLETED','ESCALATED');
@@ -83,16 +77,16 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
               JWT_SECRET: secret,
               JWT_ISSUER: 'mad',
               INITIAL_MANAGER_EMAIL: '',
-              INITIAL_MANAGER_PASSWORD: '',
-            }),
-          ],
+              INITIAL_MANAGER_PASSWORD: ''
+            })
+          ]
         }),
         TypeOrmModule.forRoot({
           type: 'postgres',
           url: owner.toString(),
-          synchronize: false,
+          synchronize: false
         }),
-        AuthModule,
+        AuthModule
       ],
       controllers: [ReportsController],
       providers: [
@@ -104,8 +98,8 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
         OccupancyAnalyticsService,
         LowBookingAlertsService,
         WorkerPerformanceService,
-        { provide: BOOKING_CLOCK, useValue: () => clock },
-      ],
+        { provide: BOOKING_CLOCK, useValue: () => clock }
+      ]
     }).compile();
     app = module.createNestApplication();
     configureHttp(app);
@@ -113,7 +107,7 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
   }, 60000);
   beforeEach(async () => {
     await database.query(
-      'TRUNCATE wkms_tasks,foss_complaints,mad_booking_analytics,payments,kms_food_orders,kms_food_order_items,foss_service_requests,mad_occupancy_rooms,mad_occupancy_allocations,mad_occupancy_maintenance',
+      'TRUNCATE wkms_tasks,foss_complaints,mad_booking_analytics,payments,kms_food_orders,kms_food_order_items,foss_service_requests,mad_occupancy_rooms,mad_occupancy_allocations,mad_occupancy_maintenance'
     );
   });
   afterAll(async () => {
@@ -126,33 +120,25 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
     }
   });
 
-  function get(
-    type: string,
-    query = 'format=csv',
-    token: string | null = provider.issue('manager'),
-  ) {
-    const req = request(app.getHttpServer()).get(
-      '/mad/reports/' + type + '?' + query,
-    );
+  function get(type: string, query = 'format=csv', token: string | null = provider.issue('manager')) {
+    const req = request(app.getHttpServer()).get('/mad/reports/' + type + '?' + query);
     if (token) req.set('Authorization', 'Bearer ' + token);
     return req;
   }
   it('TC-MAD-030-AC1: exports exact booking and revenue rules and correct attachment headers', async () => {
     await database.query(
       "INSERT INTO mad_booking_analytics VALUES ($1,'2026-10-20','CONFIRMED',now()),($2,'2026-10-20','CANCELLED',now())",
-      [randomUUID(), randomUUID()],
+      [randomUUID(), randomUUID()]
     );
     await database.query(
       "INSERT INTO payments VALUES ($1,'COMPLETED',25000,'2026-10-20T00:00:00Z'),($2,'REFUNDED',5000,'2026-10-20T00:00:00Z')",
-      [randomUUID(), randomUUID()],
+      [randomUUID(), randomUUID()]
     );
     const booking = await get('bookings').expect(200);
     expect(booking.text).toContain('"total","1","count"');
     expect(booking.text).toContain('bookings_checking_in');
     expect(booking.headers['content-type']).toContain('text/csv');
-    expect(booking.headers['content-disposition']).toContain(
-      'attachment; filename="bookings-',
-    );
+    expect(booking.headers['content-disposition']).toContain('attachment; filename="bookings-');
     expect(booking.headers['cache-control']).toBe('no-store');
     const revenue = await get('revenue').expect(200);
     expect(revenue.text).toContain('"currentMinor","25000","LKR cents"');
@@ -163,42 +149,28 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
     const order = randomUUID();
     await database.query(
       "INSERT INTO wkms_tasks(task_id,assigned_worker_id,status,submitted_at,completed_at) VALUES ($1,$2,'COMPLETED','2026-10-20T00:00:00Z','2026-10-20T01:00:00Z')",
-      [randomUUID(), worker],
+      [randomUUID(), worker]
     );
-    await database.query(
-      "INSERT INTO kms_food_orders VALUES ($1,'PLACED','2026-10-20T00:00:00Z',now())",
-      [order],
-    );
-    await database.query(
-      'INSERT INTO kms_food_order_items VALUES ($1,$2,$3,2,now())',
-      [order, randomUUID(), '=SUM("x"),\nitem'],
-    );
+    await database.query("INSERT INTO kms_food_orders VALUES ($1,'PLACED','2026-10-20T00:00:00Z',now())", [order]);
+    await database.query('INSERT INTO kms_food_order_items VALUES ($1,$2,$3,2,now())', [
+      order,
+      randomUUID(),
+      '=SUM("x"),\nitem'
+    ]);
     await database.query(
       "INSERT INTO foss_service_requests VALUES ($1,'COMPLETED','2026-10-20T00:00:00Z','2026-10-20T01:00:00Z',now())",
-      [randomUUID()],
+      [randomUUID()]
     );
-    const workerReport = await get(
-      'worker-performance',
-      'format=csv&workerId=' + worker,
-    ).expect(200);
-    expect(workerReport.text).toContain(
-      '"workers[0].completedTaskCount","1","count"',
+    const workerReport = await get('worker-performance', 'format=csv&workerId=' + worker).expect(200);
+    expect(workerReport.text).toContain('"workers[0].completedTaskCount","1","count"');
+    expect(workerReport.text).toContain('"workers[0].averageCompletionMinutes","60","minutes"');
+    expect((await get('staff', 'format=csv&workerId=' + randomUUID()).expect(200)).text).toContain(
+      '"workers","[]","empty"'
     );
-    expect(workerReport.text).toContain(
-      '"workers[0].averageCompletionMinutes","60","minutes"',
-    );
-    expect(
-      (await get('staff', 'format=csv&workerId=' + randomUUID()).expect(200))
-        .text,
-    ).toContain('"workers","[]","empty"');
     const food = await get('food-orders').expect(200);
-    expect(food.text).toContain(
-      '"popularItems[0].name","\'=SUM(""x""),\nitem"',
-    );
+    expect(food.text).toContain('"popularItems[0].name","\'=SUM(""x""),\nitem"');
     const requests = await get('service-requests').expect(200);
-    expect(requests.text).toContain(
-      '"resolution.averageMinutes","60","minutes"',
-    );
+    expect(requests.text).toContain('"resolution.averageMinutes","60","minutes"');
   });
   it('TC-MAD-030-AC3: supports empty reports and real PDF attachments for every type', async () => {
     for (const type of [
@@ -209,10 +181,9 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
       'food-orders',
       'service-requests',
       'occupancy',
-      'low-booking-alerts',
+      'low-booking-alerts'
     ]) {
-      const query =
-        type === 'occupancy' ? '&from=2026-10-20&to=2026-10-20' : '';
+      const query = type === 'occupancy' ? '&from=2026-10-20&to=2026-10-20' : '';
       const csv = await get(type, 'format=csv' + query).expect(200);
       expect(csv.text).toContain('"timezone","Asia/Colombo"');
       const pdf = await get(type, 'format=pdf' + query)
@@ -237,37 +208,31 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
       ['bookings', 'format=csv&from=2026-01-01'],
       ['bookings', 'format=csv&format=pdf'],
       ['staff', 'format=csv&workerId=bad'],
-      ['occupancy', 'format=csv&from=2020-01-01&to=2026-10-20'],
+      ['occupancy', 'format=csv&from=2020-01-01&to=2026-10-20']
     ])
       await get(type, query).expect(400);
     for (const [token, status] of [
       [null, 401],
       ['bad', 401],
       [provider.issue('worker'), 403],
-      [provider.issue('first-login'), 403],
+      [provider.issue('first-login'), 403]
     ] as const)
       await get('bookings', 'format=csv', token).expect(status);
-    await database.query(
-      `REVOKE SELECT ON mad_booking_analytics FROM "${role}"`,
-    );
+    await database.query(`REVOKE SELECT ON mad_booking_analytics FROM "${role}"`);
     try {
       await get('bookings').expect(503);
     } finally {
-      await database.query(
-        `GRANT SELECT ON mad_booking_analytics TO "${role}"`,
-      );
+      await database.query(`GRANT SELECT ON mad_booking_analytics TO "${role}"`);
     }
   });
   it('rejects oversized worker cohorts without silently truncating a report', async () => {
     await database.query(
-      "INSERT INTO staff_users(worker_id,password_hash,full_name,role,password_change_required) SELECT gen_random_uuid(),'fixture','Report limit '||n,'WORKER',false FROM generate_series(1,200) n",
+      "INSERT INTO staff_users(worker_id,password_hash,full_name,role,password_change_required) SELECT gen_random_uuid(),'fixture','Report limit '||n,'WORKER',false FROM generate_series(1,200) n"
     );
     try {
       await get('worker-performance').expect(422);
     } finally {
-      await database.query(
-        "DELETE FROM staff_users WHERE full_name LIKE 'Report limit %'",
-      );
+      await database.query("DELETE FROM staff_users WHERE full_name LIKE 'Report limit %'");
     }
   });
 });

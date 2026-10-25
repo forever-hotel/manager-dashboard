@@ -8,9 +8,7 @@ export async function requireSession(allowPasswordChange = false) {
   if (!token) redirect('/login');
   const result = await backend('/auth/session', 'GET', token);
   if (result.status >= 500) redirect('/unavailable');
-  if (result.status !== 200 || !isSession(result.data))
-    redirect('/login?reason=expired');
-  if (result.data.passwordChangeRequired && !allowPasswordChange)
-    redirect('/change-password');
+  if (result.status !== 200 || !isSession(result.data)) redirect('/login?reason=expired');
+  if (result.data.passwordChangeRequired && !allowPasswordChange) redirect('/change-password');
   return result.data;
 }

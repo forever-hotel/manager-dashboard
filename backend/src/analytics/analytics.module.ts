@@ -10,10 +10,7 @@ import { ServiceRequestAnalyticsService } from './service-request-analytics.serv
 import { ServiceRequestAnalyticsController } from './service-request-analytics.controller';
 import { WorkerPerformanceController } from './worker-performance.controller';
 import { WorkerPerformanceService } from './worker-performance.service';
-import {
-  BOOKING_CLOCK,
-  BookingAnalyticsService,
-} from './booking-analytics.service';
+import { BOOKING_CLOCK, BookingAnalyticsService } from './booking-analytics.service';
 
 @Module({
   imports: [AuthModule],
@@ -21,7 +18,7 @@ import {
     WorkerPerformanceController,
     AnalyticsController,
     FoodAnalyticsController,
-    ServiceRequestAnalyticsController,
+    ServiceRequestAnalyticsController
   ],
   exports: [
     WorkerPerformanceService,
@@ -30,7 +27,7 @@ import {
     LowBookingAlertsService,
     RevenueAnalyticsService,
     BookingAnalyticsService,
-    OccupancyAnalyticsService,
+    OccupancyAnalyticsService
   ],
   providers: [
     WorkerPerformanceService,
@@ -40,7 +37,7 @@ import {
     RevenueAnalyticsService,
     BookingAnalyticsService,
     OccupancyAnalyticsService,
-    { provide: BOOKING_CLOCK, useValue: () => new Date() },
-  ],
+    { provide: BOOKING_CLOCK, useValue: () => new Date() }
+  ]
 })
 export class AnalyticsModule {}

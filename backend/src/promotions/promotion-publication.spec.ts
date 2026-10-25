@@ -14,10 +14,10 @@ const row = {
   payload: {
     id: '77f4568c-89ab-4c12-b321-123456789012',
     version: 2,
-    deletedAt: null,
+    deletedAt: null
   },
   created_at: new Date('2026-10-21T00:00:00Z'),
-  attempts: 0,
+  attempts: 0
 };
 const event: PromotionMessage = {
   eventId: row.event_id,
@@ -25,23 +25,21 @@ const event: PromotionMessage = {
   promotionId: row.promo_id,
   version: 2,
   occurredAt: row.created_at.toISOString(),
-  promotion: row.payload,
+  promotion: row.payload
 };
 describe('DDP-040 durable publication worker', () => {
   function setup(enabled = 'true') {
     const query = jest.fn().mockResolvedValueOnce([row]).mockResolvedValue([]);
     const publish = jest.fn().mockResolvedValue(undefined);
     const config = new ConfigService({
-      MAD_PROMOTIONS_PUBLISH_ENABLED: enabled,
+      MAD_PROMOTIONS_PUBLISH_ENABLED: enabled
     });
     const worker = new PromotionPublicationWorker(
       config,
       {
-        transaction: (
-          work: (manager: { query: typeof query }) => Promise<void>,
-        ) => work({ query }),
+        transaction: (work: (manager: { query: typeof query }) => Promise<void>) => work({ query })
       } as unknown as DataSource,
-      { publish } as unknown as PromotionBroker,
+      { publish } as unknown as PromotionBroker
     );
     return { query, publish, config, worker };
   }
@@ -50,33 +48,27 @@ describe('DDP-040 durable publication worker', () => {
     let confirm!: () => void;
     publish.mockImplementationOnce(
       () =>
-        new Promise<void>((resolve) => {
+        new Promise<void>(resolve => {
           confirm = resolve;
-        }),
+        })
     );
     const pending = worker.processOnce();
     await Promise.resolve();
     expect(query).toHaveBeenCalledTimes(1);
-    expect(query).toHaveBeenNthCalledWith(
-      1,
-      expect.stringContaining('FOR UPDATE OF o SKIP LOCKED'),
-    );
+    expect(query).toHaveBeenNthCalledWith(1, expect.stringContaining('FOR UPDATE OF o SKIP LOCKED'));
     confirm();
     await pending;
     expect(publish).toHaveBeenCalledWith(event);
-    expect(query).toHaveBeenLastCalledWith(
-      expect.stringContaining('published_at=now()'),
-      [row.event_id],
-    );
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('published_at=now()'), [row.event_id]);
   });
   it('retains failed work with capped exponential retry and a fixed safe error', async () => {
     const { query, publish, worker } = setup();
     publish.mockRejectedValue(new Error('private broker credentials'));
     await worker.processOnce();
-    expect(query).toHaveBeenLastCalledWith(
-      expect.stringContaining("last_error='PROMOTION_PUBLICATION_FAILED'"),
-      [row.event_id, 1],
-    );
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining("last_error='PROMOTION_PUBLICATION_FAILED'"), [
+      row.event_id,
+      1
+    ]);
     expect(JSON.stringify(query.mock.calls)).not.toContain('private');
     const later = setup();
     later.query
@@ -85,17 +77,11 @@ describe('DDP-040 durable publication worker', () => {
       .mockResolvedValue([]);
     later.publish.mockRejectedValue(new Error('offline'));
     await later.worker.processOnce();
-    expect(later.query).toHaveBeenLastCalledWith(expect.any(String), [
-      row.event_id,
-      3600,
-    ]);
+    expect(later.query).toHaveBeenLastCalledWith(expect.any(String), [row.event_id, 3600]);
   });
   it('does not swallow a failed confirmation mark, enabling rollback/redelivery', async () => {
     const { worker, query, publish } = setup();
-    query
-      .mockReset()
-      .mockResolvedValueOnce([row])
-      .mockRejectedValueOnce(new Error('mark failed'));
+    query.mockReset().mockResolvedValueOnce([row]).mockRejectedValueOnce(new Error('mark failed'));
     await expect(worker.processOnce()).rejects.toThrow('mark failed');
     expect(publish).toHaveBeenCalledWith(event);
     expect(query).toHaveBeenCalledTimes(2);
@@ -104,16 +90,11 @@ describe('DDP-040 durable publication worker', () => {
     const { worker, query, publish } = setup();
     query
       .mockReset()
-      .mockResolvedValueOnce([
-        { ...row, payload: { ...row.payload, version: 3 } },
-      ])
+      .mockResolvedValueOnce([{ ...row, payload: { ...row.payload, version: 3 } }])
       .mockResolvedValue([]);
     await worker.processOnce();
     expect(publish).not.toHaveBeenCalled();
-    expect(query).toHaveBeenLastCalledWith(
-      expect.stringContaining('next_attempt_at'),
-      [row.event_id, 1],
-    );
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('next_attempt_at'), [row.event_id, 1]);
   });
   it('does nothing when disabled or idle', async () => {
     const disabled = setup('false');
@@ -131,9 +112,9 @@ describe('DDP-040 durable publication worker', () => {
     let finish!: () => void;
     const processCall = jest.spyOn(worker, 'processOnce').mockImplementation(
       () =>
-        new Promise<void>((resolve) => {
+        new Promise<void>(resolve => {
           finish = resolve;
-        }),
+        })
     );
     try {
       worker.onApplicationBootstrap();
@@ -155,38 +136,24 @@ describe('DDP-040 broker confirms and mandatory routing', () => {
     const channel = Object.assign(new EventEmitter(), {
       assertExchange: jest.fn().mockResolvedValue(undefined),
       publish: jest.fn(
-        (
-          _exchange: string,
-          _key: string,
-          _body: Buffer,
-          _options: object,
-          confirm: (error?: Error) => void,
-        ) => {
+        (_exchange: string, _key: string, _body: Buffer, _options: object, confirm: (error?: Error) => void) => {
           confirm();
           return true;
-        },
-      ),
+        }
+      )
     });
     const connection = Object.assign(new EventEmitter(), {
       createConfirmChannel: jest.fn().mockResolvedValue(channel),
-      close: jest.fn().mockResolvedValue(undefined),
+      close: jest.fn().mockResolvedValue(undefined)
     });
-    jest
-      .mocked(connect)
-      .mockResolvedValue(connection as unknown as ChannelModel);
-    const broker = new PromotionBroker(
-      new ConfigService({ RABBITMQ_URL: 'amqp://localhost/mad_test' }),
-    );
+    jest.mocked(connect).mockResolvedValue(connection as unknown as ChannelModel);
+    const broker = new PromotionBroker(new ConfigService({ RABBITMQ_URL: 'amqp://localhost/mad_test' }));
     return { channel, connection, broker };
   }
   it('publishes immutable persistent envelopes with confirms and closes resources', async () => {
     const { broker, channel, connection } = setup();
     await broker.publish(event);
-    expect(channel.assertExchange).toHaveBeenCalledWith(
-      'hotel.events',
-      'topic',
-      { durable: true },
-    );
+    expect(channel.assertExchange).toHaveBeenCalledWith('hotel.events', 'topic', { durable: true });
     expect(channel.publish).toHaveBeenCalledWith(
       'hotel.events',
       'promotion.upsert',
@@ -194,41 +161,34 @@ describe('DDP-040 broker confirms and mandatory routing', () => {
       expect.objectContaining({
         persistent: true,
         mandatory: true,
-        messageId: event.eventId,
+        messageId: event.eventId
       }),
-      expect.any(Function),
+      expect.any(Function)
     );
     expect(connection.close).toHaveBeenCalled();
   });
-  it.each(['returned', 'nacked'])(
-    'rejects %s messages rather than marking them published',
-    async (mode) => {
-      const { broker, channel, connection } = setup();
-      channel.publish.mockImplementationOnce((_e, _k, _b, _o, confirm) => {
-        if (mode === 'returned') channel.emit('return', {});
-        confirm(mode === 'nacked' ? new Error('nack') : undefined);
-        return true;
-      });
-      await expect(broker.publish(event)).rejects.toThrow(
-        'PROMOTION_NOT_ROUTED',
-      );
-      expect(connection.close).toHaveBeenCalled();
-    },
-  );
+  it.each(['returned', 'nacked'])('rejects %s messages rather than marking them published', async mode => {
+    const { broker, channel, connection } = setup();
+    channel.publish.mockImplementationOnce((_e, _k, _b, _o, confirm) => {
+      if (mode === 'returned') channel.emit('return', {});
+      confirm(mode === 'nacked' ? new Error('nack') : undefined);
+      return true;
+    });
+    await expect(broker.publish(event)).rejects.toThrow('PROMOTION_NOT_ROUTED');
+    expect(connection.close).toHaveBeenCalled();
+  });
   it('bounds missing confirms and rejects oversized envelopes', async () => {
     jest.useFakeTimers();
     const { broker, channel, connection } = setup();
     channel.publish.mockImplementationOnce(() => true);
     try {
-      const pending = expect(broker.publish(event)).rejects.toThrow(
-        'PROMOTION_CONFIRM_TIMEOUT',
-      );
+      const pending = expect(broker.publish(event)).rejects.toThrow('PROMOTION_CONFIRM_TIMEOUT');
       await jest.advanceTimersByTimeAsync(5001);
       await pending;
       expect(connection.close).toHaveBeenCalled();
-      await expect(
-        broker.publish({ ...event, promotion: { value: 'x'.repeat(65536) } }),
-      ).rejects.toThrow('PROMOTION_EVENT_TOO_LARGE');
+      await expect(broker.publish({ ...event, promotion: { value: 'x'.repeat(65536) } })).rejects.toThrow(
+        'PROMOTION_EVENT_TOO_LARGE'
+      );
     } finally {
       jest.useRealTimers();
     }

@@ -12,7 +12,7 @@ import { PromotionPublicationWorker } from './promotion-publication.worker';
     PromotionBroker,
     PromotionPublicationWorker,
     PromotionsService,
-    { provide: PROMOTION_CLOCK, useValue: () => new Date() },
-  ],
+    { provide: PROMOTION_CLOCK, useValue: () => new Date() }
+  ]
 })
 export class PromotionsModule {}

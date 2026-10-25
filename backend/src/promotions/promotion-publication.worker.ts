@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnApplicationBootstrap,
-  OnApplicationShutdown,
-} from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { PromotionBroker, PromotionMessage } from './promotion-broker';
@@ -19,16 +14,14 @@ interface Publication {
 }
 
 @Injectable()
-export class PromotionPublicationWorker
-  implements OnApplicationBootstrap, OnApplicationShutdown
-{
+export class PromotionPublicationWorker implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(PromotionPublicationWorker.name);
   private timer?: ReturnType<typeof setInterval>;
   private running?: Promise<void>;
   constructor(
     private readonly config: ConfigService,
     private readonly database: DataSource,
-    private readonly broker: PromotionBroker,
+    private readonly broker: PromotionBroker
   ) {}
 
   onApplicationBootstrap() {
@@ -50,7 +43,7 @@ export class PromotionPublicationWorker
 
   async processOnce() {
     if (this.config.get('MAD_PROMOTIONS_PUBLISH_ENABLED') !== 'true') return;
-    await this.database.transaction(async (manager) => {
+    await this.database.transaction(async manager => {
       // Row lock is retained through broker confirmation. A process crash rolls
       // back the mark; the same event ID is sent again after restart.
       const [row] = await manager.query<Publication[]>(`
@@ -67,14 +60,13 @@ export class PromotionPublicationWorker
         promotionId: row.promo_id,
         version: row.promotion_version,
         occurredAt: row.created_at.toISOString(),
-        promotion: row.payload,
+        promotion: row.payload
       };
       try {
         if (
           row.payload.id !== row.promo_id ||
           row.payload.version !== row.promotion_version ||
-          (row.event_type === 'promotion.deleted') !==
-            (row.payload.deletedAt !== null)
+          (row.event_type === 'promotion.deleted') !== (row.payload.deletedAt !== null)
         )
           throw new Error('Invalid publication');
         await this.broker.publish(message);
@@ -85,7 +77,7 @@ export class PromotionPublicationWorker
           SET attempts=LEAST(attempts::bigint+1,2147483647)::integer,
             last_error='PROMOTION_PUBLICATION_FAILED',
             next_attempt_at=now()+($2 * interval '1 second') WHERE event_id=$1`,
-          [row.event_id, delay],
+          [row.event_id, delay]
         );
         return;
       }
@@ -94,7 +86,7 @@ export class PromotionPublicationWorker
         `UPDATE public.mad_promotion_outbox SET published_at=now(),
         attempts=LEAST(attempts::bigint+1,2147483647)::integer,last_error=NULL
         WHERE event_id=$1`,
-        [row.event_id],
+        [row.event_id]
       );
     });
   }

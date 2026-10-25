@@ -11,7 +11,7 @@ import {
   staffDetail,
   staffProfile,
   staffPage,
-  staffReceipt,
+  staffReceipt
 } from '@/lib/staff';
 type Context = { params: Promise<{ path?: string[] }> };
 const reply = (data: unknown, status: number) =>
@@ -34,13 +34,11 @@ async function handle(request: NextRequest, context: Context) {
     body: unknown;
   if (method === 'GET' && path.length === 0) {
     const params = request.nextUrl.searchParams;
-    if ([...params.keys()].some((k) => params.getAll(k).length !== 1))
-      return reply({ code: 'VALIDATION_ERROR' }, 400);
+    if ([...params.keys()].some(k => params.getAll(k).length !== 1)) return reply({ code: 'VALIDATION_ERROR' }, 400);
     const parsed = staffQuery.safeParse(Object.fromEntries(params));
     if (!parsed.success) return reply({ code: 'VALIDATION_ERROR' }, 400);
     query = '?' + new URLSearchParams(parsed.data).toString();
-  } else if (request.nextUrl.search)
-    return reply({ code: 'VALIDATION_ERROR' }, 400);
+  } else if (request.nextUrl.search) return reply({ code: 'VALIDATION_ERROR' }, 400);
   if (method !== 'GET') {
     if (
       request.headers.get('origin') !== serverConfig().origin ||
@@ -51,26 +49,17 @@ async function handle(request: NextRequest, context: Context) {
     try {
       const raw = await request.text();
       if (raw.length > 16384) return reply({ code: 'PAYLOAD_TOO_LARGE' }, 413);
-      const parsed = (
-        reset ? staffReset : method === 'PATCH' ? staffPatch : staffInput
-      ).safeParse(JSON.parse(raw));
+      const parsed = (reset ? staffReset : method === 'PATCH' ? staffPatch : staffInput).safeParse(JSON.parse(raw));
       if (!parsed.success) return reply({ code: 'VALIDATION_ERROR' }, 400);
       body = parsed.data;
     } catch {
       return reply({ code: 'VALIDATION_ERROR' }, 400);
     }
   }
-  const result = await backend(
-    '/mad/staff' + (path.length ? '/' + path.join('/') : '') + query,
-    method,
-    token,
-    body,
-  );
+  const result = await backend('/mad/staff' + (path.length ? '/' + path.join('/') : '') + query, method, token, body);
   const expected = method === 'POST' && !reset ? 201 : 200;
   if (result.status !== expected) {
-    const status = [400, 401, 403, 404, 409].includes(result.status)
-      ? result.status
-      : 503;
+    const status = [400, 401, 403, 404, 409].includes(result.status) ? result.status : 503;
     return reply(
       {
         code: (
@@ -80,28 +69,18 @@ async function handle(request: NextRequest, context: Context) {
             403: 'FORBIDDEN',
             404: 'NOT_FOUND',
             409: 'CONFLICT',
-            503: 'SERVICE_UNAVAILABLE',
+            503: 'SERVICE_UNAVAILABLE'
           } as Record<number, string>
-        )[status],
+        )[status]
       },
-      status,
+      status
     );
   }
   const schema =
-    method === 'POST'
-      ? staffReceipt
-      : method === 'PATCH'
-        ? staffProfile
-        : detail
-          ? staffDetail
-          : staffPage;
+    method === 'POST' ? staffReceipt : method === 'PATCH' ? staffProfile : detail ? staffDetail : staffPage;
   const parsed = schema.safeParse(result.data);
   if (method === 'GET' && parsed.success) {
-    if (
-      detail &&
-      'staffId' in parsed.data &&
-      parsed.data.staffId.toLowerCase() !== path[0].toLowerCase()
-    )
+    if (detail && 'staffId' in parsed.data && parsed.data.staffId.toLowerCase() !== path[0].toLowerCase())
       return reply({ code: 'SERVICE_UNAVAILABLE' }, 503);
     if (!detail && 'items' in parsed.data) {
       const params = new URLSearchParams(query);
@@ -109,18 +88,15 @@ async function handle(request: NextRequest, context: Context) {
         parsed.data.page !== Number(params.get('page')) ||
         parsed.data.pageSize !== Number(params.get('pageSize')) ||
         parsed.data.items.some(
-          (item) =>
+          item =>
             (params.has('role') && item.role !== params.get('role')) ||
-            (params.has('status') &&
-              item.isActive !== (params.get('status') === 'active')),
+            (params.has('status') && item.isActive !== (params.get('status') === 'active'))
         )
       )
         return reply({ code: 'SERVICE_UNAVAILABLE' }, 503);
     }
   }
-  return parsed.success
-    ? reply(parsed.data, expected)
-    : reply({ code: 'SERVICE_UNAVAILABLE' }, 503);
+  return parsed.success ? reply(parsed.data, expected) : reply({ code: 'SERVICE_UNAVAILABLE' }, 503);
 }
 export const GET = handle;
 export const POST = handle;

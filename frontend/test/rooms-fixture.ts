@@ -9,9 +9,9 @@ export const roomsSnapshot = () => ({
     status,
     label: String(status),
     updatedAt: '2026-10-20T00:00:00Z',
-    version: 1,
+    version: 1
   })),
   queriedAt: '2026-10-20T00:00:00Z',
   source: 'FDS' as const,
-  readOnly: true as const,
+  readOnly: true as const
 });

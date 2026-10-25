@@ -1,14 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
-export function useAnalyticsSnapshot<T>(
-  url: string,
-  schema: z.ZodType<T>,
-  enabled = true,
-) {
-  const [state, setState] = useState<{ url: string; data?: T; error?: number }>(
-    { url },
-  );
+export function useAnalyticsSnapshot<T>(url: string, schema: z.ZodType<T>, enabled = true) {
+  const [state, setState] = useState<{ url: string; data?: T; error?: number }>({ url });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!enabled) return;
@@ -19,7 +13,7 @@ export function useAnalyticsSnapshot<T>(
         const response = await fetch(url, {
           cache: 'no-store',
           credentials: 'same-origin',
-          signal: controller.signal,
+          signal: controller.signal
         });
         if (!response.ok) {
           if (active) setState({ url, error: response.status });
@@ -42,7 +36,7 @@ export function useAnalyticsSnapshot<T>(
     error: current?.error,
     retry: () => {
       setState({ url });
-      setAttempt((n) => n + 1);
-    },
+      setAttempt(n => n + 1);
+    }
   };
 }

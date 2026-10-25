@@ -14,7 +14,7 @@ describe('DDP-050 structured audit and health', () => {
     return Object.assign(new EventEmitter(), {
       statusCode,
       writableFinished: true,
-      setHeader: jest.fn(),
+      setHeader: jest.fn()
     });
   }
   it.each([
@@ -22,7 +22,7 @@ describe('DDP-050 structured audit and health', () => {
     ['PATCH', 409, 'FAILED'],
     ['DELETE', 403, 'DENIED'],
     ['GET', 503, 'FAILED'],
-    ['OTHER', 400, 'FAILED'],
+    ['OTHER', 400, 'FAILED']
   ])('records safe %s/%s outcomes', (method, code, outcome) => {
     const sink = jest.fn();
     const telemetry = new OperationsTelemetry(sink);
@@ -34,15 +34,11 @@ describe('DDP-050 structured audit and health', () => {
       body: { password: 'DO-NOT-LOG', note: 'private-note' },
       headers: {
         authorization: 'secret-token',
-        'x-correlation-id': 'untrusted',
-      },
+        'x-correlation-id': 'untrusted'
+      }
     };
     const next = jest.fn();
-    telemetry.observe(
-      req as unknown as Request,
-      res as unknown as Response,
-      next,
-    );
+    telemetry.observe(req as unknown as Request, res as unknown as Response, next);
     res.emit('finish');
     res.emit('close');
     expect(next).toHaveBeenCalledTimes(1);
@@ -54,12 +50,10 @@ describe('DDP-050 structured audit and health', () => {
         resource: 'staff',
         outcome,
         correlationId: expect.any(String) as unknown,
-        timestamp: expect.any(String) as unknown,
-      }),
+        timestamp: expect.any(String) as unknown
+      })
     );
-    expect(JSON.stringify(sink.mock.calls)).not.toMatch(
-      /DO-NOT-LOG|private-note|secret-token|untrusted/,
-    );
+    expect(JSON.stringify(sink.mock.calls)).not.toMatch(/DO-NOT-LOG|private-note|secret-token|untrusted/);
     expect(telemetry.snapshot().requests).toBe(1);
   });
   it('distinguishes anonymous aborted outcomes and bounds metric labels/buckets', () => {
@@ -72,10 +66,10 @@ describe('DDP-050 structured audit and health', () => {
       {
         method: 'POST',
         path: '/bad/private-email',
-        user: { sub: 'private-email' },
+        user: { sub: 'private-email' }
       } as unknown as Request,
       res as unknown as Response,
-      () => {},
+      () => {}
     );
     now = 6001;
     res.emit('close');
@@ -85,16 +79,16 @@ describe('DDP-050 structured audit and health', () => {
         actorId: 'anonymous',
         outcome: 'UNKNOWN_ABORTED',
         status: null,
-        resource: 'other',
-      }),
+        resource: 'other'
+      })
     );
     expect(telemetry.snapshot()).toMatchObject({
       serverFailures: 1,
-      uptimeSeconds: 6,
+      uptimeSeconds: 6
     });
     expect(telemetry.snapshot().latencyBuckets).toContainEqual({
       upperBoundMs: null,
-      count: 1,
+      count: 1
     });
   });
   it('counts successful reads without generating audit noise and isolates sink failures', () => {
@@ -104,31 +98,23 @@ describe('DDP-050 structured audit and health', () => {
     const telemetry = new OperationsTelemetry(sink);
     for (const method of ['GET', 'HEAD', 'OPTIONS', 'POST']) {
       const res = response();
-      telemetry.observe(
-        { method, path: '/mad/settings' } as Request,
-        res as unknown as Response,
-        () => {},
-      );
+      telemetry.observe({ method, path: '/mad/settings' } as Request, res as unknown as Response, () => {});
       expect(() => res.emit('finish')).not.toThrow();
     }
     expect(telemetry.snapshot()).toMatchObject({
       requests: 4,
-      auditWriteFailures: 1,
+      auditWriteFailures: 1
     });
   });
   it('uses the production logger and emits dependency changes only once per state', () => {
-    const log = jest
-      .spyOn(Logger.prototype, 'log')
-      .mockImplementation(() => {});
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
     try {
       const telemetry = new OperationsTelemetry();
       telemetry.dependencies({ database: 'unavailable' });
       telemetry.dependencies({ database: 'unavailable' });
       telemetry.dependencies({ database: 'healthy' });
       expect(log).toHaveBeenCalledTimes(2);
-      expect(log).toHaveBeenLastCalledWith(
-        expect.objectContaining({ outcome: 'HEALTHY', actorId: 'system' }),
-      );
+      expect(log).toHaveBeenLastCalledWith(expect.objectContaining({ outcome: 'HEALTHY', actorId: 'system' }));
     } finally {
       log.mockRestore();
     }
@@ -140,26 +126,23 @@ describe('DDP-050 structured audit and health', () => {
     expect(resource('/mad/staffish')).toBe('other');
   });
   it('reports dependency faults/recovery and permits shutdown without crashing the API', async () => {
-    const query = jest
-      .fn()
-      .mockRejectedValueOnce(new Error('private db details'))
-      .mockResolvedValue([]);
+    const query = jest.fn().mockRejectedValueOnce(new Error('private db details')).mockResolvedValue([]);
     const gateway = {
       healthy: false,
       roomsHealthy: true,
       tasksHealthy: true,
       stockHealthy: true,
-      notificationsHealthy: true,
+      notificationsHealthy: true
     };
     const service = new OperationsService(
       { query } as unknown as DataSource,
       gateway as RealtimeGateway,
-      new ConfigService({ MAD_REALTIME_ENABLED: 'true' }),
+      new ConfigService({ MAD_REALTIME_ENABLED: 'true' })
     );
     await expect(service.tick()).resolves.toBeUndefined();
     expect(new OperationsController(service).status()).toMatchObject({
       status: 'degraded',
-      checks: { database: 'unavailable', kitchenEvents: 'unavailable' },
+      checks: { database: 'unavailable', kitchenEvents: 'unavailable' }
     });
     gateway.healthy = true;
     await service.tick();
@@ -167,7 +150,7 @@ describe('DDP-050 structured audit and health', () => {
     const disabled = new OperationsService(
       { query } as unknown as DataSource,
       gateway as RealtimeGateway,
-      new ConfigService(),
+      new ConfigService()
     );
     expect(disabled.status().checks.kitchenEvents).toBe('disabled');
     gateway.notificationsHealthy = false;
@@ -183,12 +166,12 @@ describe('DDP-050 structured audit and health', () => {
         roomsHealthy: true,
         tasksHealthy: true,
         stockHealthy: true,
-        notificationsHealthy: true,
+        notificationsHealthy: true
       };
       const service = new OperationsService(
         { query } as unknown as DataSource,
         gateway as RealtimeGateway,
-        new ConfigService(),
+        new ConfigService()
       );
       service.onApplicationBootstrap();
       await jest.advanceTimersByTimeAsync(10000);

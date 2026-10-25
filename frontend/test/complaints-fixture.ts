@@ -1,7 +1,5 @@
 import type { ComplaintDetail } from '@/lib/complaints';
-export const complaint = (
-  changes: Partial<ComplaintDetail> = {},
-): ComplaintDetail => ({
+export const complaint = (changes: Partial<ComplaintDetail> = {}): ComplaintDetail => ({
   id: '11111111-1111-4111-8111-111111111111',
   category: 'Room',
   description: 'The room needs attention.',
@@ -11,11 +9,11 @@ export const complaint = (
   status: 'SUBMITTED',
   version: 0,
   history: [],
-  ...changes,
+  ...changes
 });
 export const complaintPage = (items = [complaint()], total = items.length) => ({
   items,
   total,
   page: 1,
-  pageSize: 20,
+  pageSize: 20
 });

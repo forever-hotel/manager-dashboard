@@ -1,11 +1,4 @@
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { io } from 'socket.io-client';
 import RoomsPage from '@/app/(dashboard)/rooms/page';
@@ -22,17 +15,13 @@ beforeEach(() => {
       handlers[name] = fn;
     },
     removeAllListeners: vi.fn(),
-    disconnect: vi.fn(),
+    disconnect: vi.fn()
   } as unknown as ReturnType<typeof io>);
   fetchMock = vi.fn(
     async (url: string) =>
       new Response(
-        JSON.stringify(
-          url.includes('ticket')
-            ? { ticket: 'a'.repeat(43), socketUrl: 'http://localhost:4000' }
-            : data,
-        ),
-      ),
+        JSON.stringify(url.includes('ticket') ? { ticket: 'a'.repeat(43), socketUrl: 'http://localhost:4000' } : data)
+      )
   );
   vi.stubGlobal('fetch', fetchMock);
 });
@@ -48,12 +37,8 @@ describe('DDP-028 room board', () => {
     expect(screen.getByText('Floor 0')).toBeVisible();
     expect(screen.getByText('Floor 2')).toBeVisible();
     for (const room of data.rooms)
-      expect(
-        screen.getByLabelText(`Room ${room.number}, ${room.label}, Deluxe`),
-      ).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: /edit|claim|assign/i }),
-    ).not.toBeInTheDocument();
+      expect(screen.getByLabelText(`Room ${room.number}, ${room.label}, Deluxe`)).toBeVisible();
+    expect(screen.queryByRole('button', { name: /edit|claim|assign/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Week' })).toBeDisabled();
   });
   it('AC2: rereads authoritative data on events and reconnect', async () => {
@@ -86,21 +71,16 @@ describe('DDP-028 room board', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await screen.findByLabelText(/^Room 101,/);
   });
-  it.each([401, 403])(
-    'clears protected data after authorization failure %s',
-    async (status) => {
-      render(<RoomsPage />);
-      await screen.findByLabelText(/^Room 101,/);
-      fetchMock.mockResolvedValueOnce(new Response('{}', { status }));
-      await act(async () => {
-        handlers['room.status.changed']();
-      });
-      expect(screen.queryByLabelText(/^Room 101,/)).not.toBeInTheDocument();
-      expect(screen.getByRole('status')).toHaveTextContent(
-        status === 401 ? 'sign in' : 'Manager access',
-      );
-    },
-  );
+  it.each([401, 403])('clears protected data after authorization failure %s', async status => {
+    render(<RoomsPage />);
+    await screen.findByLabelText(/^Room 101,/);
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status }));
+    await act(async () => {
+      handlers['room.status.changed']();
+    });
+    expect(screen.queryByLabelText(/^Room 101,/)).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(status === 401 ? 'sign in' : 'Manager access');
+  });
   it('shows an empty successful snapshot explicitly', async () => {
     data.rooms = [];
     render(<RoomsPage />);
@@ -111,8 +91,8 @@ describe('DDP-028 room board', () => {
     fetchMock.mockImplementation(
       async (url: string) =>
         new Response(JSON.stringify(url.includes('ticket') ? {} : data), {
-          status: url.includes('ticket') ? 503 : 200,
-        }),
+          status: url.includes('ticket') ? 503 : 200
+        })
     );
     render(<RoomsPage />);
     await act(async () => {
@@ -120,9 +100,7 @@ describe('DDP-028 room board', () => {
     });
     expect(screen.getByRole('status')).toHaveTextContent('five attempts');
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
-    const ticketCalls = () =>
-      fetchMock.mock.calls.filter(([url]) => String(url).includes('ticket'))
-        .length;
+    const ticketCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).includes('ticket')).length;
     expect(ticketCalls()).toBe(6);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60000);
@@ -139,14 +117,12 @@ describe('DDP-028 room board', () => {
     fetchMock.mockImplementation((url: string) =>
       url.includes('ticket')
         ? Promise.resolve(new Response('{}', { status: 401 }))
-        : new Promise<Response>((resolve) => {
+        : new Promise<Response>(resolve => {
             finish = resolve;
-          }),
+          })
     );
     render(<RoomsPage />);
-    await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent('sign in'),
-    );
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('sign in'));
     await act(async () => {
       finish(new Response(JSON.stringify(data)));
     });

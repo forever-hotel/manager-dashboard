@@ -1,13 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Staff,
-  staffDetail,
-  staffInput,
-  staffLabels,
-  staffPage,
-  staffRoles,
-} from '@/lib/staff';
+import { Staff, staffDetail, staffInput, staffLabels, staffPage, staffRoles } from '@/lib/staff';
 const empty = {
   name: '',
   role: 'RECEPTIONIST',
@@ -15,7 +8,7 @@ const empty = {
   email: '',
   phone: '',
   nic: '',
-  age: '',
+  age: ''
 };
 const messages: Record<number, string> = {
   400: 'Check the required fields and their formats.',
@@ -23,7 +16,7 @@ const messages: Record<number, string> = {
   403: 'Manager access is required.',
   404: 'This staff account is no longer available.',
   409: 'The account changed or these unique details already exist. Check the email/NIC or reload the current version before retrying.',
-  503: 'Service unavailable. Refresh the directory to check whether the operation completed before retrying.',
+  503: 'Service unavailable. Refresh the directory to check whether the operation completed before retrying.'
 };
 export default function StaffAccounts() {
   const [form, setForm] = useState({ ...empty });
@@ -51,8 +44,7 @@ export default function StaffAccounts() {
     const previous = document.activeElement;
     confirmationRef.current?.focus();
     return () => {
-      if (previous instanceof HTMLElement && previous.isConnected)
-        previous.focus();
+      if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
     };
   }, [confirm]);
   const query = new URLSearchParams({
@@ -60,7 +52,7 @@ export default function StaffAccounts() {
     pageSize: '20',
     ...(search ? { search } : {}),
     ...(role ? { role } : {}),
-    ...(status ? { status } : {}),
+    ...(status ? { status } : {})
   }).toString();
   useEffect(() => {
     let stopped = false;
@@ -69,10 +61,9 @@ export default function StaffAccounts() {
       try {
         const response = await fetch('/api/staff?' + query, {
           cache: 'no-store',
-          signal: controller.signal,
+          signal: controller.signal
         });
-        if (!response.ok)
-          throw new Error(messages[response.status] ?? messages[503]);
+        if (!response.ok) throw new Error(messages[response.status] ?? messages[503]);
         const data = staffPage.parse(await response.json());
         if (!stopped) {
           setRows(data.items);
@@ -83,10 +74,7 @@ export default function StaffAccounts() {
         if (!stopped) {
           setRows([]);
           setListError(
-            error instanceof Error &&
-              Object.values(messages).includes(error.message)
-              ? error.message
-              : messages[503],
+            error instanceof Error && Object.values(messages).includes(error.message) ? error.message : messages[503]
           );
         }
       } finally {
@@ -103,7 +91,7 @@ export default function StaffAccounts() {
   }, [query, refresh]);
   const reload = useCallback(() => {
     setLoading(true);
-    setRefresh((n) => n + 1);
+    setRefresh(n => n + 1);
   }, []);
   function clear() {
     setEditing(null);
@@ -118,10 +106,9 @@ export default function StaffAccounts() {
     setMessage('');
     try {
       const response = await fetch('/api/staff/' + staff.staffId, {
-        cache: 'no-store',
+        cache: 'no-store'
       });
-      if (!response.ok)
-        throw new Error(messages[response.status] ?? messages[503]);
+      if (!response.ok) throw new Error(messages[response.status] ?? messages[503]);
       const current = staffDetail.parse(await response.json());
       setEditing(current);
       setForm({
@@ -131,15 +118,12 @@ export default function StaffAccounts() {
         role: current.role,
         phone: current.phone ?? '',
         nic: current.nic ?? '',
-        age: current.age === null ? '' : String(current.age),
+        age: current.age === null ? '' : String(current.age)
       });
       nameRef.current?.focus();
     } catch (error) {
       setMessage(
-        error instanceof Error &&
-          Object.values(messages).includes(error.message)
-          ? error.message
-          : messages[503],
+        error instanceof Error && Object.values(messages).includes(error.message) ? error.message : messages[503]
       );
     } finally {
       lock.current = false;
@@ -150,10 +134,9 @@ export default function StaffAccounts() {
     const response = await fetch('/api/staff' + path, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(body)
     });
-    if (!response.ok)
-      throw new Error(messages[response.status] ?? messages[503]);
+    if (!response.ok) throw new Error(messages[response.status] ?? messages[503]);
   }
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -161,11 +144,11 @@ export default function StaffAccounts() {
     const parsed = staffInput.safeParse({
       ...form,
       email: form.email.trim().toLowerCase(),
-      age: form.age === '' ? NaN : Number(form.age),
+      age: form.age === '' ? NaN : Number(form.age)
     });
     if (!parsed.success) {
       setMessage(
-        'Check name, vocation, email, role, age (1?120), phone (7?15 digits, optional +) and NIC (12 digits or 9 digits followed by V/X).',
+        'Check name, vocation, email, role, age (1?120), phone (7?15 digits, optional +) and NIC (12 digits or 9 digits followed by V/X).'
       );
       return;
     }
@@ -176,13 +159,13 @@ export default function StaffAccounts() {
       await mutate(
         editing ? '/' + editing.staffId : '',
         editing ? 'PATCH' : 'POST',
-        editing ? { ...parsed.data, version: editing.version } : parsed.data,
+        editing ? { ...parsed.data, version: editing.version } : parsed.data
       );
       clear();
       setMessage(
         editing
           ? 'Profile saved. Existing sessions were invalidated.'
-          : 'Account created. Credentials are queued for email delivery.',
+          : 'Account created. Credentials are queued for email delivery.'
       );
       reload();
     } catch (error) {
@@ -199,19 +182,17 @@ export default function StaffAccounts() {
     setMessage('');
     try {
       await mutate(
-        '/' +
-          confirm.staff.staffId +
-          (confirm.action === 'reset' ? '/reset-password' : ''),
+        '/' + confirm.staff.staffId + (confirm.action === 'reset' ? '/reset-password' : ''),
         confirm.action === 'reset' ? 'POST' : 'PATCH',
         {
           version: confirm.staff.version,
-          ...(confirm.action === 'deactivate' ? { isActive: false } : {}),
-        },
+          ...(confirm.action === 'deactivate' ? { isActive: false } : {})
+        }
       );
       setMessage(
         confirm.action === 'reset'
           ? 'Password reset queued for email delivery. Previous sessions are invalidated.'
-          : 'Staff account deactivated.',
+          : 'Staff account deactivated.'
       );
       setConfirm(null);
       reload();
@@ -230,14 +211,13 @@ export default function StaffAccounts() {
     setBusy(true);
     try {
       const response = await fetch('/api/staff/' + editing.staffId, {
-        cache: 'no-store',
+        cache: 'no-store'
       });
-      if (!response.ok)
-        throw new Error(messages[response.status] ?? messages[503]);
+      if (!response.ok) throw new Error(messages[response.status] ?? messages[503]);
       const current = staffDetail.parse(await response.json());
       setEditing(current);
       setMessage(
-        'Current version loaded. Your draft is retained. Review the latest profile shown below before saving.',
+        'Current version loaded. Your draft is retained. Review the latest profile shown below before saving.'
       );
       reload();
     } catch {
@@ -279,18 +259,8 @@ export default function StaffAccounts() {
               Month
             </button>
           </div>
-          <svg
-            className="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="black"
-            strokeWidth="1.5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
       </div>
@@ -301,46 +271,25 @@ export default function StaffAccounts() {
         </p>
       )}
       <section className="mb-8">
-        <h2 className="font-medium text-[12px] underline text-black mb-3">
-          Staff account management
-        </h2>
+        <h2 className="font-medium text-[12px] underline text-black mb-3">Staff account management</h2>
         <form onSubmit={save} className="border border-gray-200 rounded-lg p-5">
           <h3 className="font-medium text-[11.5px] text-black mb-4">
             {editing ? 'Edit staff account' : 'Create staff account'}
           </h3>
           {editing && (
             <div className="font-normal text-[10px] text-black mb-4">
-              Current profile: {editing.name}, {editing.email},{' '}
-              {staffLabels[editing.role]}, {editing.vocation}, age{' '}
-              {editing.age ?? 'unknown'}, phone {editing.phone ?? 'unknown'},
-              NIC {editing.nic ?? 'unknown'}. Version {editing.version}.{' '}
-              <button
-                type="button"
-                disabled={busy}
-                className="underline"
-                onClick={() => void rebase()}
-              >
+              Current profile: {editing.name}, {editing.email}, {staffLabels[editing.role]}, {editing.vocation}, age{' '}
+              {editing.age ?? 'unknown'}, phone {editing.phone ?? 'unknown'}, NIC {editing.nic ?? 'unknown'}. Version{' '}
+              {editing.version}.{' '}
+              <button type="button" disabled={busy} className="underline" onClick={() => void rebase()}>
                 Reload current version and keep draft
               </button>
             </div>
           )}
           <div className="grid grid-cols-3 gap-4 mb-4">
-            {(
-              [
-                'name',
-                'role',
-                'vocation',
-                'email',
-                'phone',
-                'nic',
-                'age',
-              ] as const
-            ).map((key) => (
+            {(['name', 'role', 'vocation', 'email', 'phone', 'nic', 'age'] as const).map(key => (
               <div key={key}>
-                <label
-                  htmlFor={'staff-' + key}
-                  className="font-normal text-[10px] text-black/60 block mb-1"
-                >
+                <label htmlFor={'staff-' + key} className="font-normal text-[10px] text-black/60 block mb-1">
                   {
                     {
                       name: 'Full name',
@@ -349,7 +298,7 @@ export default function StaffAccounts() {
                       email: 'Email',
                       phone: 'Phone',
                       nic: 'NIC',
-                      age: 'Age',
+                      age: 'Age'
                     }[key]
                   }
                 </label>
@@ -358,10 +307,10 @@ export default function StaffAccounts() {
                     id="staff-role"
                     disabled={busy}
                     value={form.role}
-                    onChange={(e) => setForm({ ...form, role: e.target.value })}
+                    onChange={e => setForm({ ...form, role: e.target.value })}
                     className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
                   >
-                    {staffRoles.map((r) => (
+                    {staffRoles.map(r => (
                       <option key={r} value={r}>
                         {staffLabels[r]}
                       </option>
@@ -373,19 +322,11 @@ export default function StaffAccounts() {
                     id={'staff-' + key}
                     required
                     disabled={busy}
-                    type={
-                      key === 'age'
-                        ? 'number'
-                        : key === 'email'
-                          ? 'email'
-                          : 'text'
-                    }
+                    type={key === 'age' ? 'number' : key === 'email' ? 'email' : 'text'}
                     min={key === 'age' ? 1 : undefined}
                     max={key === 'age' ? 120 : undefined}
                     value={form[key]}
-                    onChange={(e) =>
-                      setForm({ ...form, [key]: e.target.value })
-                    }
+                    onChange={e => setForm({ ...form, [key]: e.target.value })}
                     className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
                   />
                 )}
@@ -394,15 +335,12 @@ export default function StaffAccounts() {
           </div>
           <div className="bg-gray-50 rounded-md px-3 py-3 mb-5">
             <span className="font-normal text-[10px] text-black">
-              Username and temporary password are generated and emailed when
-              delivery is enabled. Passwords are never displayed here.
+              Username and temporary password are generated and emailed when delivery is enabled. Passwords are never
+              displayed here.
             </span>
           </div>
           <div className="flex gap-3">
-            <button
-              disabled={busy}
-              className="font-normal text-[11px] text-black bg-gray-100 rounded-md px-4 py-2"
-            >
+            <button disabled={busy} className="font-normal text-[11px] text-black bg-gray-100 rounded-md px-4 py-2">
               {busy ? 'Saving?' : editing ? 'Save changes' : 'Create account'}
             </button>
             <button
@@ -424,7 +362,7 @@ export default function StaffAccounts() {
           aria-modal="false"
           aria-labelledby="staff-confirm-title"
           aria-describedby="staff-confirm-description"
-          onKeyDown={(event) => {
+          onKeyDown={event => {
             if (event.key === 'Escape' && !busy) {
               event.preventDefault();
               setConfirm(null);
@@ -433,15 +371,9 @@ export default function StaffAccounts() {
           className="border border-gray-200 rounded-lg p-5 mb-4"
         >
           <h2 id="staff-confirm-title" className="font-medium text-[12px]">
-            {confirm.action === 'reset'
-              ? 'Reset password'
-              : 'Deactivate account'}{' '}
-            for {confirm.staff.name}?
+            {confirm.action === 'reset' ? 'Reset password' : 'Deactivate account'} for {confirm.staff.name}?
           </h2>
-          <p
-            id="staff-confirm-description"
-            className="font-normal text-[11px] my-3"
-          >
+          <p id="staff-confirm-description" className="font-normal text-[11px] my-3">
             {confirm.action === 'reset'
               ? 'This invalidates existing sessions and emails new temporary credentials.'
               : 'This blocks access and invalidates existing sessions.'}
@@ -466,9 +398,7 @@ export default function StaffAccounts() {
       )}
       <section className="mb-10">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium text-[12px] text-black">
-            All staff accounts
-          </h2>
+          <h2 className="font-medium text-[12px] text-black">All staff accounts</h2>
           <button
             type="button"
             disabled={busy}
@@ -484,7 +414,7 @@ export default function StaffAccounts() {
             <input
               maxLength={100}
               value={search}
-              onChange={(e) => {
+              onChange={e => {
                 setSearch(e.target.value);
                 setPage(1);
                 setLoading(true);
@@ -496,7 +426,7 @@ export default function StaffAccounts() {
             Filter role
             <select
               value={role}
-              onChange={(e) => {
+              onChange={e => {
                 setRole(e.target.value);
                 setPage(1);
                 setLoading(true);
@@ -504,7 +434,7 @@ export default function StaffAccounts() {
               className="block border border-gray-200 rounded-md px-3 py-2"
             >
               <option value="">All roles</option>
-              {staffRoles.map((r) => (
+              {staffRoles.map(r => (
                 <option key={r} value={r}>
                   {staffLabels[r]}
                 </option>
@@ -515,7 +445,7 @@ export default function StaffAccounts() {
             Filter status
             <select
               value={status}
-              onChange={(e) => {
+              onChange={e => {
                 setStatus(e.target.value);
                 setPage(1);
                 setLoading(true);
@@ -548,25 +478,11 @@ export default function StaffAccounts() {
           aria-label="Staff directory data"
         >
           <table className="w-full text-left border-collapse">
-            <caption className="sr-only">
-              Staff accounts matching current filters
-            </caption>
+            <caption className="sr-only">Staff accounts matching current filters</caption>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                {[
-                  'Name',
-                  'Role',
-                  'Email',
-                  'Status',
-                  'Last login',
-                  'Delivery',
-                  'Actions',
-                ].map((h) => (
-                  <th
-                    key={h}
-                    scope="col"
-                    className="font-medium text-[10.5px] text-black px-3 py-3"
-                  >
+                {['Name', 'Role', 'Email', 'Status', 'Last login', 'Delivery', 'Actions'].map(h => (
+                  <th key={h} scope="col" className="font-medium text-[10.5px] text-black px-3 py-3">
                     {h}
                   </th>
                 ))}
@@ -574,52 +490,38 @@ export default function StaffAccounts() {
             </thead>
             <tbody>
               {rows.map((s, i) => (
-                <tr
-                  key={s.staffId}
-                  className={
-                    i < rows.length - 1 ? 'border-b border-gray-100' : ''
-                  }
-                >
+                <tr key={s.staffId} className={i < rows.length - 1 ? 'border-b border-gray-100' : ''}>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
                         <span className="font-medium text-[9px] text-black">
                           {s.name
                             .split(/\s+/)
-                            .map((n) => n[0])
+                            .map(n => n[0])
                             .slice(0, 2)
                             .join('')}
                         </span>
                       </div>
-                      <span className="font-normal text-[10.5px] text-black">
-                        {s.name}
-                      </span>
+                      <span className="font-normal text-[10.5px] text-black">{s.name}</span>
                     </div>
                   </td>
-                  <td className="text-[10.5px] text-black px-3 py-3">
-                    {staffLabels[s.role]}
-                  </td>
-                  <td className="text-[10.5px] text-black px-3 py-3">
-                    {s.email}
-                  </td>
+                  <td className="text-[10.5px] text-black px-3 py-3">{staffLabels[s.role]}</td>
+                  <td className="text-[10.5px] text-black px-3 py-3">{s.email}</td>
                   <td className="px-3 py-3">
                     <span className="font-medium text-[9.5px] text-black bg-gray-100 rounded-full px-2 py-1">
                       {s.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="text-[10.5px] text-black px-3 py-3">
-                    Not recorded
-                  </td>
+                  <td className="text-[10.5px] text-black px-3 py-3">Not recorded</td>
                   <td className="text-[10.5px] text-black px-3 py-3">
                     {
                       {
                         pending: 'Queued for delivery',
                         sent: 'Email accepted by provider',
-                        failed:
-                          'Delivery failed; automatic retries are pending within the delivery window.',
+                        failed: 'Delivery failed; automatic retries are pending within the delivery window.',
                         cancelled:
                           'Delivery cancelled or expired; review the account before requesting a new password.',
-                        none: 'No delivery record',
+                        none: 'No delivery record'
                       }[s.deliveryStatus]
                     }
                   </td>
@@ -638,9 +540,7 @@ export default function StaffAccounts() {
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() =>
-                            setConfirm({ staff: s, action: 'reset' })
-                          }
+                          onClick={() => setConfirm({ staff: s, action: 'reset' })}
                           className="font-normal text-[10px] text-black underline"
                         >
                           Reset pwd
@@ -649,9 +549,7 @@ export default function StaffAccounts() {
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() =>
-                            setConfirm({ staff: s, action: 'deactivate' })
-                          }
+                          onClick={() => setConfirm({ staff: s, action: 'deactivate' })}
                           className="font-normal text-[10px] text-black underline"
                         >
                           Deactivate
@@ -673,7 +571,7 @@ export default function StaffAccounts() {
             type="button"
             disabled={page === 1 || loading}
             onClick={() => {
-              setPage((p) => p - 1);
+              setPage(p => p - 1);
               setLoading(true);
             }}
             className="underline"
@@ -684,7 +582,7 @@ export default function StaffAccounts() {
             type="button"
             disabled={page * 20 >= total || loading}
             onClick={() => {
-              setPage((p) => p + 1);
+              setPage(p => p + 1);
               setLoading(true);
             }}
             className="underline"

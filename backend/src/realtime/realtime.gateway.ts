@@ -1,10 +1,6 @@
 import type { StockUpdate } from '../stock/stock-event';
 import type { TaskEvent } from './task-events.consumer';
-import {
-  Injectable,
-  OnModuleDestroy,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Injectable, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OnGatewayInit, WebSocketGateway } from '@nestjs/websockets';
 import { randomBytes } from 'node:crypto';
@@ -25,14 +21,11 @@ export interface KitchenEvent {
   path: '/mad/socket.io',
   transports: ['websocket'],
   maxHttpBufferSize: 8192,
-  serveClient: false,
+  serveClient: false
 })
 export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
   private server?: Server;
-  private readonly tickets = new Map<
-    string,
-    { token: string; expires: number }
-  >();
+  private readonly tickets = new Map<string, { token: string; expires: number }>();
   private readonly sessions = new Map<Socket, string>();
   private timer?: ReturnType<typeof setInterval>;
   healthy = false;
@@ -42,12 +35,11 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
   notificationsHealthy = false;
   constructor(
     private readonly auth: AuthService,
-    private readonly config: ConfigService,
+    private readonly config: ConfigService
   ) {}
   ticket(token: string) {
     const now = Date.now();
-    for (const [key, t] of this.tickets)
-      if (t.expires <= now) this.tickets.delete(key);
+    for (const [key, t] of this.tickets) if (t.expires <= now) this.tickets.delete(key);
     if (this.tickets.size >= 1000) throw new ServiceUnavailableException();
     const ticket = randomBytes(32).toString('base64url');
     this.tickets.set(ticket, { token, expires: now + 30000 });
@@ -57,19 +49,12 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
     this.server = server;
     server.use((socket, next) => {
       const data: unknown = socket.handshake.auth;
-      const supplied =
-        data !== null && typeof data === 'object' && 'ticket' in data
-          ? data.ticket
-          : undefined;
-      const key =
-        typeof supplied === 'string' && /^[\w-]{43}$/.test(supplied)
-          ? supplied
-          : '';
+      const supplied = data !== null && typeof data === 'object' && 'ticket' in data ? data.ticket : undefined;
+      const key = typeof supplied === 'string' && /^[\w-]{43}$/.test(supplied) ? supplied : '';
       const entry = this.tickets.get(key);
       this.tickets.delete(key);
       if (
-        socket.handshake.headers.origin !==
-          this.config.get<string>('FRONTEND_URL') ||
+        socket.handshake.headers.origin !== this.config.get<string>('FRONTEND_URL') ||
         !entry ||
         entry.expires <= Date.now()
       )
@@ -79,16 +64,16 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
           this.sessions.set(socket, entry.token);
           next();
         },
-        () => next(new Error('UNAUTHENTICATED')),
+        () => next(new Error('UNAUTHENTICATED'))
       );
     });
-    server.on('connection', (socket) => {
+    server.on('connection', socket => {
       socket.emit('transport.status', { healthy: this.healthy });
       socket.emit('rooms.transport.status', { healthy: this.roomsHealthy });
       socket.emit('tasks.transport.status', { healthy: this.tasksHealthy });
       socket.emit('stock.transport.status', { healthy: this.stockHealthy });
       socket.emit('notifications.transport.status', {
-        healthy: this.notificationsHealthy,
+        healthy: this.notificationsHealthy
       });
       socket.on('disconnect', () => this.sessions.delete(socket));
     });
@@ -98,7 +83,7 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
       void this.send('tasks.transport.status', { healthy: this.tasksHealthy });
       void this.send('stock.transport.status', { healthy: this.stockHealthy });
       void this.send('notifications.transport.status', {
-        healthy: this.notificationsHealthy,
+        healthy: this.notificationsHealthy
       });
     }, 5000);
     this.timer.unref();
@@ -114,7 +99,7 @@ export class RealtimeGateway implements OnGatewayInit, OnModuleDestroy {
           this.sessions.delete(socket);
           socket.disconnect(true);
         }
-      }),
+      })
     );
   }
   async publish(event: KitchenEvent) {

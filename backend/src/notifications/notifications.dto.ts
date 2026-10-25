@@ -1,13 +1,5 @@
 import { Transform } from 'class-transformer';
-import {
-  IsIn,
-  IsInt,
-  IsString,
-  IsUUID,
-  Matches,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsIn, IsInt, IsString, IsUUID, Matches, Max, Min } from 'class-validator';
 const number = ({ value }: { value: unknown }) =>
   typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
 export class NotificationPageDto {

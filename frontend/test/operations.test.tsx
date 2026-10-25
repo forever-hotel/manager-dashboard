@@ -1,25 +1,14 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import OperationsAnalytics from '@/components/OperationsAnalytics';
 import WorkerAnalytics from '@/components/WorkerAnalytics';
 import { sortWorkers, workerSchema } from '@/lib/operations-analytics';
-import {
-  foodFixture,
-  serviceFixture,
-  workerFixture,
-  workerId,
-} from './operations-fixture';
+import { foodFixture, serviceFixture, workerFixture, workerId } from './operations-fixture';
 vi.mock('@/components/KitchenQueue', () => ({
-  default: () => <div>Live kitchen queue</div>,
+  default: () => <div>Live kitchen queue</div>
 }));
 vi.mock('@/components/TaskQueue', () => ({
-  default: () => <div>Live task queue</div>,
+  default: () => <div>Live task queue</div>
 }));
 let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
@@ -31,9 +20,9 @@ beforeEach(() => {
             ? foodFixture()
             : url.includes('service-requests')
               ? serviceFixture()
-              : workerFixture(),
-        ),
-      ),
+              : workerFixture()
+        )
+      )
   );
   vi.stubGlobal('fetch', fetchMock);
 });
@@ -43,45 +32,33 @@ describe('DDP-032 operations views', () => {
     render(<OperationsAnalytics type="food-orders" />);
     expect(
       await screen.findByRole('table', {
-        name: 'Orders by placement hour (Asia/Colombo)',
-      }),
+        name: 'Orders by placement hour (Asia/Colombo)'
+      })
     ).toBeVisible();
-    expect(
-      screen.getByText('No orders/requests created for this period.'),
-    ).toBeVisible();
+    expect(screen.getByText('No orders/requests created for this period.')).toBeVisible();
     expect(screen.getByRole('table', { name: 'Daily demand' })).toBeVisible();
-    expect(
-      screen.getByRole('group', { name: 'food-orders report downloads' }),
-    ).toBeVisible();
+    expect(screen.getByRole('group', { name: 'food-orders report downloads' })).toBeVisible();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
   it('AC1/AC2: distinguishes no completed average from a zero count and labels all-date backlog', async () => {
     render(<OperationsAnalytics type="service-requests" />);
     expect(await screen.findByText('N/A', { exact: true })).toBeVisible();
     expect(screen.getByText('4', { exact: true })).toBeVisible();
-    expect(
-      screen.getByRole('table', { name: 'Requests created by current status' }),
-    ).toHaveTextContent('IN PROGRESS');
-    expect(
-      screen.getByText('Current unresolved requests across all dates'),
-    ).toBeVisible();
+    expect(screen.getByRole('table', { name: 'Requests created by current status' })).toHaveTextContent('IN PROGRESS');
+    expect(screen.getByText('Current unresolved requests across all dates')).toBeVisible();
   });
   it('AC3: ignores stale period responses and supports retry', async () => {
     let finish!: (r: Response) => void;
     fetchMock.mockImplementationOnce(
       () =>
-        new Promise<Response>((r) => {
+        new Promise<Response>(r => {
           finish = r;
-        }),
+        })
     );
     render(<OperationsAnalytics type="food-orders" />);
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ...foodFixture(), period: 'month' })),
-    );
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...foodFixture(), period: 'month' })));
     fireEvent.click(screen.getByRole('button', { name: 'Month' }));
-    await act(async () =>
-      finish(new Response(JSON.stringify({ ...foodFixture(), total: 999 }))),
-    );
+    await act(async () => finish(new Response(JSON.stringify({ ...foodFixture(), total: 999 }))));
     await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(1));
     expect(screen.queryByText('999', { exact: true })).not.toBeInTheDocument();
   });
@@ -90,29 +67,25 @@ describe('DDP-032 operations views', () => {
     render(<OperationsAnalytics type="food-orders" />);
     await screen.findByRole('alert');
     fireEvent.click(screen.getByRole('button', { name: 'Retry analytics' }));
-    expect(
-      await screen.findByRole('table', { name: 'Daily demand' }),
-    ).toBeVisible();
+    expect(await screen.findByRole('table', { name: 'Daily demand' })).toBeVisible();
   });
 });
 describe('DDP-033 worker view', () => {
   it('AC1: displays worker metrics, N/A and usable complaint links', async () => {
     render(<WorkerAnalytics />);
     const table = await screen.findByRole('table', {
-      name: 'Worker performance in minutes, current filters',
+      name: 'Worker performance in minutes, current filters'
     });
     expect(table).toHaveTextContent('Worker One');
     expect(table).toHaveTextContent('N/A');
-    expect(
-      screen.getByRole('link', { name: 'Submitted complaints' }),
-    ).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Submitted complaints' })).toHaveAttribute(
       'href',
-      '/complaints?workerId=' + workerId + '&status=SUBMITTED',
+      '/complaints?workerId=' + workerId + '&status=SUBMITTED'
     );
     expect(
       screen.getByRole('group', {
-        name: 'worker-performance report downloads',
-      }),
+        name: 'worker-performance report downloads'
+      })
     ).toBeVisible();
   });
   it('AC2: sorts ties deterministically and leaves N/A last in both directions', () => {
@@ -120,43 +93,31 @@ describe('DDP-033 worker view', () => {
     const other = {
       ...worker,
       workerId: '77f4568c-89ab-4c12-b321-123456789012',
-      averageCompletionMinutes: 5,
+      averageCompletionMinutes: 5
     };
     for (const desc of [false, true])
-      expect(
-        sortWorkers([worker, other], 'averageCompletionMinutes', desc).at(-1)
-          ?.workerId,
-      ).toBe(workerId);
-    expect(
-      sortWorkers([other, worker], 'completedTaskCount', true)[0].workerId,
-    ).toBe(workerId);
-    expect(sortWorkers([other, worker], 'fullName', false)[0].workerId).toBe(
-      workerId,
-    );
+      expect(sortWorkers([worker, other], 'averageCompletionMinutes', desc).at(-1)?.workerId).toBe(workerId);
+    expect(sortWorkers([other, worker], 'completedTaskCount', true)[0].workerId).toBe(workerId);
+    expect(sortWorkers([other, worker], 'fullName', false)[0].workerId).toBe(workerId);
   });
   it('AC2/AC3: validates worker filter and retains it on period changes', async () => {
     render(<WorkerAnalytics />);
     await screen.findByText('Worker One');
     fireEvent.change(screen.getByLabelText('Worker ID'), {
-      target: { value: 'bad' },
+      target: { value: 'bad' }
     });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Apply worker filter' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Apply worker filter' }));
     expect(screen.getByRole('alert')).toHaveTextContent('valid worker ID');
     fireEvent.change(screen.getByLabelText('Worker ID'), {
-      target: { value: workerId },
+      target: { value: workerId }
     });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Apply worker filter' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Apply worker filter' }));
     fireEvent.click(screen.getByRole('button', { name: 'Day' }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/analytics/operations/worker-performance?period=day&workerId=' +
-          workerId,
-        expect.any(Object),
-      ),
+        '/api/analytics/operations/worker-performance?period=day&workerId=' + workerId,
+        expect.any(Object)
+      )
     );
   });
   it('supports stable sorting and paging of zero-task workers', async () => {
@@ -167,15 +128,15 @@ describe('DDP-033 worker view', () => {
           workers: Array.from({ length: 11 }, (_, i) => ({
             ...workerFixture().workers[0],
             workerId: `67f4568c-89ab-4c12-b321-${String(i).padStart(12, '0')}`,
-            fullName: 'Worker ' + i,
-          })),
-        }),
-      ),
+            fullName: 'Worker ' + i
+          }))
+        })
+      )
     );
     render(<WorkerAnalytics />);
     await screen.findByText('Worker 0');
     fireEvent.change(screen.getByLabelText('Sort workers'), {
-      target: { value: 'openComplaintCount' },
+      target: { value: 'openComplaintCount' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Ascending' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next workers' }));

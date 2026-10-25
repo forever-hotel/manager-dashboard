@@ -7,6 +7,6 @@ import { OperationsController } from './operations.controller';
 @Module({
   imports: [AuthModule, RealtimeModule],
   providers: [OperationsService],
-  controllers: [OperationsController],
+  controllers: [OperationsController]
 })
 export class OperationsModule {}

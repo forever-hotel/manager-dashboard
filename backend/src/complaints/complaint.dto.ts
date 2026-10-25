@@ -1,24 +1,9 @@
 import { Transform } from 'class-transformer';
-import {
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Length,
-  Matches,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
 
-export const COMPLAINT_STATUSES = [
-  'SUBMITTED',
-  'UNDER_REVIEW',
-  'RESOLVED',
-] as const;
+export const COMPLAINT_STATUSES = ['SUBMITTED', 'UNDER_REVIEW', 'RESOLVED'] as const;
 export type ComplaintStatus = (typeof COMPLAINT_STATUSES)[number];
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
+const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 const pageNumber = ({ value }: { value: unknown }) =>
   typeof value === 'string' && /^[1-9]\d*$/.test(value) ? Number(value) : value;
 

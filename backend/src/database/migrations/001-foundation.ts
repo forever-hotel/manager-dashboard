@@ -41,9 +41,7 @@ export class MadFoundation1789600000000 implements MigrationInterface {
   }
   down(): Promise<void> {
     return Promise.reject(
-      new Error(
-        'Destructive rollback is disabled. Restore a backup or apply a reviewed forward migration.',
-      ),
+      new Error('Destructive rollback is disabled. Restore a backup or apply a reviewed forward migration.')
     );
   }
 }

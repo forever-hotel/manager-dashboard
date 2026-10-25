@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SESSION_COOKIE } from '@/lib/auth';
 import { serverConfig } from '@/lib/environment';
-import {
-  reportQuery,
-  reportFilename,
-  readReport,
-  type ReportType,
-} from '@/lib/reports';
+import { reportQuery, reportFilename, readReport, type ReportType } from '@/lib/reports';
 const reply = (status: number) =>
   NextResponse.json(
     {
@@ -17,16 +12,13 @@ const reply = (status: number) =>
           403: 'FORBIDDEN',
           404: 'NOT_FOUND',
           422: 'REPORT_TOO_LARGE',
-          503: 'SERVICE_UNAVAILABLE',
+          503: 'SERVICE_UNAVAILABLE'
         } as Record<number, string>
-      )[status],
+      )[status]
     },
-    { status, headers: { 'Cache-Control': 'no-store' } },
+    { status, headers: { 'Cache-Control': 'no-store' } }
   );
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ type: string }> },
-) {
+export async function GET(request: NextRequest, context: { params: Promise<{ type: string }> }) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (!token) return reply(401);
   const { type } = await context.params;
@@ -41,43 +33,30 @@ export async function GET(
     const config = serverConfig();
     if (
       request.headers.get('sec-fetch-site') === 'cross-site' ||
-      (request.headers.get('origin') &&
-        request.headers.get('origin') !== config.origin)
+      (request.headers.get('origin') && request.headers.get('origin') !== config.origin)
     )
       return reply(403);
-    upstream = await fetch(
-      config.api + '/mad/reports/' + type + '?' + query.toString(),
-      {
-        cache: 'no-store',
-        redirect: 'error',
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(30000)]),
-        headers: { Authorization: 'Bearer ' + token },
-      },
-    );
+    upstream = await fetch(config.api + '/mad/reports/' + type + '?' + query.toString(), {
+      cache: 'no-store',
+      redirect: 'error',
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(30000)]),
+      headers: { Authorization: 'Bearer ' + token }
+    });
     if (upstream.status !== 200) {
       await upstream.body?.cancel();
-      return reply(
-        [400, 401, 403, 404, 422].includes(upstream.status)
-          ? upstream.status
-          : 503,
-      );
+      return reply([400, 401, 403, 404, 422].includes(upstream.status) ? upstream.status : 503);
     }
     const format = query.get('format')!;
-    const filename = reportFilename(
-      type as ReportType,
-      format,
-      upstream.headers.get('content-disposition'),
-    );
+    const filename = reportFilename(type as ReportType, format, upstream.headers.get('content-disposition'));
     const bytes = await readReport(upstream, format);
     return new NextResponse(bytes, {
       headers: {
-        'Content-Type':
-          format === 'pdf' ? 'application/pdf' : 'text/csv; charset=utf-8',
+        'Content-Type': format === 'pdf' ? 'application/pdf' : 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': String(bytes.byteLength),
         'Cache-Control': 'no-store',
-        'X-Content-Type-Options': 'nosniff',
-      },
+        'X-Content-Type-Options': 'nosniff'
+      }
     });
   } catch {
     return reply(503);

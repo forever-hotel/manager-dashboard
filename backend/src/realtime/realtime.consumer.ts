@@ -8,8 +8,7 @@ import { KitchenEvent, RealtimeGateway } from './realtime.gateway';
 export class InvalidKitchenEvent extends Error {}
 
 export function parseKitchenEvent(raw: unknown): KitchenEvent {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw))
-    throw new InvalidKitchenEvent('Invalid event');
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new InvalidKitchenEvent('Invalid event');
   const e = raw as Record<string, unknown>;
   if (
     e.type !== 'kitchen.order.changed' ||
@@ -29,7 +28,7 @@ export function parseKitchenEvent(raw: unknown): KitchenEvent {
     type: e.type,
     orderId: e.orderId.toLowerCase(),
     version: Number(e.version),
-    occurredAt: e.occurredAt,
+    occurredAt: e.occurredAt
   };
 }
 @Injectable()
@@ -42,24 +41,18 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly config: ConfigService,
     private readonly database: DataSource,
-    private readonly gateway: RealtimeGateway,
+    private readonly gateway: RealtimeGateway
   ) {}
   onModuleInit() {
-    if (this.config.get<string>('MAD_REALTIME_ENABLED') === 'true')
-      void this.tick();
+    if (this.config.get<string>('MAD_REALTIME_ENABLED') === 'true') void this.tick();
   }
   async accept(event: KitchenEvent) {
-    await this.database.transaction(async (manager) => {
+    await this.database.transaction(async manager => {
       // Transaction-level lock serializes versions for one order across consumers.
-      await manager.query(
-        'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
-        [event.orderId],
-      );
-      const [seen] = await manager.query<
-        { exists: boolean; payload: KitchenEvent | null }[]
-      >(
+      await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [event.orderId]);
+      const [seen] = await manager.query<{ exists: boolean; payload: KitchenEvent | null }[]>(
         'SELECT EXISTS(SELECT 1 FROM mad_realtime_events WHERE event_id=$1) AS exists, (SELECT payload FROM mad_realtime_events WHERE event_id=$1) AS payload',
-        [event.eventId],
+        [event.eventId]
       );
       if (seen.exists) {
         const prior = seen.payload ? parseKitchenEvent(seen.payload) : null;
@@ -76,29 +69,23 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
       }
       const [last] = await manager.query<{ version: string }[]>(
         'SELECT version FROM mad_realtime_versions WHERE order_id=$1',
-        [event.orderId],
+        [event.orderId]
       );
       const stale = last && Number(last.version) >= event.version;
       await manager.query(
         'INSERT INTO mad_realtime_events(event_id,order_id,version,payload,delivered_at) VALUES ($1,$2,$3,$4,CASE WHEN $5 THEN now() ELSE NULL END)',
-        [
-          event.eventId,
-          event.orderId,
-          event.version,
-          JSON.stringify(event),
-          Boolean(stale),
-        ],
+        [event.eventId, event.orderId, event.version, JSON.stringify(event), Boolean(stale)]
       );
       if (!stale) {
         await manager.query(
           'INSERT INTO mad_realtime_versions(order_id,version) VALUES ($1,$2) ON CONFLICT(order_id) DO UPDATE SET version=EXCLUDED.version',
-          [event.orderId, event.version],
+          [event.orderId, event.version]
         );
         // An invalidation for the latest version replaces unsent older ones.
         // Retain their inbox receipts, but do not replay superseded notifications.
         await manager.query(
           'UPDATE mad_realtime_events SET delivered_at=now() WHERE order_id=$1 AND version<$2 AND delivered_at IS NULL',
-          [event.orderId, event.version],
+          [event.orderId, event.version]
         );
       }
     });
@@ -139,18 +126,14 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
       durable: true,
       arguments: {
         'x-dead-letter-exchange': '',
-        'x-dead-letter-routing-key': 'mad.kitchen.dead',
-      },
+        'x-dead-letter-routing-key': 'mad.kitchen.dead'
+      }
     });
-    await channel.bindQueue(
-      'mad.kitchen',
-      'hotel.events',
-      'kitchen.order.changed',
-    );
+    await channel.bindQueue('mad.kitchen', 'hotel.events', 'kitchen.order.changed');
     await channel.prefetch(1);
     await channel.consume(
       'mad.kitchen',
-      (message) => {
+      message => {
         if (!message) {
           this.gateway.healthy = false;
           void connection.close().catch(() => undefined);
@@ -159,9 +142,7 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
         let event: KitchenEvent;
         try {
           if (message.content.length > 8192) throw new Error();
-          event = parseKitchenEvent(
-            JSON.parse(message.content.toString()) as unknown,
-          );
+          event = parseKitchenEvent(JSON.parse(message.content.toString()) as unknown);
         } catch {
           channel.nack(message, false, false);
           return;
@@ -179,27 +160,22 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
               // Closing requeues unacknowledged delivery without a tight retry loop.
               this.gateway.healthy = false;
               void connection.close().catch(() => undefined);
-            },
+            }
           )
           .catch(() => {
             this.gateway.healthy = false;
           });
       },
-      { noAck: false },
+      { noAck: false }
     );
   }
   async dispatch() {
-    const rows = await this.database.query<
-      { event_id: string; payload: KitchenEvent }[]
-    >(
-      'SELECT event_id,payload FROM mad_realtime_events WHERE delivered_at IS NULL ORDER BY received_at,event_id LIMIT 100',
+    const rows = await this.database.query<{ event_id: string; payload: KitchenEvent }[]>(
+      'SELECT event_id,payload FROM mad_realtime_events WHERE delivered_at IS NULL ORDER BY received_at,event_id LIMIT 100'
     );
     for (const row of rows) {
       await this.gateway.publish(row.payload);
-      await this.database.query(
-        'UPDATE mad_realtime_events SET delivered_at=now() WHERE event_id=$1',
-        [row.event_id],
-      );
+      await this.database.query('UPDATE mad_realtime_events SET delivered_at=now() WHERE event_id=$1', [row.event_id]);
     }
   }
   private async tick() {
@@ -224,7 +200,7 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
           () => {
             void this.tick();
           },
-          this.gateway.healthy ? 250 : 5000,
+          this.gateway.healthy ? 250 : 5000
         );
         this.timer.unref();
       }

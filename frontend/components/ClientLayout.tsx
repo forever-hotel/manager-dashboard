@@ -4,13 +4,7 @@ import { Sidebar } from './Sidebar';
 import { SessionBoundary } from './SessionBoundary';
 import { Session } from '@/lib/auth';
 import { NotificationsBanner } from './Notifications';
-export function ClientLayout({
-  children,
-  session,
-}: {
-  children: React.ReactNode;
-  session: Session;
-}) {
+export function ClientLayout({ children, session }: { children: React.ReactNode; session: Session }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -20,11 +14,7 @@ export function ClientLayout({
     document.body.style.overflow = 'hidden';
     const navigation = document.getElementById('dashboard-navigation');
     const controls = () =>
-      Array.from(
-        navigation?.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled])',
-        ) ?? [],
-      );
+      Array.from(navigation?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? []);
     controls()[0]?.focus();
     const keyboard = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -32,9 +22,7 @@ export function ClientLayout({
         setOpen(false);
       }
       if (event.key !== 'Tab') return;
-      const items = [trigger, ...controls()].filter(
-        (item): item is HTMLElement => item !== null,
-      );
+      const items = [trigger, ...controls()].filter((item): item is HTMLElement => item !== null);
       const first = items[0];
       const last = items.at(-1);
       if (!items.includes(document.activeElement as HTMLElement)) {
@@ -75,7 +63,7 @@ export function ClientLayout({
           aria-label={open ? 'Close navigation' : 'Open navigation'}
           aria-expanded={open}
           aria-controls="dashboard-navigation"
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => setOpen(value => !value)}
           className="flex h-11 w-11 items-center justify-center rounded-md text-black hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
         >
           <svg
@@ -88,18 +76,12 @@ export function ClientLayout({
             strokeWidth="1.75"
             strokeLinecap="round"
           >
-            <path
-              d={open ? 'M6 6l12 12M6 18L18 6' : 'M4 6h16M4 12h16M4 18h16'}
-            />
+            <path d={open ? 'M6 6l12 12M6 18L18 6' : 'M4 6h16M4 12h16M4 18h16'} />
           </svg>
         </button>
         <div className="min-w-0 text-center leading-tight">
-          <div className="text-[13px] font-medium text-black">
-            Forever Hotel
-          </div>
-          <div className="text-[10px] font-normal text-black/60">
-            Manager Dashboard
-          </div>
+          <div className="text-[13px] font-medium text-black">Forever Hotel</div>
+          <div className="text-[10px] font-normal text-black/60">Manager Dashboard</div>
         </div>
       </header>
       {open && (
@@ -112,17 +94,8 @@ export function ClientLayout({
         />
       )}
       <div className="md:flex w-full min-h-screen bg-white text-black">
-        <Sidebar
-          open={open}
-          close={() => setOpen(false)}
-          username={session.username}
-        />
-        <div
-          id="dashboard-content"
-          inert={open}
-          tabIndex={-1}
-          className="flex-1 min-w-0 md:pl-[220px]"
-        >
+        <Sidebar open={open} close={() => setOpen(false)} username={session.username} />
+        <div id="dashboard-content" inert={open} tabIndex={-1} className="flex-1 min-w-0 md:pl-[220px]">
           <NotificationsBanner />
           {children}
         </div>

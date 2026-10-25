@@ -12,7 +12,7 @@ const event = {
   taskId: '67f4568c-89ab-4c12-b321-123456789012',
   type: 'task.changed',
   version: 2,
-  occurredAt: '2026-10-19T00:00:00Z',
+  occurredAt: '2026-10-19T00:00:00Z'
 };
 describe('DDP-042 durable broker lifecycle', () => {
   beforeEach(() => {
@@ -29,35 +29,30 @@ describe('DDP-042 durable broker lifecycle', () => {
       bindQueue: jest.fn().mockResolvedValue({}),
       prefetch: jest.fn().mockResolvedValue({}),
       consume: jest
-        .fn<
-          Promise<{ consumerTag: string }>,
-          [string, (message: ConsumeMessage | null) => void, { noAck: boolean }]
-        >()
+        .fn<Promise<{ consumerTag: string }>, [string, (message: ConsumeMessage | null) => void, { noAck: boolean }]>()
         .mockResolvedValue({ consumerTag: 'test' }),
       ack: jest.fn(),
-      nack: jest.fn(),
+      nack: jest.fn()
     });
     const connection = Object.assign(new EventEmitter(), {
       createChannel: jest.fn().mockResolvedValue(channel as unknown as Channel),
-      close: jest.fn().mockResolvedValue(undefined),
+      close: jest.fn().mockResolvedValue(undefined)
     });
-    jest
-      .mocked(connect)
-      .mockResolvedValue(connection as unknown as ChannelModel);
+    jest.mocked(connect).mockResolvedValue(connection as unknown as ChannelModel);
     const config = new ConfigService({
       MAD_REALTIME_ENABLED: 'true',
-      RABBITMQ_URL: 'amqp://localhost/mad_test',
+      RABBITMQ_URL: 'amqp://localhost/mad_test'
     });
     const query = jest.fn().mockResolvedValue([]);
     const gateway = {
       tasksHealthy: false,
-      publishTask: jest.fn().mockResolvedValue(undefined),
+      publishTask: jest.fn().mockResolvedValue(undefined)
     };
     const consumer = new TaskEventsConsumer(
       config,
       { query } as unknown as DataSource,
       gateway as unknown as RealtimeGateway,
-      { find: jest.fn() } as unknown as TasksService,
+      { find: jest.fn() } as unknown as TasksService
     );
     return { channel, connection, config, query, gateway, consumer };
   }
@@ -67,32 +62,18 @@ describe('DDP-042 durable broker lifecycle', () => {
     await jest.advanceTimersByTimeAsync(1);
     try {
       expect(gateway.tasksHealthy).toBe(true);
-      expect(channel.assertExchange).toHaveBeenCalledWith(
-        'hotel.events',
-        'topic',
-        { durable: true },
-      );
+      expect(channel.assertExchange).toHaveBeenCalledWith('hotel.events', 'topic', { durable: true });
       expect(channel.prefetch).toHaveBeenCalledWith(1);
-      expect(channel.consume).toHaveBeenCalledWith(
-        'mad.tasks',
-        expect.any(Function),
-        { noAck: false },
-      );
+      expect(channel.consume).toHaveBeenCalledWith('mad.tasks', expect.any(Function), { noAck: false });
       const receive = channel.consume.mock.calls[0][1];
-      for (const content of [
-        Buffer.from('bad JSON'),
-        Buffer.alloc(8193),
-        Buffer.from('{}'),
-      ]) {
+      for (const content of [Buffer.from('bad JSON'), Buffer.alloc(8193), Buffer.from('{}')]) {
         const message = { content } as ConsumeMessage;
         receive(message);
         expect(channel.nack).toHaveBeenLastCalledWith(message, false, false);
       }
-      const accepted = jest
-        .spyOn(consumer, 'accept')
-        .mockResolvedValue(undefined);
+      const accepted = jest.spyOn(consumer, 'accept').mockResolvedValue(undefined);
       const message = {
-        content: Buffer.from(JSON.stringify(event)),
+        content: Buffer.from(JSON.stringify(event))
       } as ConsumeMessage;
       receive(message);
       await jest.advanceTimersByTimeAsync(1);
@@ -107,12 +88,10 @@ describe('DDP-042 durable broker lifecycle', () => {
     consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);
     try {
-      jest
-        .spyOn(consumer, 'accept')
-        .mockRejectedValue(new Error('DB unavailable'));
+      jest.spyOn(consumer, 'accept').mockRejectedValue(new Error('DB unavailable'));
       const receive = channel.consume.mock.calls[0][1];
       receive({
-        content: Buffer.from(JSON.stringify(event)),
+        content: Buffer.from(JSON.stringify(event))
       } as ConsumeMessage);
       await jest.advanceTimersByTimeAsync(1);
       expect(channel.ack).not.toHaveBeenCalled();

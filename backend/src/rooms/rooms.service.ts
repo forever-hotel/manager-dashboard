@@ -4,7 +4,7 @@ export const ROOM_LABELS = {
   OCCUPIED: 'Occupied',
   VACANT: 'Vacant',
   UNDER_MAINTENANCE: 'Under Maintenance',
-  REQUIRES_CLEANING: 'Requires Cleaning',
+  REQUIRES_CLEANING: 'Requires Cleaning'
 } as const;
 export interface RoomStatus {
   id: string;
@@ -28,11 +28,9 @@ export class RoomsService {
   constructor(private readonly database: DataSource) {}
   async snapshot(id?: string) {
     try {
-      const [row] = await this.database.query<
-        { queried_at: Date; rooms: RoomStatus[] }[]
-      >(ROOMS_SQL, [id ?? null]);
+      const [row] = await this.database.query<{ queried_at: Date; rooms: RoomStatus[] }[]>(ROOMS_SQL, [id ?? null]);
       if (!row || !Array.isArray(row.rooms)) throw new Error();
-      const rooms = row.rooms.map((room) => {
+      const rooms = row.rooms.map(room => {
         if (
           typeof room.id !== 'string' ||
           !room.id.length ||
@@ -54,7 +52,7 @@ export class RoomsService {
         rooms,
         queriedAt: row.queried_at.toISOString(),
         source: 'FDS',
-        readOnly: true,
+        readOnly: true
       };
     } catch {
       throw new ServiceUnavailableException();

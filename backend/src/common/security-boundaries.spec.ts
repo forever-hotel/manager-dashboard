@@ -1,9 +1,5 @@
 import { INestApplication, RequestMethod } from '@nestjs/common';
-import {
-  GUARDS_METADATA,
-  METHOD_METADATA,
-  PATH_METADATA,
-} from '@nestjs/common/constants';
+import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -45,33 +41,26 @@ const controllers = [
   StaffController,
   TasksController,
   NotificationsController,
-  TaskLimitController,
+  TaskLimitController
 ];
-const routes = controllers.flatMap((controller) => {
+const routes = controllers.flatMap(controller => {
   const prefix = Reflect.getMetadata(PATH_METADATA, controller) as string;
-  return Object.getOwnPropertyNames(controller.prototype).flatMap((name) => {
+  return Object.getOwnPropertyNames(controller.prototype).flatMap(name => {
     const handler = controller.prototype[name] as object;
-    const method = Reflect.getMetadata(METHOD_METADATA, handler) as
-      | RequestMethod
-      | undefined;
+    const method = Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod | undefined;
     if (method === undefined) return [];
-    const paths = Reflect.getMetadata(PATH_METADATA, handler) as
-      | string
-      | string[];
-    return (Array.isArray(paths) ? paths : [paths]).map((path) => ({
+    const paths = Reflect.getMetadata(PATH_METADATA, handler) as string | string[];
+    return (Array.isArray(paths) ? paths : [paths]).map(path => ({
       controller,
-      method:
-        method === RequestMethod.ALL
-          ? 'post'
-          : RequestMethod[method].toLowerCase(),
+      method: method === RequestMethod.ALL ? 'post' : RequestMethod[method].toLowerCase(),
       path:
         '/' +
         [prefix, path]
-          .map((part) => part.replace(/^\/+|\/+$/g, ''))
+          .map(part => part.replace(/^\/+|\/+$/g, ''))
           .filter(Boolean)
           .join('/')
           .replace(':id', '12345678-1234-4234-8234-123456789012')
-          .replace(':type', 'bookings'),
+          .replace(':type', 'bookings')
     }));
   });
 });
@@ -83,7 +72,7 @@ describe('DDP-035 protected REST boundaries', () => {
     worker_id: '12345678-1234-4234-8234-123456789012',
     role: 'WORKER',
     is_active: true,
-    session_version: 0,
+    session_version: 0
   };
   beforeAll(async () => {
     const module = await Test.createTestingModule({
@@ -94,17 +83,16 @@ describe('DDP-035 protected REST boundaries', () => {
         JwtAuthGuard,
         {
           provide: DataSource,
-          useValue: { query: jest.fn().mockResolvedValue([account]) },
+          useValue: { query: jest.fn().mockResolvedValue([account]) }
         },
         { provide: JwtService, useValue: jwt },
         {
           provide: ConfigService,
           useValue: {
-            getOrThrow: (name: string) =>
-              name === 'JWT_SECRET' ? secret : 'mad',
-          },
-        },
-      ],
+            getOrThrow: (name: string) => (name === 'JWT_SECRET' ? secret : 'mad')
+          }
+        }
+      ]
     })
       .useMocker(() => ({}))
       .compile();
@@ -124,34 +112,29 @@ describe('DDP-035 protected REST boundaries', () => {
         role: 'WORKER',
         ver: 0,
         iat: now,
-        exp: now + 28800,
+        exp: now + 28800
       },
-      { secret, issuer: 'mad', audience: 'mad', algorithm: 'HS256' },
+      { secret, issuer: 'mad', audience: 'mad', algorithm: 'HS256' }
     );
   }
   it.each(routes)(
     '$method $path rejects missing, malformed, expired and disallowed-role sessions',
     async ({ controller, method, path }) => {
-      expect(Reflect.getMetadata(GUARDS_METADATA, controller)).toContain(
-        JwtAuthGuard,
-      );
+      expect(Reflect.getMetadata(GUARDS_METADATA, controller)).toContain(JwtAuthGuard);
       for (const [authorization, status] of [
         [undefined, 401],
         ['Bearer invalid', 401],
         ['Bearer ' + token(true), 401],
-        ['Bearer ' + token(), 403],
+        ['Bearer ' + token(), 403]
       ] as const) {
         const client = request(app.getHttpServer());
-        const send =
-          client[method as 'get' | 'post' | 'put' | 'patch' | 'delete'](path);
+        const send = client[method as 'get' | 'post' | 'put' | 'patch' | 'delete'](path);
         if (authorization) send.set('Authorization', authorization);
         const response = await send.send({}).expect(status);
-        expect((response.body as { code: string }).code).toBe(
-          status === 401 ? 'UNAUTHENTICATED' : 'FORBIDDEN',
-        );
+        expect((response.body as { code: string }).code).toBe(status === 401 ? 'UNAUTHENTICATED' : 'FORBIDDEN');
         expect(response.headers['cache-control']).toBe('no-store');
         expect(response.headers['x-content-type-options']).toBe('nosniff');
       }
-    },
+    }
   );
 });

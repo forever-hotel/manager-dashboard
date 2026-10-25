@@ -11,10 +11,10 @@ describe('Manager sign in', () => {
   afterEach(() => vi.unstubAllGlobals());
   function fill(username = 'manager', password = 'password') {
     fireEvent.change(screen.getByLabelText('Username'), {
-      target: { value: username },
+      target: { value: username }
     });
     fireEvent.change(screen.getByLabelText('Password'), {
-      target: { value: password },
+      target: { value: password }
     });
   }
   it('validates empty fields without sending credentials', async () => {
@@ -30,9 +30,7 @@ describe('Manager sign in', () => {
     render(<AuthForm />);
     fill();
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Unable to sign in',
-    );
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to sign in');
     expect(navigate).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled();
   });
@@ -40,9 +38,9 @@ describe('Manager sign in', () => {
     let finish!: (value: Response) => void;
     vi.mocked(fetch).mockImplementation(
       () =>
-        new Promise((resolve) => {
+        new Promise(resolve => {
           finish = resolve;
-        }),
+        })
     );
     render(<AuthForm next="/rooms" />);
     fill();
@@ -57,49 +55,39 @@ describe('Manager sign in', () => {
     expect(sessionStorage.length).toBe(0);
   });
   it('routes forced first login to password change', async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      new Response('{"passwordChangeRequired":true}'),
-    );
+    vi.mocked(fetch).mockResolvedValue(new Response('{"passwordChangeRequired":true}'));
     render(<AuthForm next="/rooms" />);
     fill();
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith('/change-password?next=%2Frooms'),
-    );
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/change-password?next=%2Frooms'));
   });
-  it.each([503, 400])(
-    'handles server status %i without navigating',
-    async (status) => {
-      vi.mocked(fetch).mockResolvedValue(new Response('{}', { status }));
-      render(<AuthForm />);
-      fill();
-      fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-      expect(await screen.findByRole('alert')).toBeVisible();
-      expect(navigate).not.toHaveBeenCalled();
-    },
-  );
-  it.each([
-    new DOMException('timeout', 'TimeoutError'),
-    new TypeError('network failure'),
-    'unexpected',
-  ])('offers retry after a failed request', async (cause) => {
-    vi.mocked(fetch).mockRejectedValue(cause);
+  it.each([503, 400])('handles server status %i without navigating', async status => {
+    vi.mocked(fetch).mockResolvedValue(new Response('{}', { status }));
     render(<AuthForm />);
     fill();
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+    expect(navigate).not.toHaveBeenCalled();
   });
+  it.each([new DOMException('timeout', 'TimeoutError'), new TypeError('network failure'), 'unexpected'])(
+    'offers retry after a failed request',
+    async cause => {
+      vi.mocked(fetch).mockRejectedValue(cause);
+      render(<AuthForm />);
+      fill();
+      fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+      expect(await screen.findByRole('alert')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+    }
+  );
   it('preserves current-password whitespace and submits only the password-change fields', async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      new Response('{"passwordChangeRequired":false}'),
-    );
+    vi.mocked(fetch).mockResolvedValue(new Response('{"passwordChangeRequired":false}'));
     render(<AuthForm changePassword />);
     fireEvent.change(screen.getByLabelText('Current password'), {
-      target: { value: ' old password ' },
+      target: { value: ' old password ' }
     });
     fireEvent.change(screen.getByLabelText('New password'), {
-      target: { value: 'new password' },
+      target: { value: 'new password' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
     await waitFor(() =>
@@ -108,10 +96,10 @@ describe('Manager sign in', () => {
         expect.objectContaining({
           body: JSON.stringify({
             currentPassword: ' old password ',
-            newPassword: 'new password',
-          }),
-        }),
-      ),
+            newPassword: 'new password'
+          })
+        })
+      )
     );
   });
 });

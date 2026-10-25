@@ -1,12 +1,6 @@
 import { InitialManagerService } from '../src/auth/initial-manager.service';
 import { Test } from '@nestjs/testing';
-import {
-  Controller,
-  Get,
-  HttpException,
-  INestApplication,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, HttpException, INestApplication, UseGuards } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -38,9 +32,9 @@ class ProtectedFixtureController {
       {
         code: 'private connection details',
         message: 'private password',
-        details: ['private note'],
+        details: ['private note']
       },
-      503,
+      503
     );
   }
 }
@@ -58,25 +52,19 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
     if (!url || !new URL(url).pathname.includes('test'))
-      throw new Error(
-        'TEST_DATABASE_URL must point to a disposable test database',
-      );
+      throw new Error('TEST_DATABASE_URL must point to a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
     await admin.initialize();
     await admin.query(`CREATE DATABASE "${name}"`);
-    await admin.query(
-      `CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`,
-    );
+    await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const ownerUrl = new URL(url);
     ownerUrl.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: ownerUrl.toString() });
     await database.initialize();
     // Legacy schema represents populated installations; the migration must adopt it without data loss.
+    await database.query(readFileSync('test/fixtures/legacy-foundation.sql', 'utf8'));
     await database.query(
-      readFileSync('test/fixtures/legacy-foundation.sql', 'utf8'),
-    );
-    await database.query(
-      "INSERT INTO mad_promotion_codes(code_string,discount_type,discount_value,valid_from,valid_until) VALUES ('KEEP-ME','FIXED_AMOUNT',100,now(),now()+interval '1 day')",
+      "INSERT INTO mad_promotion_codes(code_string,discount_type,discount_value,valid_from,valid_until) VALUES ('KEEP-ME','FIXED_AMOUNT',100,now(),now()+interval '1 day')"
     );
     await Promise.all([migrate(database, role), migrate(database, role)]);
     const runtimeUrl = new URL(ownerUrl);
@@ -93,23 +81,19 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
           load: [
             () => ({
               JWT_SECRET: secret,
-              JWT_ISSUER: 'mad',
-            }),
-          ],
+              JWT_ISSUER: 'mad'
+            })
+          ]
         }),
         TypeOrmModule.forRoot({
           type: 'postgres',
           url: runtimeUrl.toString(),
           autoLoadEntities: true,
-          synchronize: false,
+          synchronize: false
         }),
-        AuthModule,
+        AuthModule
       ],
-      controllers: [
-        HealthController,
-        ProtectedFixtureController,
-        OperationsController,
-      ],
+      controllers: [HealthController, ProtectedFixtureController, OperationsController],
       providers: [
         OperationsService,
         {
@@ -119,10 +103,10 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
             roomsHealthy: false,
             tasksHealthy: false,
             stockHealthy: false,
-            notificationsHealthy: false,
-          },
-        },
-      ],
+            notificationsHealthy: false
+          }
+        }
+      ]
     }).compile();
     app = module.createNestApplication();
     configureHttp(app);
@@ -153,12 +137,10 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
     expect(result.body).toMatchObject({
       service: 'mad-backend',
       status: 'degraded',
-      checks: { notifications: 'unavailable' },
+      checks: { notifications: 'unavailable' }
     });
     expect(result.headers['x-correlation-id']).toMatch(/^[0-9a-f-]{36}$/);
-    expect(JSON.stringify(result.body)).not.toMatch(
-      /password|token_hash|DATABASE_URL|JWT_SECRET/,
-    );
+    expect(JSON.stringify(result.body)).not.toMatch(/password|token_hash|DATABASE_URL|JWT_SECRET/);
   });
   it('redacts server exception codes and sends defensive response headers over HTTP', async () => {
     const login = await http()
@@ -167,7 +149,7 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
       .expect(503);
     expect(login.body).toEqual({
       code: 'SERVICE_UNAVAILABLE',
-      message: 'Service temporarily unavailable. Please retry.',
+      message: 'Service temporarily unavailable. Please retry.'
     });
     expect(login.headers['x-content-type-options']).toBe('nosniff');
     expect(login.headers['x-frame-options']).toBe('DENY');
@@ -175,59 +157,45 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
   });
   it('preserves existing data and records each version once despite concurrent runners', async () => {
     const rows = await database.query<{ code_string: string }[]>(
-      "SELECT code_string FROM mad_promotion_codes WHERE code_string='KEEP-ME'",
+      "SELECT code_string FROM mad_promotion_codes WHERE code_string='KEEP-ME'"
     );
     expect(rows).toHaveLength(1);
-    expect(
-      await database.query('SELECT version FROM mad_migrations'),
-    ).toHaveLength(2);
+    expect(await database.query('SELECT version FROM mad_migrations')).toHaveLength(2);
     await migrate(database, role);
-    expect(
-      await database.query(
-        "SELECT * FROM mad_promotion_codes WHERE code_string='KEEP-ME'",
-      ),
-    ).toHaveLength(1);
+    expect(await database.query("SELECT * FROM mad_promotion_codes WHERE code_string='KEEP-ME'")).toHaveLength(1);
   });
   it('permits reporting reads and MAD writes but denies shared writes and schema changes', async () => {
     await expect(runtime.query('SELECT * FROM bookings')).resolves.toEqual([]);
     await expect(runtime.query('DELETE FROM bookings')).rejects.toMatchObject({
-      driverError: { code: '42501' },
+      driverError: { code: '42501' }
+    });
+    await expect(runtime.query('SELECT password_hash FROM staff_users')).resolves.toHaveLength(3);
+    await expect(
+      runtime.query("INSERT INTO mad_manager_accounts(username,password_hash) VALUES ('unauthorized','invalid')")
+    ).rejects.toMatchObject({ driverError: { code: '42501' } });
+    await expect(runtime.query('UPDATE staff_users SET is_active=false')).rejects.toMatchObject({
+      driverError: { code: '42501' }
+    });
+    await expect(runtime.query('CREATE TABLE unauthorized(id integer)')).rejects.toMatchObject({
+      driverError: { code: '42501' }
     });
     await expect(
-      runtime.query('SELECT password_hash FROM staff_users'),
-    ).resolves.toHaveLength(3);
-    await expect(
-      runtime.query(
-        "INSERT INTO mad_manager_accounts(username,password_hash) VALUES ('unauthorized','invalid')",
-      ),
-    ).rejects.toMatchObject({ driverError: { code: '42501' } });
-    await expect(
-      runtime.query('UPDATE staff_users SET is_active=false'),
-    ).rejects.toMatchObject({ driverError: { code: '42501' } });
-    await expect(
-      runtime.query('CREATE TABLE unauthorized(id integer)'),
-    ).rejects.toMatchObject({ driverError: { code: '42501' } });
-    await expect(
-      runtime.query(
-        "INSERT INTO mad_revoked_sessions VALUES (repeat('a',64),now())",
-      ),
+      runtime.query("INSERT INTO mad_revoked_sessions VALUES (repeat('a',64),now())")
     ).resolves.toBeDefined();
-    await expect(
-      runtime.query('UPDATE mad_promotion_codes SET current_redemptions=-1'),
-    ).rejects.toMatchObject({ driverError: { code: '23514' } });
+    await expect(runtime.query('UPDATE mad_promotion_codes SET current_redemptions=-1')).rejects.toMatchObject({
+      driverError: { code: '23514' }
+    });
   });
   it('exposes independent liveness and database readiness', async () => {
     await http().get('/health/live').expect(200);
     await http().get('/health/ready').expect(200);
     await http().get('/mad/health/ready').expect(200);
-    await database.query(
-      `REVOKE SELECT ON mad_revoked_sessions FROM "${role}"`,
-    );
+    await database.query(`REVOKE SELECT ON mad_revoked_sessions FROM "${role}"`);
     try {
       const response = await http().get('/health/ready').expect(503);
       expect(response.body).toEqual({
         code: 'SERVICE_UNAVAILABLE',
-        message: 'Service temporarily unavailable. Please retry.',
+        message: 'Service temporarily unavailable. Please retry.'
       });
       await http().get('/health/live').expect(200);
     } finally {
@@ -235,16 +203,10 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
     }
   });
   it('rejects invalid login input with a stable validation envelope', async () => {
-    const result = await http()
-      .post('/auth/login')
-      .send({ username: '', password: '', extra: 'secret' })
-      .expect(400);
+    const result = await http().post('/auth/login').send({ username: '', password: '', extra: 'secret' }).expect(400);
     expect(result.body).toMatchObject({ code: 'VALIDATION_ERROR' });
     expect(JSON.stringify(result.body)).not.toContain('secret');
-    await http()
-      .post('/auth/login')
-      .send({ username: 'manager', password: 'wrong' })
-      .expect(401);
+    await http().post('/auth/login').send({ username: 'manager', password: 'wrong' }).expect(401);
   });
   it('allows manager access and denies missing sessions and workers', async () => {
     const manager = provider.issue('manager');
@@ -264,10 +226,7 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
       .get('/auth/session')
       .set('Authorization', 'Bearer ' + token)
       .expect(200);
-    await database.query(
-      'UPDATE staff_users SET is_active=false WHERE username=$1',
-      ['manager'],
-    );
+    await database.query('UPDATE staff_users SET is_active=false WHERE username=$1', ['manager']);
     await http()
       .get('/protected')
       .set('Authorization', 'Bearer ' + token)
@@ -275,10 +234,7 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
   });
   it('persists local logout revocation without an external service', async () => {
     const token = provider.issue('manager');
-    await database.query(
-      'UPDATE staff_users SET is_active=true WHERE username=$1',
-      ['manager'],
-    );
+    await database.query('UPDATE staff_users SET is_active=true WHERE username=$1', ['manager']);
     await http()
       .post('/auth/logout')
       .set('Authorization', 'Bearer ' + token)
@@ -305,15 +261,12 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
       .set('Authorization', 'Bearer ' + token)
       .send({
         currentPassword: 'contract-password',
-        newPassword: 'new-contract-password',
+        newPassword: 'new-contract-password'
       })
       .expect(200);
     await http()
       .get('/protected')
-      .set(
-        'Authorization',
-        'Bearer ' + (changed.body as { accessToken: string }).accessToken,
-      )
+      .set('Authorization', 'Bearer ' + (changed.body as { accessToken: string }).accessToken)
       .expect(200);
     await http()
       .get('/auth/session')
@@ -325,25 +278,12 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
       .expect(401);
   });
   it('persists account lockout and permits login again after the lock expires', async () => {
-    await database.query(
-      "UPDATE staff_users SET failed_attempts=0, locked_until=NULL WHERE username='manager'",
-    );
+    await database.query("UPDATE staff_users SET failed_attempts=0, locked_until=NULL WHERE username='manager'");
     for (let attempt = 0; attempt < 5; attempt++)
-      await http()
-        .post('/auth/login')
-        .send({ username: 'manager', password: 'wrong' })
-        .expect(401);
-    await http()
-      .post('/auth/login')
-      .send({ username: 'manager', password: 'contract-password' })
-      .expect(401);
-    await database.query(
-      "UPDATE staff_users SET locked_until=now()-interval '1 second' WHERE username='manager'",
-    );
-    await http()
-      .post('/auth/login')
-      .send({ username: 'manager', password: 'contract-password' })
-      .expect(200);
+      await http().post('/auth/login').send({ username: 'manager', password: 'wrong' }).expect(401);
+    await http().post('/auth/login').send({ username: 'manager', password: 'contract-password' }).expect(401);
+    await database.query("UPDATE staff_users SET locked_until=now()-interval '1 second' WHERE username='manager'");
+    await http().post('/auth/login').send({ username: 'manager', password: 'contract-password' }).expect(200);
   });
   it('creates a fresh schema and supports clean migration reruns', async () => {
     const fresh = 'mad_test_fresh_' + suffix;
@@ -355,12 +295,8 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
       await source.initialize();
       await migrate(source, role);
       await migrate(source, role);
-      expect(await source.query('SELECT * FROM mad_migrations')).toHaveLength(
-        2,
-      );
-      expect(await source.query('SELECT * FROM mad_promotion_codes')).toEqual(
-        [],
-      );
+      expect(await source.query('SELECT * FROM mad_migrations')).toHaveLength(2);
+      expect(await source.query('SELECT * FROM mad_promotion_codes')).toEqual([]);
     } finally {
       if (source.isInitialized) await source.destroy();
       await admin.query(`DROP DATABASE "${fresh}" WITH (FORCE)`);
@@ -370,57 +306,41 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
     const settings = {
       INITIAL_MANAGER_EMAIL: 'bootstrap@example.com',
       INITIAL_MANAGER_USERNAME: 'bootstrap-manager',
-      INITIAL_MANAGER_PASSWORD: 'bootstrap-initial-password',
+      INITIAL_MANAGER_PASSWORD: 'bootstrap-initial-password'
     };
-    const start = () =>
-      new InitialManagerService(
-        new ConfigService(settings),
-        database,
-      ).onApplicationBootstrap();
+    const start = () => new InitialManagerService(new ConfigService(settings), database).onApplicationBootstrap();
     await Promise.all([start(), start()]);
-    const accounts = await database.query<
-      { password_change_required: boolean; session_version: number }[]
-    >("SELECT * FROM staff_users WHERE email='bootstrap@example.com'");
+    const accounts = await database.query<{ password_change_required: boolean; session_version: number }[]>(
+      "SELECT * FROM staff_users WHERE email='bootstrap@example.com'"
+    );
     expect(accounts).toHaveLength(1);
     expect(accounts[0].password_change_required).toBe(true);
     const login = await http()
       .post('/auth/login')
       .send({
         username: settings.INITIAL_MANAGER_USERNAME,
-        password: settings.INITIAL_MANAGER_PASSWORD,
+        password: settings.INITIAL_MANAGER_PASSWORD
       })
       .expect(200);
-    expect(
-      (login.body as { passwordChangeRequired: boolean })
-        .passwordChangeRequired,
-    ).toBe(true);
+    expect((login.body as { passwordChangeRequired: boolean }).passwordChangeRequired).toBe(true);
     await http()
       .get('/protected')
-      .set(
-        'Authorization',
-        'Bearer ' + (login.body as { accessToken: string }).accessToken,
-      )
+      .set('Authorization', 'Bearer ' + (login.body as { accessToken: string }).accessToken)
       .expect(403);
     const changed = await http()
       .post('/auth/change-password')
-      .set(
-        'Authorization',
-        'Bearer ' + (login.body as { accessToken: string }).accessToken,
-      )
+      .set('Authorization', 'Bearer ' + (login.body as { accessToken: string }).accessToken)
       .send({
         currentPassword: settings.INITIAL_MANAGER_PASSWORD,
-        newPassword: 'bootstrap-changed-password',
+        newPassword: 'bootstrap-changed-password'
       })
       .expect(200);
-    expect(
-      (changed.body as { passwordChangeRequired: boolean })
-        .passwordChangeRequired,
-    ).toBe(false);
+    expect((changed.body as { passwordChangeRequired: boolean }).passwordChangeRequired).toBe(false);
     settings.INITIAL_MANAGER_PASSWORD = 'different-environment-password';
     await Promise.all([start(), start()]);
-    const saved = await database.query<
-      { password_change_required: boolean; session_version: number }[]
-    >("SELECT * FROM staff_users WHERE email='bootstrap@example.com'");
+    const saved = await database.query<{ password_change_required: boolean; session_version: number }[]>(
+      "SELECT * FROM staff_users WHERE email='bootstrap@example.com'"
+    );
     expect(saved).toHaveLength(1);
     expect(saved[0].password_change_required).toBe(false);
     expect(saved[0].session_version).toBe(1);
@@ -428,33 +348,27 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
       .post('/auth/login')
       .send({
         username: settings.INITIAL_MANAGER_USERNAME,
-        password: 'bootstrap-initial-password',
+        password: 'bootstrap-initial-password'
       })
       .expect(401);
     await http()
       .post('/auth/login')
       .send({
         username: settings.INITIAL_MANAGER_USERNAME,
-        password: settings.INITIAL_MANAGER_PASSWORD,
+        password: settings.INITIAL_MANAGER_PASSWORD
       })
       .expect(401);
     const returning = await http()
       .post('/auth/login')
       .send({
         username: settings.INITIAL_MANAGER_USERNAME,
-        password: 'bootstrap-changed-password',
+        password: 'bootstrap-changed-password'
       })
       .expect(200);
-    expect(
-      (returning.body as { passwordChangeRequired: boolean })
-        .passwordChangeRequired,
-    ).toBe(false);
+    expect((returning.body as { passwordChangeRequired: boolean }).passwordChangeRequired).toBe(false);
     await http()
       .get('/protected')
-      .set(
-        'Authorization',
-        'Bearer ' + (returning.body as { accessToken: string }).accessToken,
-      )
+      .set('Authorization', 'Bearer ' + (returning.body as { accessToken: string }).accessToken)
       .expect(200);
   });
 });

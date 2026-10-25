@@ -8,16 +8,13 @@ const row = {
   current: '20001',
   previous: '10000',
   percentage: '100.01',
-  invalid: '0',
+  invalid: '0'
 };
 function setup(rows: unknown[] = [row]) {
   const query = jest.fn().mockResolvedValue(rows);
   return {
     query,
-    service: new RevenueAnalyticsService(
-      { query } as unknown as DataSource,
-      now,
-    ),
+    service: new RevenueAnalyticsService({ query } as unknown as DataSource, now)
   };
 }
 describe('DDP-056 revenue contract', () => {
@@ -30,22 +27,14 @@ describe('DDP-056 revenue contract', () => {
       percentageChange: 100.01,
       percentageUnavailableReason: null,
       asOf,
-      currency: 'LKR',
+      currency: 'LKR'
     });
-    expect(query).toHaveBeenCalledWith(expect.any(String), [
-      'day',
-      'Asia/Colombo',
-      asOf,
-    ]);
+    expect(query).toHaveBeenCalledWith(expect.any(String), ['day', 'Asia/Colombo', asOf]);
   });
   it('returns null and reason for zero previous revenue', async () => {
-    expect(
-      await setup([
-        { ...row, previous: '0', percentage: null },
-      ]).service.summary('day'),
-    ).toMatchObject({
+    expect(await setup([{ ...row, previous: '0', percentage: null }]).service.summary('day')).toMatchObject({
       percentageChange: null,
-      percentageUnavailableReason: 'PREVIOUS_REVENUE_ZERO',
+      percentageUnavailableReason: 'PREVIOUS_REVENUE_ZERO'
     });
   });
   it.each(
@@ -65,11 +54,11 @@ describe('DDP-056 revenue contract', () => {
       [{ ...row, percentage: '' }],
       [{ ...row, percentage: '9'.repeat(400) }],
       [{ ...row, percentage: null }],
-      [{ ...row, previous: '0', percentage: '0' }],
-    ].map((rows) => ({ rows })),
+      [{ ...row, previous: '0', percentage: '0' }]
+    ].map(rows => ({ rows }))
   )('fails closed for invalid source aggregates %j', async ({ rows }) => {
     await expect(setup(rows).service.summary('day')).rejects.toMatchObject({
-      status: 503,
+      status: 503
     });
   });
   it('sanitizes database errors', async () => {
@@ -78,15 +67,11 @@ describe('DDP-056 revenue contract', () => {
     await expect(service.summary('day')).rejects.toMatchObject({ status: 503 });
   });
   it('TC-MAD-056-AC1: preserves zero current revenue as a real 100 percent decline', async () => {
-    expect(
-      await setup([
-        { ...row, current: '0', percentage: '-100.00' },
-      ]).service.summary('day'),
-    ).toMatchObject({
+    expect(await setup([{ ...row, current: '0', percentage: '-100.00' }]).service.summary('day')).toMatchObject({
       currentMinor: 0,
       previousMinor: 10000,
       percentageChange: -100,
-      percentageUnavailableReason: null,
+      percentageUnavailableReason: null
     });
   });
 });

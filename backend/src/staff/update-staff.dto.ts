@@ -1,20 +1,8 @@
 import { Transform } from 'class-transformer';
-import {
-  IsEmail,
-  ValidateIf,
-  Equals,
-  IsIn,
-  IsInt,
-  IsString,
-  Length,
-  Matches,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsEmail, ValidateIf, Equals, IsIn, IsInt, IsString, Length, Matches, Max, Min } from 'class-validator';
 
 import { STAFF_ROLES } from './create-staff.dto';
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
+const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
 export class UpdateStaffDto {
   @IsInt()
@@ -39,9 +27,7 @@ export class UpdateStaffDto {
   @ValidateIf((_object, value: unknown) => value !== undefined)
   vocation?: string;
 
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim().toLowerCase() : value,
-  )
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
   @IsEmail()
   @Length(3, 320)
   @ValidateIf((_object, value: unknown) => value !== undefined)
@@ -59,9 +45,7 @@ export class UpdateStaffDto {
   @ValidateIf((_object, value: unknown) => value !== undefined)
   phone?: string;
 
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim().toUpperCase() : value,
-  )
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
   @IsString()
   @Matches(/^(?:[0-9]{9}[VX]|[0-9]{12})$/)
   @ValidateIf((_object, value: unknown) => value !== undefined)

@@ -18,10 +18,7 @@ export class PromotionBroker {
   async publish(message: PromotionMessage): Promise<void> {
     const body = Buffer.from(JSON.stringify(message));
     if (body.length > 8192) throw new Error('PROMOTION_EVENT_TOO_LARGE');
-    const connection = await connect(
-      this.config.getOrThrow<string>('RABBITMQ_URL'),
-      { timeout: 5000 },
-    );
+    const connection = await connect(this.config.getOrThrow<string>('RABBITMQ_URL'), { timeout: 5000 });
     // Never log broker error objects: they may contain connection credentials.
     connection.on('error', () => undefined);
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -31,7 +28,7 @@ export class PromotionBroker {
           const channel = await connection.createConfirmChannel();
           channel.on('error', () => undefined);
           await channel.assertExchange('hotel.events', 'topic', {
-            durable: true,
+            durable: true
           });
           let returned = false;
           channel.on('return', () => {
@@ -47,22 +44,18 @@ export class PromotionBroker {
                 mandatory: true,
                 contentType: 'application/json',
                 messageId: message.eventId,
-                type: message.type,
+                type: message.type
               },
               (error: unknown) => {
-                if (error || returned)
-                  reject(new Error('PROMOTION_NOT_ROUTED'));
+                if (error || returned) reject(new Error('PROMOTION_NOT_ROUTED'));
                 else resolve();
-              },
+              }
             );
           });
         })(),
         new Promise<never>((_resolve, reject) => {
-          timeout = setTimeout(
-            () => reject(new Error('PROMOTION_CONFIRM_TIMEOUT')),
-            5000,
-          );
-        }),
+          timeout = setTimeout(() => reject(new Error('PROMOTION_CONFIRM_TIMEOUT')), 5000);
+        })
       ]);
     } finally {
       clearTimeout(timeout);

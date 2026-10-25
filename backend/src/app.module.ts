@@ -22,7 +22,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      validate: validateEnvironment,
+      validate: validateEnvironment
     }),
     DatabaseModule,
     AuthModule,
@@ -37,8 +37,8 @@ import { RealtimeModule } from './realtime/realtime.module';
     KitchenModule,
     RoomsModule,
     TasksModule,
-    RealtimeModule,
+    RealtimeModule
   ],
-  controllers: [HealthController],
+  controllers: [HealthController]
 })
 export class AppModule {}

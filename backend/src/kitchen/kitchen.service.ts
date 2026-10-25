@@ -1,9 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  Optional,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Inject, Injectable, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
 import { KitchenQueryDto } from './kitchen-query.dto';
@@ -61,20 +56,17 @@ export class KitchenService {
     private readonly database: DataSource,
     @Optional()
     @Inject('KITCHEN_CLOCK')
-    private readonly now: () => Date = () => new Date(),
+    private readonly now: () => Date = () => new Date()
   ) {}
   async snapshot(query: KitchenQueryDto): Promise<KitchenSnapshot> {
     try {
       const asOf = this.now().toISOString();
-      const [row] = await this.database.query<{ snapshot: unknown }[]>(
-        KITCHEN_SQL,
-        [
-          query.status ?? null,
-          query.pageSize,
-          (query.page - 1) * query.pageSize,
-          asOf,
-        ],
-      );
+      const [row] = await this.database.query<{ snapshot: unknown }[]>(KITCHEN_SQL, [
+        query.status ?? null,
+        query.pageSize,
+        (query.page - 1) * query.pageSize,
+        asOf
+      ]);
       return parseKitchenSnapshot(row?.snapshot, query, asOf);
     } catch {
       throw new ServiceUnavailableException();

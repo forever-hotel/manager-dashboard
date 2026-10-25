@@ -3,7 +3,7 @@ import { backend } from '@/lib/backend';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 export default async function LoginPage({
-  searchParams,
+  searchParams
 }: {
   searchParams: Promise<{ next?: string; reason?: string }>;
 }) {
@@ -17,14 +17,8 @@ export default async function LoginPage({
       <main className="flex min-h-screen items-center justify-center bg-white p-4">
         <section className="w-full max-w-sm rounded-lg border border-gray-200 p-8">
           <h1 className="text-xl font-semibold">Service unavailable</h1>
-          <p className="my-4 text-sm text-gray-600">
-            We could not connect to the service. Please try again.
-          </p>
-          <Link
-            className="underline"
-            href={'/login?' + query.toString()}
-            prefetch={false}
-          >
+          <p className="my-4 text-sm text-gray-600">We could not connect to the service. Please try again.</p>
+          <Link className="underline" href={'/login?' + query.toString()} prefetch={false}>
             Retry
           </Link>
         </section>

@@ -1,10 +1,4 @@
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PromotionsDashboard from '@/components/PromotionsDashboard';
 import {
@@ -13,23 +7,19 @@ import {
   formPayload,
   promotionRequest,
   promotionSchema,
-  publicationLabel,
+  publicationLabel
 } from '@/lib/promotions';
 import { page, promotion, room } from './promotions-fixture';
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 function setup(items = [promotion()]) {
-  const fetcher = vi.fn(
-    async (url: string | URL | Request, init?: RequestInit) => {
-      const path = String(url);
-      if (init?.method && init.method !== 'GET')
-        return json(promotion({ version: 1 }));
-      if (path.includes('/room-types')) return json(page([room]));
-      if (path.includes('?')) return json(page(items));
-      return json(items[0]);
-    },
-  );
+  const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+    const path = String(url);
+    if (init?.method && init.method !== 'GET') return json(promotion({ version: 1 }));
+    if (path.includes('/room-types')) return json(page([room]));
+    if (path.includes('?')) return json(page(items));
+    return json(items[0]);
+  });
   vi.stubGlobal('fetch', fetcher);
   return fetcher;
 }
@@ -42,11 +32,11 @@ function fill() {
     ['Discount value', '25'],
     ['Valid from', '2026-10-01T00:00'],
     ['Valid until', '2099-11-01T00:00'],
-    ['Max redemptions', '100'],
+    ['Max redemptions', '100']
   ])
     fireEvent.change(screen.getByLabelText(label), { target: { value } });
   const option = screen.getByRole('option', {
-    name: 'Suite',
+    name: 'Suite'
   }) as HTMLOptionElement;
   option.selected = true;
   fireEvent.change(screen.getByLabelText('Applicable room types'));
@@ -59,9 +49,7 @@ describe('DDP-020 promotion management', () => {
     render(<PromotionsDashboard initialDate="2028-02-29" />);
     await ready();
     expect(screen.getByLabelText('Valid from')).toHaveValue('2028-02-29T00:00');
-    expect(screen.getByLabelText('Valid until')).toHaveValue(
-      '2028-03-01T00:00',
-    );
+    expect(screen.getByLabelText('Valid until')).toHaveValue('2028-03-01T00:00');
     expect(screen.getByLabelText('Promo code')).toHaveValue('');
     expect(mutations(fetcher)).toHaveLength(0);
   });
@@ -75,7 +63,7 @@ describe('DDP-020 promotion management', () => {
   });
   it.each(['Save & activate', 'Save as draft'])(
     'TC-MAD-020-AC1: creates via %s with every field and hotel-time boundaries',
-    async (button) => {
+    async button => {
       const fetcher = setup();
       render(<PromotionsDashboard />);
       await ready();
@@ -93,10 +81,10 @@ describe('DDP-020 promotion management', () => {
         validUntil: '2099-11-01T00:00:00+05:30',
         maxRedemptions: 100,
         roomTypeIds: [room.id],
-        status: button === 'Save as draft' ? 'INACTIVE' : 'ACTIVE',
+        status: button === 'Save as draft' ? 'INACTIVE' : 'ACTIVE'
       });
       expect(screen.getByLabelText('Promo code')).toHaveValue('');
-    },
+    }
   );
   it('TC-MAD-020-AC2: validates fields without losing values or sending writes', async () => {
     const fetcher = setup();
@@ -104,7 +92,7 @@ describe('DDP-020 promotion management', () => {
     await ready();
     fill();
     fireEvent.change(screen.getByLabelText('Discount value'), {
-      target: { value: '101' },
+      target: { value: '101' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save & activate' }));
     expect(screen.getByRole('alert')).toHaveTextContent('between 1 and 100');
@@ -118,18 +106,14 @@ describe('DDP-020 promotion management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     await screen.findByRole('button', { name: 'Save changes' });
     fireEvent.change(screen.getByLabelText('Promo code'), {
-      target: { value: 'MYEDIT' },
+      target: { value: 'MYEDIT' }
     });
     fetcher.mockResolvedValueOnce(json({}, 409));
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Conflict');
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
-    fetcher.mockResolvedValueOnce(
-      json(promotion({ version: 7, code: 'OTHEREDIT' })),
-    );
-    fireEvent.click(
-      screen.getByRole('button', { name: /Reload latest version/ }),
-    );
+    fetcher.mockResolvedValueOnce(json(promotion({ version: 7, code: 'OTHEREDIT' })));
+    fireEvent.click(screen.getByRole('button', { name: /Reload latest version/ }));
     await screen.findByText(/Latest version 7 loaded/);
     expect(screen.getByLabelText('Promo code')).toHaveValue('MYEDIT');
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -138,31 +122,23 @@ describe('DDP-020 promotion management', () => {
     expect(init?.method).toBe('PUT');
     expect(JSON.parse(String(init?.body))).toMatchObject({
       version: 7,
-      code: 'MYEDIT',
+      code: 'MYEDIT'
     });
   });
   it.each(['Activate', 'Deactivate', 'Delete'])(
     'TC-MAD-020-AC1: %s sends the version and confirms destructive changes',
-    async (action) => {
-      const fetcher = setup([
-        promotion({ status: action === 'Activate' ? 'INACTIVE' : 'ACTIVE' }),
-      ]);
+    async action => {
+      const fetcher = setup([promotion({ status: action === 'Activate' ? 'INACTIVE' : 'ACTIVE' })]);
       render(<PromotionsDashboard />);
       await ready();
       fireEvent.click(screen.getByRole('button', { name: action }));
       await screen.findByText(/Saved OFFER26:/);
       const [url, init] = mutations(fetcher)[0];
-      expect(url).toBe(
-        '/api/promotions/' +
-          promotion().id +
-          (action === 'Delete' ? '' : '/' + action.toLowerCase()),
-      );
+      expect(url).toBe('/api/promotions/' + promotion().id + (action === 'Delete' ? '' : '/' + action.toLowerCase()));
       expect(init?.method).toBe(action === 'Delete' ? 'DELETE' : 'POST');
       expect(JSON.parse(String(init?.body))).toEqual({ version: 0 });
-      expect(window.confirm).toHaveBeenCalledTimes(
-        action === 'Activate' ? 0 : 1,
-      );
-    },
+      expect(window.confirm).toHaveBeenCalledTimes(action === 'Activate' ? 0 : 1);
+    }
   );
   it('cancelling deletion leaves records and history untouched', async () => {
     const fetcher = setup();
@@ -175,29 +151,24 @@ describe('DDP-020 promotion management', () => {
   });
   it.each(['PENDING', 'FAILED', 'NO_PENDING_WORK'] as const)(
     'TC-MAD-020-AC3: %s never claims website availability',
-    async (status) => {
+    async status => {
       setup([promotion({ publicationStatus: status })]);
       render(<PromotionsDashboard />);
       await ready();
       expect(screen.getByText(publicationLabel(status))).toBeVisible();
-      expect(
-        screen.queryByText(/published successfully|live on website/i),
-      ).not.toBeInTheDocument();
-    },
+      expect(screen.queryByText(/published successfully|live on website/i)).not.toBeInTheDocument();
+    }
   );
-  it.each([400, 401, 403, 404, 503])(
-    'preserves form after save failure %s',
-    async (status) => {
-      const fetcher = setup();
-      render(<PromotionsDashboard />);
-      await ready();
-      fill();
-      fetcher.mockResolvedValueOnce(json({}, status));
-      fireEvent.click(screen.getByRole('button', { name: 'Save & activate' }));
-      await screen.findByRole('alert');
-      expect(screen.getByLabelText('Promo code')).toHaveValue('new26');
-    },
-  );
+  it.each([400, 401, 403, 404, 503])('preserves form after save failure %s', async status => {
+    const fetcher = setup();
+    render(<PromotionsDashboard />);
+    await ready();
+    fill();
+    fetcher.mockResolvedValueOnce(json({}, status));
+    fireEvent.click(screen.getByRole('button', { name: 'Save & activate' }));
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('Promo code')).toHaveValue('new26');
+  });
   it('handles loading, empty state and retryable list failure', async () => {
     const fetcher = setup([]);
     fetcher.mockRejectedValueOnce(new Error('offline'));
@@ -222,20 +193,15 @@ describe('DDP-020 promotion management', () => {
     render(<PromotionsDashboard />);
     await ready();
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    await waitFor(() =>
-      expect(fetcher).toHaveBeenCalledWith(
-        '/api/promotions?page=2&pageSize=20',
-        expect.anything(),
-      ),
-    );
+    await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/promotions?page=2&pageSize=20', expect.anything()));
     await ready();
     fill();
     let finish!: (response: Response) => void;
     fetcher.mockImplementationOnce(
       () =>
-        new Promise<Response>((resolve) => {
+        new Promise<Response>(resolve => {
           finish = resolve;
-        }),
+        })
     );
     fireEvent.click(screen.getByRole('button', { name: 'Save & activate' }));
     const saving = screen.getByRole('button', { name: 'Saving...' });
@@ -255,11 +221,9 @@ describe('DDP-020 promotion management', () => {
       { validUntil: payload.validFrom },
       { roomTypeIds: [room.id, room.id] },
       { maxRedemptions: 0 },
-      { code: 'bad code' },
+      { code: 'bad code' }
     ])
-      expect(createSchema.safeParse({ ...payload, ...change }).success).toBe(
-        false,
-      );
+      expect(createSchema.safeParse({ ...payload, ...change }).success).toBe(false);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({})));
     await expect(promotionRequest('', promotionSchema)).rejects.toThrow();
   });

@@ -37,10 +37,7 @@ async function main() {
   const uiBudgetMs = Number(process.env.PERF_UI_BUDGET_MS);
   // Structural validation occurs in evaluateTimings; malformed evidence also
   // exits nonzero. Source clocks and correlation require independent review.
-  const timing = evaluateTimings(
-    (await json(process.env.PERF_TIMING_FILE)) as TimingEvidence,
-    uiBudgetMs,
-  );
+  const timing = evaluateTimings((await json(process.env.PERF_TIMING_FILE)) as TimingEvidence, uiBudgetMs);
   const capacityPass = capacity.p95Ms <= baseline.p95Ms * 1.1;
   console.log(
     JSON.stringify(
@@ -49,18 +46,16 @@ async function main() {
         p95Ratio: capacity.p95Ms / baseline.p95Ms,
         capacityPass,
         measuredGatesPass: timing.pass && capacityPass,
-        acceptance: 'PENDING_OWNER_AND_ENVIRONMENT_REVIEW',
+        acceptance: 'PENDING_OWNER_AND_ENVIRONMENT_REVIEW'
       },
       null,
-      2,
-    ),
+      2
+    )
   );
   if (!timing.pass || !capacityPass) process.exitCode = 1;
 }
 
 void main().catch(() => {
-  console.error(
-    'Evidence evaluation failed: check schemas, successful 100/300 summaries and timing data.',
-  );
+  console.error('Evidence evaluation failed: check schemas, successful 100/300 summaries and timing data.');
   process.exitCode = 1;
 });

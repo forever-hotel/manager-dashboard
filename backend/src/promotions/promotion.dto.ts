@@ -12,13 +12,11 @@ import {
   Matches,
   Max,
   MaxLength,
-  Min,
+  Min
 } from 'class-validator';
 
 export function normalizeCode(value: unknown): unknown {
-  return typeof value === 'string' && /^[\x20-\x7e]*$/.test(value.trim())
-    ? value.trim().toUpperCase()
-    : value;
+  return typeof value === 'string' && /^[\x20-\x7e]*$/.test(value.trim()) ? value.trim().toUpperCase() : value;
 }
 export class CreatePromotionDto {
   @Transform(({ value }: { value: unknown }) => normalizeCode(value))
@@ -35,15 +33,11 @@ export class CreatePromotionDto {
   discountValue!: number;
 
   @IsISO8601({ strict: true })
-  @Matches(
-    /^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/,
-  )
+  @Matches(/^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/)
   validFrom!: string;
 
   @IsISO8601({ strict: true })
-  @Matches(
-    /^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/,
-  )
+  @Matches(/^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/)
   validUntil!: string;
 
   @IsArray()
@@ -60,9 +54,7 @@ export class CreatePromotionDto {
 }
 
 function pageNumber(value: unknown) {
-  return typeof value === 'string' && /^[1-9]\d*$/.test(value)
-    ? Number(value)
-    : value;
+  return typeof value === 'string' && /^[1-9]\d*$/.test(value) ? Number(value) : value;
 }
 export class PromotionPageDto {
   @IsOptional()

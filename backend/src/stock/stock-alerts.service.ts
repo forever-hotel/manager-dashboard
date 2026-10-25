@@ -7,25 +7,21 @@ import {
   type StockEvent,
   type StockStatus,
   type StockAlert,
-  type StockUpdate,
+  type StockUpdate
 } from './stock-event';
 export const STOCK_ALERT_COLUMNS = `alert_id AS "alertId",menu_item_id AS "menuItemId",item_name AS name,stock_status AS "stockStatus",active,version::float8 AS version,source_updated_at AS "sourceUpdatedAt",raised_at AS "raisedAt",cleared_at AS "clearedAt"`;
 @Injectable()
 export class StockAlertsService {
   constructor(private readonly database: DataSource) {}
   async accept(event: StockEvent) {
-    await this.database.transaction(async (manager) => {
-      await manager.query(
-        "SELECT pg_advisory_xact_lock(hashtextextended('stock:'||$1,0))",
-        [event.menuItemId],
-      );
+    await this.database.transaction(async manager => {
+      await manager.query("SELECT pg_advisory_xact_lock(hashtextextended('stock:'||$1,0))", [event.menuItemId]);
       const [seen] = await manager.query<{ same: boolean }[]>(
         'SELECT received_payload=$2::jsonb AS same FROM mad_stock_events WHERE event_id=$1',
-        [event.eventId, JSON.stringify(event)],
+        [event.eventId, JSON.stringify(event)]
       );
       if (seen) {
-        if (!seen.same)
-          throw new InvalidStockEvent('Stock event identity reused');
+        if (!seen.same) throw new InvalidStockEvent('Stock event identity reused');
         return;
       }
       const [source] = await manager.query<
@@ -37,7 +33,7 @@ export class StockAlertsService {
         }[]
       >(
         `SELECT name,stock_status::text AS status,updated_at,(extract(epoch FROM updated_at)*1000000)::bigint::text AS version FROM public.kms_menu_items WHERE menu_item_id=$1`,
-        [event.menuItemId],
+        [event.menuItemId]
       );
       const version = Number(source?.version);
       if (
@@ -53,12 +49,10 @@ export class StockAlertsService {
       )
         throw new Error('Stock source unavailable or behind event');
       if (version === event.version && source.status !== event.stockStatus)
-        throw new InvalidStockEvent(
-          'Stock status contradicts committed version',
-        );
+        throw new InvalidStockEvent('Stock status contradicts committed version');
       const [last] = await manager.query<{ version: string }[]>(
         'SELECT version FROM mad_stock_alerts WHERE menu_item_id=$1 FOR UPDATE',
-        [event.menuItemId],
+        [event.menuItemId]
       );
       const stale = Boolean(last && Number(last.version) >= version);
       let payload: StockUpdate | null = null;
@@ -83,15 +77,15 @@ export class StockAlertsService {
             source.status,
             source.status !== 'AVAILABLE',
             version,
-            source.updated_at,
-          ],
+            source.updated_at
+          ]
         );
         if (!saved) throw new Error('Missing persisted stock alert');
         const alert: StockAlert = {
           ...saved,
           sourceUpdatedAt: saved.sourceUpdatedAt.toISOString(),
           raisedAt: saved.raisedAt?.toISOString() ?? null,
-          clearedAt: saved.clearedAt?.toISOString() ?? null,
+          clearedAt: saved.clearedAt?.toISOString() ?? null
         };
         payload = {
           eventId: event.eventId,
@@ -99,11 +93,11 @@ export class StockAlertsService {
           menuItemId: event.menuItemId,
           version,
           occurredAt: event.occurredAt,
-          alert,
+          alert
         };
         await manager.query(
           "UPDATE mad_stock_events SET delivery_state='superseded' WHERE menu_item_id=$1 AND delivery_state='pending' AND version<$2",
-          [event.menuItemId, version],
+          [event.menuItemId, version]
         );
       }
       await manager.query(
@@ -114,8 +108,8 @@ export class StockAlertsService {
           version,
           JSON.stringify(event),
           payload === null ? null : JSON.stringify(payload),
-          stale ? 'superseded' : 'pending',
-        ],
+          stale ? 'superseded' : 'pending'
+        ]
       );
     });
   }

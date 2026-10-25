@@ -3,8 +3,7 @@ import { MadFoundation1789600000000 } from './migrations/001-foundation';
 import { MadManagerAuth1790726400000 } from './migrations/002-manager-auth';
 
 export async function migrate(database: DataSource, role: string) {
-  if (!/^[a-z_][a-z0-9_]{0,62}$/.test(role))
-    throw new Error('MAD_DB_ROLE must be a simple PostgreSQL identifier');
+  if (!/^[a-z_][a-z0-9_]{0,62}$/.test(role)) throw new Error('MAD_DB_ROLE must be a simple PostgreSQL identifier');
   const runner = database.createQueryRunner();
   let transactionStarted = false;
   try {
@@ -31,26 +30,23 @@ export async function migrate(database: DataSource, role: string) {
         END IF;
       END $$`);
     await runner.query(
-      'CREATE TABLE IF NOT EXISTS mad_migrations (version bigint PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())',
+      'CREATE TABLE IF NOT EXISTS mad_migrations (version bigint PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())'
     );
     // Append future forward migrations here; never replay recorded versions.
     const migrations = [
       { version: '1789600000000', migration: new MadFoundation1789600000000() },
       {
         version: '1790726400000',
-        migration: new MadManagerAuth1790726400000(),
-      },
+        migration: new MadManagerAuth1790726400000()
+      }
     ];
     for (const { version, migration } of migrations) {
-      const applied = (await runner.query(
-        'SELECT version FROM mad_migrations WHERE version = $1',
-        [version],
-      )) as { version: string }[];
+      const applied = (await runner.query('SELECT version FROM mad_migrations WHERE version = $1', [version])) as {
+        version: string;
+      }[];
       if (!applied.length) {
         await migration.up(runner);
-        await runner.query('INSERT INTO mad_migrations(version) VALUES ($1)', [
-          version,
-        ]);
+        await runner.query('INSERT INTO mad_migrations(version) VALUES ($1)', [version]);
       }
     }
     // Never grant ownership, schema creation or shared-service writes to the runtime principal.
@@ -64,7 +60,7 @@ export async function migrate(database: DataSource, role: string) {
       GRANT UPDATE (password_hash, password_change_required, session_version, failed_attempts, locked_until, updated_at)
         ON mad_manager_accounts TO "${role}";`);
     const staffColumns: unknown = await runner.query(
-      "SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='staff_users' AND column_name='session_version'",
+      "SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='staff_users' AND column_name='session_version'"
     );
     if (Array.isArray(staffColumns) && staffColumns.length) {
       await runner.query(`GRANT SELECT ON staff_users TO "${role}";
@@ -78,14 +74,12 @@ export async function migrate(database: DataSource, role: string) {
       'mad_booking_analytics',
       'mad_occupancy_rooms',
       'mad_occupancy_allocations',
-      'mad_occupancy_maintenance',
+      'mad_occupancy_maintenance'
     ]) {
-      const found = (await runner.query(
-        'SELECT to_regclass($1)::text AS present',
-        ['public.' + table],
-      )) as { present: string | null }[];
-      if (found[0].present)
-        await runner.query(`GRANT SELECT ON "${table}" TO "${role}"`);
+      const found = (await runner.query('SELECT to_regclass($1)::text AS present', ['public.' + table])) as {
+        present: string | null;
+      }[];
+      if (found[0].present) await runner.query(`GRANT SELECT ON "${table}" TO "${role}"`);
     }
     await runner.query(`DO $$ BEGIN
       IF EXISTS (

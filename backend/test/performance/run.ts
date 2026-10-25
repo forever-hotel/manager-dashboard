@@ -18,7 +18,7 @@ const routes = [
   '/mad/notifications',
   '/mad/staff?page=1&pageSize=20',
   '/mad/complaints?page=1&pageSize=20',
-  '/mad/promotions?page=1&pageSize=20',
+  '/mad/promotions?page=1&pageSize=20'
 ];
 
 async function main() {
@@ -30,31 +30,18 @@ async function main() {
   if (
     !['http:', 'https:'].includes(base.protocol) ||
     !['http:', 'https:'].includes(socketBase.protocol) ||
-    [base, socketBase].some(
-      (url) =>
-        url.username ||
-        url.password ||
-        url.pathname !== '/' ||
-        url.search ||
-        url.hash,
-    )
+    [base, socketBase].some(url => url.username || url.password || url.pathname !== '/' || url.search || url.hash)
   )
     throw new Error('Use API/socket origins without credentials or path');
   const users = Number(process.env.PERF_USERS ?? 100);
-  if (![100, 300].includes(users))
-    throw new Error('PERF_USERS must be 100 or 300');
+  if (![100, 300].includes(users)) throw new Error('PERF_USERS must be 100 or 300');
   const runLabel = process.env.PERF_RUN_LABEL;
-  if (!runLabel || !/^[a-zA-Z0-9_-]{1,80}$/.test(runLabel))
-    throw new Error('Provide a unique safe PERF_RUN_LABEL');
-  const tokens: unknown = JSON.parse(
-    await readFile(process.env.PERF_SESSIONS_FILE ?? '', 'utf8'),
-  );
+  if (!runLabel || !/^[a-zA-Z0-9_-]{1,80}$/.test(runLabel)) throw new Error('Provide a unique safe PERF_RUN_LABEL');
+  const tokens: unknown = JSON.parse(await readFile(process.env.PERF_SESSIONS_FILE ?? '', 'utf8'));
   if (
     !Array.isArray(tokens) ||
     tokens.length !== users ||
-    !tokens.every(
-      (token) => typeof token === 'string' && /^[\w.-]+$/.test(token),
-    ) ||
+    !tokens.every(token => typeof token === 'string' && /^[\w.-]+$/.test(token)) ||
     new Set(tokens).size !== users
   )
     throw new Error('Provide exactly one distinct active manager JWT per user');
@@ -66,11 +53,11 @@ async function main() {
   const startedAt = new Date().toISOString();
   const sockets: Socket[] = [];
   const durations: number[] = [];
-  const perRoute = routes.map((path) => ({
+  const perRoute = routes.map(path => ({
     path,
     count: 0,
     errors: 0,
-    times: [] as number[],
+    times: [] as number[]
   }));
   const receipts: {
     eventId: string;
@@ -87,27 +74,23 @@ async function main() {
   let errors = 0;
   let missedSlots = 0;
   let receiptOverflow = false;
-  const measured = () =>
-    performance.now() >= measurementStart && performance.now() < measurementEnd;
-  const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+  const measured = () => performance.now() >= measurementStart && performance.now() < measurementEnd;
+  const sleep = (ms: number) => new Promise(done => setTimeout(done, ms));
   async function request(path: string, token: string, method = 'GET') {
     const response = await fetch(new URL(path, base), {
       method,
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(5000),
-      redirect: 'error',
+      redirect: 'error'
     });
     const body = await response.text();
-    if (
-      !response.ok ||
-      !response.headers.get('content-type')?.includes('application/json')
-    )
+    if (!response.ok || !response.headers.get('content-type')?.includes('application/json'))
       throw new Error('Unexpected API response');
     return JSON.parse(body) as unknown;
   }
   const cancel = () => {
     stopping = true;
-    sockets.forEach((socket) => socket.disconnect());
+    sockets.forEach(socket => socket.disconnect());
   };
   process.once('SIGINT', cancel);
   process.once('SIGTERM', cancel);
@@ -116,12 +99,7 @@ async function main() {
     for (let i = 0; i < users; i++) {
       if (stopping) throw new Error('Cancelled');
       const result = await request('/mad/realtime/ticket', sessions[i], 'POST');
-      if (
-        !result ||
-        typeof result !== 'object' ||
-        !('ticket' in result) ||
-        typeof result.ticket !== 'string'
-      )
+      if (!result || typeof result !== 'object' || !('ticket' in result) || typeof result.ticket !== 'string')
         throw new Error('Invalid ticket response');
       const socket = io(socketBase.origin, {
         path: '/mad/socket.io',
@@ -130,7 +108,7 @@ async function main() {
         extraHeaders: { Origin: origin },
         reconnection: false,
         timeout: 10000,
-        autoConnect: false,
+        autoConnect: false
       });
       sockets.push(socket);
       socket.on('disconnect', () => {
@@ -153,14 +131,12 @@ async function main() {
           type,
           eventId: payload.eventId,
           clientId: String(i),
-          receivedAt: Date.now(),
+          receivedAt: Date.now()
         });
       });
       await new Promise<void>((done, reject) => {
         socket.once('connect', done);
-        socket.once('connect_error', () =>
-          reject(new Error('Socket setup failed')),
-        );
+        socket.once('connect_error', () => reject(new Error('Socket setup failed')));
         socket.connect();
       });
       await sleep(50);
@@ -168,9 +144,7 @@ async function main() {
     const start = performance.now();
     measurementStart = start + warmupMs;
     measurementEnd = measurementStart + measuredMs;
-    console.log(
-      `Running ${users} API/socket sessions: 5-minute warm-up, 15-minute measurement.`,
-    );
+    console.log(`Running ${users} API/socket sessions: 5-minute warm-up, 15-minute measurement.`);
     await Promise.all(
       sessions.map(async (token, index) => {
         let slot = 0;
@@ -200,21 +174,14 @@ async function main() {
           }
           slot++;
           // Do not hide saturation by issuing catch-up bursts or lowering the target.
-          const skipped = Math.max(
-            0,
-            Math.floor(
-              (performance.now() - start - index * (1000 / users)) / 1000,
-            ) - slot,
-          );
+          const skipped = Math.max(0, Math.floor((performance.now() - start - index * (1000 / users)) / 1000) - slot);
           for (let n = 0; n < skipped; n++) {
-            const skippedAt =
-              start + index * (1000 / users) + (slot + n) * 1000;
-            if (skippedAt >= measurementStart && skippedAt < measurementEnd)
-              missedSlots++;
+            const skippedAt = start + index * (1000 / users) + (slot + n) * 1000;
+            if (skippedAt >= measurementStart && skippedAt < measurementEnd) missedSlots++;
           }
           slot += skipped;
         }
-      }),
+      })
     );
     const expectedRequests = (users * measuredMs) / 1000;
     const p95Ms = percentile(durations, 0.95);
@@ -237,14 +204,9 @@ async function main() {
       p50Ms: percentile(durations, 0.5),
       p95Ms,
       p99Ms: percentile(durations, 0.99),
-      maxMs: durations.length
-        ? durations.reduce((a, b) => Math.max(a, b), 0)
-        : null,
-      within500Fraction: durations.length
-        ? durations.filter((ms) => ms <= 500).length / durations.length
-        : null,
-      completed:
-        !stopping && durations.length === expectedRequests && missedSlots === 0,
+      maxMs: durations.length ? durations.reduce((a, b) => Math.max(a, b), 0) : null,
+      within500Fraction: durations.length ? durations.filter(ms => ms <= 500).length / durations.length : null,
+      completed: !stopping && durations.length === expectedRequests && missedSlots === 0,
       receiptOverflow,
       apiGate:
         !stopping &&
@@ -260,16 +222,13 @@ async function main() {
       routes: perRoute.map(({ times, ...route }) => ({
         ...route,
         p95Ms: percentile(times, 0.95),
-        p99Ms: percentile(times, 0.99),
-      })),
+        p99Ms: percentile(times, 0.99)
+      }))
     };
-    await writeFile(
-      resolve(dir, 'summary.json'),
-      JSON.stringify(summary, null, 2),
-    );
+    await writeFile(resolve(dir, 'summary.json'), JSON.stringify(summary, null, 2));
     await writeFile(resolve(dir, 'receipts.json'), JSON.stringify(receipts));
     console.log(
-      `Sanitized results: performance-results/${runLabel}; API gate ${summary.apiGate ? 'passed' : 'failed'}. Full acceptance remains pending.`,
+      `Sanitized results: performance-results/${runLabel}; API gate ${summary.apiGate ? 'passed' : 'failed'}. Full acceptance remains pending.`
     );
     if (!summary.apiGate) process.exitCode = 1;
   } finally {
@@ -282,7 +241,7 @@ async function main() {
 void main().catch(() => {
   // Never print fetch errors, private file contents, tokens or ticket payloads.
   console.error(
-    'Performance run failed. Check approved origins, sessions, permissions and output path using the runbook.',
+    'Performance run failed. Check approved origins, sessions, permissions and output path using the runbook.'
   );
   process.exitCode = 1;
 });

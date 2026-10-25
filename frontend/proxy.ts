@@ -4,16 +4,13 @@ import { isSession, SESSION_COOKIE } from './lib/auth';
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  if (['/', '/login', '/unavailable'].includes(path))
-    return NextResponse.next();
+  if (['/', '/login', '/unavailable'].includes(path)) return NextResponse.next();
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const result = token ? await backend('/auth/session', 'GET', token) : null;
   let target: string | undefined;
   if (result && result.status >= 500) target = '/unavailable';
-  else if (!result || result.status !== 200 || !isSession(result.data))
-    target = '/login';
-  else if (result.data.passwordChangeRequired && path !== '/change-password')
-    target = '/change-password';
+  else if (!result || result.status !== 200 || !isSession(result.data)) target = '/login';
+  else if (result.data.passwordChangeRequired && path !== '/change-password') target = '/change-password';
   if (target) {
     const url = new URL(target, request.url);
     url.searchParams.set('next', path + request.nextUrl.search);

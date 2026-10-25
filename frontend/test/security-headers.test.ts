@@ -16,8 +16,8 @@ it('protects pages and BFF routes without changing presentation or blocking sock
       { key: 'Referrer-Policy', value: 'no-referrer' },
       {
         key: 'Content-Security-Policy',
-        value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
-      },
-    ]),
+        value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+      }
+    ])
   });
 });

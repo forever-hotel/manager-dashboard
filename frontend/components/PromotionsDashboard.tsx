@@ -15,17 +15,15 @@ import {
   PromotionError,
   type Promotion,
   type PromotionForm,
-  type RoomType,
+  type RoomType
 } from '@/lib/promotions';
 
-export default function PromotionsDashboard({
-  initialDate,
-}: { initialDate?: string } = {}) {
+export default function PromotionsDashboard({ initialDate }: { initialDate?: string } = {}) {
   const [promos, setPromos] = useState<Promotion[]>([]);
   const [rooms, setRooms] = useState<RoomType[]>([]);
   const [form, setForm] = useState<PromotionForm>(() => ({
     ...emptyForm,
-    ...promotionDates(initialDate),
+    ...promotionDates(initialDate)
   }));
   const [editing, setEditing] = useState<Promotion>();
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -54,7 +52,7 @@ export default function PromotionsDashboard({
             pageSchema(promotionSchema),
             'GET',
             undefined,
-            controller.signal,
+            controller.signal
           ),
           (async () => {
             const values: RoomType[] = [];
@@ -65,22 +63,21 @@ export default function PromotionsDashboard({
                 pageSchema(roomSchema),
                 'GET',
                 undefined,
-                controller.signal,
+                controller.signal
               );
               values.push(...part.items);
               if (values.length >= part.total) return values;
               if (!part.items.length) throw new Error('Incomplete room types');
               current++;
             }
-          })(),
+          })()
         ]);
         if (active) {
           setPromos(result.items);
           setTotal(result.total);
           setRooms(options);
           setRoomsReady(true);
-          if (!result.items.length && page > 1)
-            setPage(Math.max(1, Math.ceil(result.total / 20)));
+          if (!result.items.length && page > 1) setPage(Math.max(1, Math.ceil(result.total / 20)));
         }
       } catch (e) {
         if (active) {
@@ -101,14 +98,11 @@ export default function PromotionsDashboard({
   function reload() {
     setLoading(true);
     setError('');
-    setRefresh((n) => n + 1);
+    setRefresh(n => n + 1);
   }
-  function field<K extends keyof PromotionForm>(
-    key: K,
-    value: PromotionForm[K],
-  ) {
-    setForm((old) => ({ ...old, [key]: value }));
-    setErrors((old) => ({ ...old, [key]: '' }));
+  function field<K extends keyof PromotionForm>(key: K, value: PromotionForm[K]) {
+    setForm(old => ({ ...old, [key]: value }));
+    setErrors(old => ({ ...old, [key]: '' }));
   }
   async function work(task: () => Promise<void>) {
     if (lock.current) return;
@@ -129,7 +123,7 @@ export default function PromotionsDashboard({
   function save(status: 'ACTIVE' | 'INACTIVE') {
     if (editing && Number(form.maxRedemptions) < editing.currentRedemptions) {
       setErrors({
-        maxRedemptions: 'Limit cannot be below completed redemptions.',
+        maxRedemptions: 'Limit cannot be below completed redemptions.'
       });
       return;
     }
@@ -139,8 +133,7 @@ export default function PromotionsDashboard({
       : createSchema.safeParse({ ...payload, status });
     if (!parsed.success) {
       const next: Record<string, string> = {};
-      for (const issue of parsed.error.issues)
-        next[String(issue.path[0])] = issue.message;
+      for (const issue of parsed.error.issues) next[String(issue.path[0])] = issue.message;
       setErrors(next);
       return;
     }
@@ -150,11 +143,9 @@ export default function PromotionsDashboard({
         editing ? '/' + editing.id : '',
         promotionSchema,
         editing ? 'PUT' : 'POST',
-        parsed.data,
+        parsed.data
       );
-      setNotice(
-        `Saved ${saved.code}. ${publicationLabel(saved.publicationStatus)}`,
-      );
+      setNotice(`Saved ${saved.code}. ${publicationLabel(saved.publicationStatus)}`);
       setEditing(undefined);
       setForm({ ...emptyForm });
       setErrors({});
@@ -184,7 +175,7 @@ export default function PromotionsDashboard({
       setEditing(latest);
       setConflict(false);
       setNotice(
-        `Latest version ${latest.version} loaded. Your entered values are preserved. Review them before saving over the latest version.`,
+        `Latest version ${latest.version} loaded. Your entered values are preserved. Review them before saving over the latest version.`
       );
       reload();
     });
@@ -193,7 +184,7 @@ export default function PromotionsDashboard({
     if (
       action !== 'activate' &&
       !window.confirm(
-        `${action === 'delete' ? 'Delete' : 'Deactivate'} ${p.code}? ${action === 'delete' ? 'The code stays reserved and booking history is retained. This cannot be undone.' : 'This prevents future use after website synchronization.'}`,
+        `${action === 'delete' ? 'Delete' : 'Deactivate'} ${p.code}? ${action === 'delete' ? 'The code stays reserved and booking history is retained. This cannot be undone.' : 'This prevents future use after website synchronization.'}`
       )
     )
       return;
@@ -202,11 +193,9 @@ export default function PromotionsDashboard({
         '/' + p.id + (action === 'delete' ? '' : '/' + action),
         promotionSchema,
         action === 'delete' ? 'DELETE' : 'POST',
-        { version: p.version },
+        { version: p.version }
       );
-      setNotice(
-        `Saved ${saved.code}: ${saved.lifecycleState}. ${publicationLabel(saved.publicationStatus)}`,
-      );
+      setNotice(`Saved ${saved.code}: ${saved.lifecycleState}. ${publicationLabel(saved.publicationStatus)}`);
       if (editing?.id === p.id) {
         setEditing(undefined);
         setForm({ ...emptyForm });
@@ -217,11 +206,7 @@ export default function PromotionsDashboard({
   }
   const fieldError = (name: string) =>
     errors[name] ? (
-      <p
-        id={`${name}-error`}
-        role="alert"
-        className="font-normal text-[10px] text-red-600 mt-1"
-      >
+      <p id={`${name}-error`} role="alert" className="font-normal text-[10px] text-red-600 mt-1">
         {errors[name]}
       </p>
     ) : null;
@@ -254,18 +239,8 @@ export default function PromotionsDashboard({
               Month
             </button>
           </div>
-          <svg
-            className="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="black"
-            strokeWidth="1.5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
       </div>
@@ -300,12 +275,10 @@ export default function PromotionsDashboard({
       )}
       {/* Create promotion form */}
       <section className="mb-8">
-        <h2 className="font-medium text-[12px] underline text-black mb-3">
-          Promotion management
-        </h2>
+        <h2 className="font-medium text-[12px] underline text-black mb-3">Promotion management</h2>
         <form
           noValidate
-          onSubmit={(event) => {
+          onSubmit={event => {
             event.preventDefault();
             save('ACTIVE');
           }}
@@ -317,10 +290,7 @@ export default function PromotionsDashboard({
 
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
-              <label
-                htmlFor="code"
-                className="font-normal text-[10px] text-black/60 block mb-1"
-              >
+              <label htmlFor="code" className="font-normal text-[10px] text-black/60 block mb-1">
                 Promo code
               </label>
               <input
@@ -332,33 +302,23 @@ export default function PromotionsDashboard({
                 type="text"
                 className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11.5px] text-black"
                 value={form.code}
-                onChange={(e) => field('code', e.target.value)}
+                onChange={e => field('code', e.target.value)}
               />
               {fieldError('code')}
             </div>
             <div>
-              <label
-                htmlFor="discountType"
-                className="font-normal text-[10px] text-black/60 block mb-1"
-              >
+              <label htmlFor="discountType" className="font-normal text-[10px] text-black/60 block mb-1">
                 Discount type
               </label>
               <select
                 id="discountType"
                 name="discountType"
                 aria-invalid={!!errors.discountType}
-                aria-describedby={
-                  errors.discountType ? 'discountType-error' : undefined
-                }
+                aria-describedby={errors.discountType ? 'discountType-error' : undefined}
                 disabled={busy}
                 className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
                 value={form.discountType}
-                onChange={(e) =>
-                  field(
-                    'discountType',
-                    e.target.value as PromotionForm['discountType'],
-                  )
-                }
+                onChange={e => field('discountType', e.target.value as PromotionForm['discountType'])}
               >
                 <option value="PERCENTAGE">Percentage (%)</option>
                 <option value="FIXED_AMOUNT">Fixed amount (LKR cents)</option>
@@ -366,26 +326,21 @@ export default function PromotionsDashboard({
               {fieldError('discountType')}
             </div>
             <div>
-              <label
-                htmlFor="discountValue"
-                className="font-normal text-[10px] text-black/60 block mb-1"
-              >
+              <label htmlFor="discountValue" className="font-normal text-[10px] text-black/60 block mb-1">
                 Discount value
               </label>
               <input
                 id="discountValue"
                 name="discountValue"
                 aria-invalid={!!errors.discountValue}
-                aria-describedby={
-                  errors.discountValue ? 'discountValue-error' : undefined
-                }
+                aria-describedby={errors.discountValue ? 'discountValue-error' : undefined}
                 disabled={busy}
                 type="number"
                 min="1"
                 step="1"
                 className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
                 value={form.discountValue}
-                onChange={(e) => field('discountValue', e.target.value)}
+                onChange={e => field('discountValue', e.target.value)}
               />
               {fieldError('discountValue')}
             </div>
@@ -393,82 +348,64 @@ export default function PromotionsDashboard({
 
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
-              <label
-                htmlFor="validFrom"
-                className="font-normal text-[10px] text-black/60 block mb-1"
-              >
+              <label htmlFor="validFrom" className="font-normal text-[10px] text-black/60 block mb-1">
                 Valid from
               </label>
               <input
                 id="validFrom"
                 name="validFrom"
                 aria-invalid={!!errors.validFrom}
-                aria-describedby={
-                  errors.validFrom ? 'validFrom-error' : undefined
-                }
+                aria-describedby={errors.validFrom ? 'validFrom-error' : undefined}
                 disabled={busy}
                 type="datetime-local"
                 step="0.001"
                 className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
                 value={form.validFrom}
-                onChange={(e) => field('validFrom', e.target.value)}
+                onChange={e => field('validFrom', e.target.value)}
               />
               {fieldError('validFrom')}
             </div>
             <div>
-              <label
-                htmlFor="validUntil"
-                className="font-normal text-[10px] text-black/60 block mb-1"
-              >
+              <label htmlFor="validUntil" className="font-normal text-[10px] text-black/60 block mb-1">
                 Valid until
               </label>
               <input
                 id="validUntil"
                 name="validUntil"
                 aria-invalid={!!errors.validUntil}
-                aria-describedby={
-                  errors.validUntil ? 'validUntil-error' : undefined
-                }
+                aria-describedby={errors.validUntil ? 'validUntil-error' : undefined}
                 disabled={busy}
                 type="datetime-local"
                 step="0.001"
                 className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
                 value={form.validUntil}
-                onChange={(e) => field('validUntil', e.target.value)}
+                onChange={e => field('validUntil', e.target.value)}
               />
               {fieldError('validUntil')}
             </div>
             <div>
-              <label
-                htmlFor="maxRedemptions"
-                className="font-normal text-[10px] text-black/60 block mb-1"
-              >
+              <label htmlFor="maxRedemptions" className="font-normal text-[10px] text-black/60 block mb-1">
                 Max redemptions
               </label>
               <input
                 id="maxRedemptions"
                 name="maxRedemptions"
                 aria-invalid={!!errors.maxRedemptions}
-                aria-describedby={
-                  errors.maxRedemptions ? 'maxRedemptions-error' : undefined
-                }
+                aria-describedby={errors.maxRedemptions ? 'maxRedemptions-error' : undefined}
                 disabled={busy}
                 type="number"
                 min="1"
                 step="1"
                 className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
                 value={form.maxRedemptions}
-                onChange={(e) => field('maxRedemptions', e.target.value)}
+                onChange={e => field('maxRedemptions', e.target.value)}
               />
               {fieldError('maxRedemptions')}
             </div>
           </div>
 
           <div className="mb-5">
-            <label
-              htmlFor="roomTypeIds"
-              className="font-normal text-[10px] text-black/60 block mb-1"
-            >
+            <label htmlFor="roomTypeIds" className="font-normal text-[10px] text-black/60 block mb-1">
               Applicable room types
             </label>
             <select
@@ -476,20 +413,18 @@ export default function PromotionsDashboard({
               id="roomTypeIds"
               name="roomTypeIds"
               aria-invalid={!!errors.roomTypeIds}
-              aria-describedby={
-                errors.roomTypeIds ? 'roomTypeIds-error' : undefined
-              }
+              aria-describedby={errors.roomTypeIds ? 'roomTypeIds-error' : undefined}
               disabled={busy}
               className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11.5px] text-black"
               value={form.roomTypeIds}
-              onChange={(e) =>
+              onChange={e =>
                 field(
                   'roomTypeIds',
-                  Array.from(e.target.selectedOptions, (o) => o.value),
+                  Array.from(e.target.selectedOptions, o => o.value)
                 )
               }
             >
-              {rooms.map((room) => (
+              {rooms.map(room => (
                 <option key={room.id} value={room.id}>
                   {room.name}
                 </option>
@@ -499,9 +434,8 @@ export default function PromotionsDashboard({
           </div>
 
           <p className="font-normal text-[10px] text-black/60 mb-3">
-            Times use Asia/Colombo (+05:30), start inclusive and end exclusive.
-            Fixed discounts use integer LKR cents (100 cents = LKR 1). Select
-            one or more room types.
+            Times use Asia/Colombo (+05:30), start inclusive and end exclusive. Fixed discounts use integer LKR cents
+            (100 cents = LKR 1). Select one or more room types.
           </p>
           <div className="flex gap-3">
             <button
@@ -509,11 +443,7 @@ export default function PromotionsDashboard({
               disabled={busy || !roomsReady || conflict}
               className="font-normal text-[11px] text-black bg-gray-100 rounded-md px-4 py-2"
             >
-              {busy
-                ? 'Saving...'
-                : editing
-                  ? 'Save changes'
-                  : 'Save & activate'}
+              {busy ? 'Saving...' : editing ? 'Save changes' : 'Save & activate'}
             </button>
             <button
               type="button"
@@ -544,24 +474,11 @@ export default function PromotionsDashboard({
           aria-label="Promotion register data"
         >
           <table className="w-full text-left border-collapse">
-            <caption className="sr-only">
-              Promotions matching current filters
-            </caption>
+            <caption className="sr-only">Promotions matching current filters</caption>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                {[
-                  'Code',
-                  'Discount',
-                  'Valid until',
-                  'Used / Max',
-                  'Rooms',
-                  'Status',
-                  'Actions',
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="font-medium text-[10.5px] text-black px-3 py-3"
-                  >
+                {['Code', 'Discount', 'Valid until', 'Used / Max', 'Rooms', 'Status', 'Actions'].map(h => (
+                  <th key={h} className="font-medium text-[10.5px] text-black px-3 py-3">
                     {h}
                   </th>
                 ))}
@@ -570,36 +487,22 @@ export default function PromotionsDashboard({
             <tbody>
               {loading && (
                 <tr>
-                  <td
-                    colSpan={7}
-                    role="status"
-                    className="text-[10.5px] text-black px-3 py-3"
-                  >
+                  <td colSpan={7} role="status" className="text-[10.5px] text-black px-3 py-3">
                     Loading promotions...
                   </td>
                 </tr>
               )}
               {!loading && !promos.length && !error && (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="text-[10.5px] text-black px-3 py-3"
-                  >
+                  <td colSpan={7} className="text-[10.5px] text-black px-3 py-3">
                     No promotions yet.
                   </td>
                 </tr>
               )}
               {!loading &&
                 promos.map((p, i, arr) => (
-                  <tr
-                    key={p.code}
-                    className={
-                      i < arr.length - 1 ? 'border-b border-gray-100' : ''
-                    }
-                  >
-                    <td className="text-[10.5px] text-black px-3 py-3">
-                      {p.code}
-                    </td>
+                  <tr key={p.code} className={i < arr.length - 1 ? 'border-b border-gray-100' : ''}>
+                    <td className="text-[10.5px] text-black px-3 py-3">{p.code}</td>
                     <td className="text-[10.5px] text-black px-3 py-3">
                       {p.discountType === 'PERCENTAGE'
                         ? `${p.discountValue}%`
@@ -607,16 +510,14 @@ export default function PromotionsDashboard({
                     </td>
                     <td className="text-[10.5px] text-black px-3 py-3">
                       {new Date(p.validUntil).toLocaleString('en-GB', {
-                        timeZone: 'Asia/Colombo',
+                        timeZone: 'Asia/Colombo'
                       })}
                     </td>
                     <td className="text-[10.5px] text-black px-3 py-3">
                       {p.currentRedemptions} / {p.maxRedemptions}
                     </td>
                     <td className="text-[10.5px] text-black px-3 py-3">
-                      {p.roomTypeIds
-                        .map((id) => rooms.find((r) => r.id === id)?.name ?? id)
-                        .join(', ')}
+                      {p.roomTypeIds.map(id => rooms.find(r => r.id === id)?.name ?? id).join(', ')}
                     </td>
                     <td className="px-3 py-3">
                       <span className="font-medium text-[9.5px] text-black bg-gray-100 rounded-full px-2 py-1">
@@ -640,15 +541,9 @@ export default function PromotionsDashboard({
                           busy ||
                           conflict ||
                           (p.status === 'INACTIVE' &&
-                            (Date.parse(p.validUntil) <= Date.now() ||
-                              p.currentRedemptions >= p.maxRedemptions))
+                            (Date.parse(p.validUntil) <= Date.now() || p.currentRedemptions >= p.maxRedemptions))
                         }
-                        onClick={() =>
-                          action(
-                            p,
-                            p.status === 'ACTIVE' ? 'deactivate' : 'activate',
-                          )
-                        }
+                        onClick={() => action(p, p.status === 'ACTIVE' ? 'deactivate' : 'activate')}
                         className="font-normal text-[10px] text-black underline"
                       >
                         {p.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}

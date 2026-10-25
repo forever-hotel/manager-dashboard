@@ -23,7 +23,7 @@ export class TokenService {
       sign: JwtService['sign'];
     },
     @Inject(ConfigService)
-    private readonly config: { getOrThrow<T>(name: string): T },
+    private readonly config: { getOrThrow<T>(name: string): T }
   ) {}
   issue(sub: string, version: number): string {
     return this.jwt.sign(
@@ -33,8 +33,8 @@ export class TokenService {
         issuer: this.config.getOrThrow<string>('JWT_ISSUER'),
         audience: 'mad',
         algorithm: 'HS256',
-        expiresIn: '8h',
-      },
+        expiresIn: '8h'
+      }
     );
   }
   verify(token: string): StaffClaims {
@@ -43,7 +43,7 @@ export class TokenService {
         secret: this.config.getOrThrow<string>('JWT_SECRET'),
         algorithms: ['HS256'],
         issuer: this.config.getOrThrow<string>('JWT_ISSUER'),
-        audience: 'mad',
+        audience: 'mad'
       });
       const now = Math.floor(Date.now() / 1000);
       if (

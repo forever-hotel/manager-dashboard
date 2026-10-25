@@ -7,8 +7,7 @@ export type Session = {
   passwordChangeRequired: boolean;
 };
 export function safeDestination(value: string | null | undefined) {
-  if (!value || !/^\/(?!\/)/.test(value) || /[\\\r\n]/.test(value))
-    return '/analytics';
+  if (!value || !/^\/(?!\/)/.test(value) || /[\\\r\n]/.test(value)) return '/analytics';
   const path = value.split(/[?#]/)[0];
   return [
     '/analytics',
@@ -22,7 +21,7 @@ export function safeDestination(value: string | null | undefined) {
     '/worker-performance',
     '/tasks',
     '/reports',
-    '/settings',
+    '/settings'
   ].includes(path)
     ? value
     : '/analytics';
@@ -47,6 +46,6 @@ export function publicSession(session: Session): Session {
     username: session.username,
     role: session.role,
     expiresAt: session.expiresAt,
-    passwordChangeRequired: session.passwordChangeRequired,
+    passwordChangeRequired: session.passwordChangeRequired
   };
 }

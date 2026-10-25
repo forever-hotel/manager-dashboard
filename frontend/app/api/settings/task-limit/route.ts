@@ -27,16 +27,9 @@ async function handle(request: NextRequest) {
       return reply({ code: 'VALIDATION_ERROR' }, 400);
     }
   }
-  const result = await backend(
-    '/mad/settings/task-limit',
-    request.method,
-    token,
-    body,
-  );
+  const result = await backend('/mad/settings/task-limit', request.method, token, body);
   if (result.status !== 200) {
-    const status = [400, 401, 403, 409].includes(result.status)
-      ? result.status
-      : 503;
+    const status = [400, 401, 403, 409].includes(result.status) ? result.status : 503;
     return reply(
       {
         code:
@@ -45,17 +38,15 @@ async function handle(request: NextRequest) {
               400: 'VALIDATION_ERROR',
               401: 'UNAUTHENTICATED',
               403: 'FORBIDDEN',
-              409: 'CONFLICT',
+              409: 'CONFLICT'
             } as Record<number, string>
-          )[status] ?? 'SERVICE_UNAVAILABLE',
+          )[status] ?? 'SERVICE_UNAVAILABLE'
       },
-      status,
+      status
     );
   }
   const parsed = taskLimitSchema.safeParse(result.data);
-  return parsed.success
-    ? reply(parsed.data, 200)
-    : reply({ code: 'SERVICE_UNAVAILABLE' }, 503);
+  return parsed.success ? reply(parsed.data, 200) : reply({ code: 'SERVICE_UNAVAILABLE' }, 503);
 }
 export const GET = handle;
 export const PATCH = handle;

@@ -19,7 +19,7 @@ import { RealtimeGateway } from './realtime.gateway';
     StockEventsConsumer,
     RealtimeConsumer,
     RoomEventsConsumer,
-    TaskEventsConsumer,
-  ],
+    TaskEventsConsumer
+  ]
 })
 export class RealtimeModule {}

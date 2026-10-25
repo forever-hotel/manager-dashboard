@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Query,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../auth/jwt-auth.guard';
 import { ComplaintQueryDto, ResolveComplaintDto } from './complaint.dto';
@@ -27,7 +17,7 @@ export class ComplaintsController {
   @Patch(':id') update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req() request: AuthenticatedRequest,
-    @Body() input: ResolveComplaintDto,
+    @Body() input: ResolveComplaintDto
   ) {
     return this.complaints.update(id, request.user.sub, input);
   }

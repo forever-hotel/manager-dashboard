@@ -1,24 +1,10 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  connect,
-  type ChannelModel,
-  type Channel,
-  type ConsumeMessage,
-} from 'amqplib';
+import { connect, type ChannelModel, type Channel, type ConsumeMessage } from 'amqplib';
 import { DataSource } from 'typeorm';
 import { RealtimeGateway } from './realtime.gateway';
 import { StockAlertsService } from '../stock/stock-alerts.service';
-import {
-  InvalidStockEvent,
-  parseStockEvent,
-  type StockUpdate,
-} from '../stock/stock-event';
+import { InvalidStockEvent, parseStockEvent, type StockUpdate } from '../stock/stock-event';
 export const STOCK_QUEUE = 'mad.stock';
 export const STOCK_DEAD_QUEUE = 'mad.stock.dead';
 export const STOCK_BINDING = 'kitchen.stock.changed';
@@ -29,7 +15,7 @@ export const STOCK_QUEUE_ARGUMENTS = {
   'x-dead-letter-exchange': '',
   'x-dead-letter-routing-key': STOCK_DEAD_QUEUE,
   'x-dead-letter-strategy': 'at-least-once',
-  'x-overflow': 'reject-publish',
+  'x-overflow': 'reject-publish'
 };
 @Injectable()
 export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
@@ -44,11 +30,10 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly database: DataSource,
     private readonly gateway: RealtimeGateway,
-    private readonly alerts: StockAlertsService,
+    private readonly alerts: StockAlertsService
   ) {}
   onModuleInit() {
-    if (this.config.get<string>('MAD_REALTIME_ENABLED') === 'true')
-      void this.tick();
+    if (this.config.get<string>('MAD_REALTIME_ENABLED') === 'true') void this.tick();
   }
   private offline() {
     this.gateway.stockHealthy = false;
@@ -94,17 +79,17 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
     await channel.assertExchange('hotel.events', 'topic', { durable: true });
     await channel.assertQueue(STOCK_DEAD_QUEUE, {
       durable: true,
-      arguments: { 'x-queue-type': 'quorum', 'x-delivery-limit': -1 },
+      arguments: { 'x-queue-type': 'quorum', 'x-delivery-limit': -1 }
     });
     await channel.assertQueue(STOCK_QUEUE, {
       durable: true,
-      arguments: STOCK_QUEUE_ARGUMENTS,
+      arguments: STOCK_QUEUE_ARGUMENTS
     });
     await channel.bindQueue(STOCK_QUEUE, 'hotel.events', STOCK_BINDING);
     await channel.prefetch(1);
     await channel.consume(
       STOCK_QUEUE,
-      (message) => {
+      message => {
         if (!message) {
           this.offline();
           void connection.close().catch(() => undefined);
@@ -112,17 +97,12 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
         }
         void this.handle(channel, connection, message);
       },
-      { noAck: false },
+      { noAck: false }
     );
   }
-  private async handle(
-    channel: Channel,
-    connection: ChannelModel,
-    message: ConsumeMessage,
-  ) {
+  private async handle(channel: Channel, connection: ChannelModel, message: ConsumeMessage) {
     try {
-      if (message.content.length > 8192)
-        throw new InvalidStockEvent('Oversized stock event');
+      if (message.content.length > 8192) throw new InvalidStockEvent('Oversized stock event');
       let raw: unknown;
       try {
         raw = JSON.parse(message.content.toString()) as unknown;
@@ -138,7 +118,7 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
       if (error instanceof InvalidStockEvent) {
         this.logger.warn({
           event: 'stock.event_dead_lettered',
-          reason: 'invalid_contract',
+          reason: 'invalid_contract'
         });
         try {
           channel.reject(message, false);
@@ -150,7 +130,7 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
       this.gateway.stockHealthy = false;
       this.logger.warn({
         event: 'stock.event_retry',
-        reason: 'processing_failure',
+        reason: 'processing_failure'
       });
       // Quorum delivery-limit is broker-persisted, including consumer crashes/restarts.
       // basic.reject marks a failure; basic.nack does not do so in RabbitMQ 4.3+.
@@ -168,16 +148,14 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
     }
   }
   async dispatch() {
-    const rows = await this.database.query<
-      { event_id: string; payload: StockUpdate }[]
-    >(
-      "SELECT e.event_id,e.payload FROM mad_stock_events e JOIN mad_stock_alerts a ON a.menu_item_id=e.menu_item_id AND a.version=e.version WHERE e.delivery_state='pending' ORDER BY e.received_at,e.event_id LIMIT 100",
+    const rows = await this.database.query<{ event_id: string; payload: StockUpdate }[]>(
+      "SELECT e.event_id,e.payload FROM mad_stock_events e JOIN mad_stock_alerts a ON a.menu_item_id=e.menu_item_id AND a.version=e.version WHERE e.delivery_state='pending' ORDER BY e.received_at,e.event_id LIMIT 100"
     );
     for (const row of rows) {
       await this.gateway.publishStock(row.payload);
       await this.database.query(
         "UPDATE mad_stock_events SET delivery_state='published',published_at=now() WHERE event_id=$1 AND delivery_state='pending'",
-        [row.event_id],
+        [row.event_id]
       );
     }
   }
@@ -201,10 +179,7 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
     } finally {
       this.busy = false;
       if (!this.stopped) {
-        this.timer = setTimeout(
-          () => void this.tick(),
-          this.gateway.stockHealthy ? 250 : 5000,
-        );
+        this.timer = setTimeout(() => void this.tick(), this.gateway.stockHealthy ? 250 : 5000);
         this.timer.unref();
       }
     }

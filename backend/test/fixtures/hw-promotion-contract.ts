@@ -13,12 +13,7 @@ export interface CheckoutOffer {
   currentRedemptions: number;
   maxRedemptions: number;
 }
-export function referenceDiscount(
-  offer: CheckoutOffer,
-  room: string,
-  subtotalMinor: number,
-  now: Date,
-): number | null {
+export function referenceDiscount(offer: CheckoutOffer, room: string, subtotalMinor: number, now: Date): number | null {
   if (
     offer.status !== 'ACTIVE' ||
     offer.deletedAt !== null ||
@@ -30,9 +25,7 @@ export function referenceDiscount(
     return null;
   const total = BigInt(subtotalMinor);
   const discount =
-    offer.discountType === 'PERCENTAGE'
-      ? (total * BigInt(offer.discountValue)) / 100n
-      : BigInt(offer.discountValue);
+    offer.discountType === 'PERCENTAGE' ? (total * BigInt(offer.discountValue)) / 100n : BigInt(offer.discountValue);
   return Number(discount > total ? total : discount);
 }
 export class ReferencePromotionConsumer {
@@ -46,7 +39,6 @@ export class ReferencePromotionConsumer {
       return;
     }
     this.receipts.set(eventId, body);
-    if ((this.offers.get(offer.id)?.version ?? -1) < offer.version)
-      this.offers.set(offer.id, offer);
+    if ((this.offers.get(offer.id)?.version ?? -1) < offer.version) this.offers.set(offer.id, offer);
   }
 }

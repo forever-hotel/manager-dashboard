@@ -1,9 +1,5 @@
 import { DataSource } from 'typeorm';
-import {
-  FoodAnalyticsService,
-  FoodSummaryRow,
-  INCLUDED_FOOD_STATUSES,
-} from './food-analytics.service';
+import { FoodAnalyticsService, FoodSummaryRow, INCLUDED_FOOD_STATUSES } from './food-analytics.service';
 import { FoodAnalyticsController } from './food-analytics.controller';
 import { FOOD_ORDERS_SQL } from './food-orders.sql';
 const now = new Date('2026-10-19T06:00:00Z');
@@ -16,17 +12,14 @@ function row(): FoodSummaryRow {
     hours: Array.from({ length: 24 }, (_, hour) => ({ hour, count: '0' })),
     items: [],
     source_updated_at: null,
-    queried_at: now,
+    queried_at: now
   };
 }
 function setup(value = row()) {
   const query = jest.fn().mockResolvedValue([value]);
   return {
     query,
-    service: new FoodAnalyticsService(
-      { query } as unknown as DataSource,
-      () => now,
-    ),
+    service: new FoodAnalyticsService({ query } as unknown as DataSource, () => now)
   };
 }
 describe('DDP-023 food analytics', () => {
@@ -39,7 +32,7 @@ describe('DDP-023 food analytics', () => {
       popularItems: [],
       timezone: 'Asia/Colombo',
       asOf: now.toISOString(),
-      freshness: { sourceLatestUpdatedAt: null },
+      freshness: { sourceLatestUpdatedAt: null }
     });
     expect(result.hours).toHaveLength(24);
     expect(result.trend).toEqual([{ date: '2026-10-19', count: 0 }]);
@@ -47,7 +40,7 @@ describe('DDP-023 food analytics', () => {
       'day',
       'Asia/Colombo',
       now.toISOString(),
-      INCLUDED_FOOD_STATUSES,
+      INCLUDED_FOOD_STATUSES
     ]);
   });
   it('returns tied peak hours in ascending order and historical item names', async () => {
@@ -60,31 +53,26 @@ describe('DDP-023 food analytics', () => {
     data.source_updated_at = now;
     const result = await setup(data).service.summary('week');
     expect(result.peakHours).toEqual([8, 19]);
-    expect(result.popularItems).toEqual([
-      { menuItemId: 'item-id', name: 'Historical name', quantity: 9 },
-    ]);
+    expect(result.popularItems).toEqual([{ menuItemId: 'item-id', name: 'Historical name', quantity: 9 }]);
     expect(result.freshness.sourceLatestUpdatedAt).toBe(now.toISOString());
   });
-  it.each(['bad', '-1', '9007199254740992'])(
-    'rejects invalid/unsafe count %s',
-    async (value) => {
-      const data = row();
-      data.total = value;
-      await expect(setup(data).service.summary('day')).rejects.toMatchObject({
-        status: 503,
-      });
-    },
-  );
+  it.each(['bad', '-1', '9007199254740992'])('rejects invalid/unsafe count %s', async value => {
+    const data = row();
+    data.total = value;
+    await expect(setup(data).service.summary('day')).rejects.toMatchObject({
+      status: 503
+    });
+  });
   it('fails safely on missing buckets, inconsistent totals and database errors', async () => {
     for (const data of [
       { ...row(), trend: [] },
       { ...row(), hours: [] },
       { ...row(), total: '1' },
-      { ...row(), hours: row().hours.map((b) => ({ ...b, hour: 24 })) },
-      { ...row(), items: [{ id: 'x', name: 'y', quantity: 'bad' }] },
+      { ...row(), hours: row().hours.map(b => ({ ...b, hour: 24 })) },
+      { ...row(), items: [{ id: 'x', name: 'y', quantity: 'bad' }] }
     ])
       await expect(setup(data).service.summary('month')).rejects.toMatchObject({
-        status: 503,
+        status: 503
       });
     const { service, query } = setup();
     query.mockResolvedValueOnce([]);
@@ -92,14 +80,11 @@ describe('DDP-023 food analytics', () => {
     query.mockRejectedValue(new Error('private provider data'));
     await expect(service.summary('day')).rejects.toMatchObject({
       status: 503,
-      message: 'Service Unavailable',
+      message: 'Service Unavailable'
     });
   });
   it('forwards the validated period through the controller', async () => {
     const { service } = setup();
-    expect(
-      (await new FoodAnalyticsController(service).summary({ period: 'month' }))
-        .period,
-    ).toBe('month');
+    expect((await new FoodAnalyticsController(service).summary({ period: 'month' })).period).toBe('month');
   });
 });

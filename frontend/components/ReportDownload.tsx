@@ -6,12 +6,12 @@ import {
   readReport,
   exportError,
   type ReportType,
-  type ReportFilters,
+  type ReportFilters
 } from '@/lib/reports';
 export default function ReportDownload({
   type,
   filters = {},
-  disabled = false,
+  disabled = false
 }: {
   type: ReportType;
   filters?: ReportFilters;
@@ -21,10 +21,7 @@ export default function ReportDownload({
     type +
     '?' +
     new URLSearchParams(
-      Object.entries(filters).filter(([, value]) => value !== undefined) as [
-        string,
-        string,
-      ][],
+      Object.entries(filters).filter(([, value]) => value !== undefined) as [string, string][]
     ).toString();
   const [state, setState] = useState<{
     key: string;
@@ -57,27 +54,21 @@ export default function ReportDownload({
       const query = reportQuery(
         type,
         new URLSearchParams([
-          ...(Object.entries(filters).filter(
-            ([, value]) => value !== undefined,
-          ) as [string, string][]),
-          ['format', format],
-        ]),
+          ...(Object.entries(filters).filter(([, value]) => value !== undefined) as [string, string][]),
+          ['format', format]
+        ])
       );
       response = await fetch('/api/reports/' + type + '?' + query.toString(), {
         cache: 'no-store',
         credentials: 'same-origin',
-        signal: controller.signal,
+        signal: controller.signal
       });
       if (!response.ok) throw new Error(exportError(response.status));
-      const filename = reportFilename(
-        type,
-        format,
-        response.headers.get('content-disposition'),
-      );
+      const filename = reportFilename(type, format, response.headers.get('content-disposition'));
       const bytes = await readReport(response, format);
       if (controller.signal.aborted) return;
       const blob = new Blob([bytes], {
-        type: format === 'pdf' ? 'application/pdf' : 'text/csv; charset=utf-8',
+        type: format === 'pdf' ? 'application/pdf' : 'text/csv; charset=utf-8'
       });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -100,13 +91,10 @@ export default function ReportDownload({
         setState({
           key,
           error:
-            error instanceof Error &&
-            Object.values([400, 401, 403, 422, 503].map(exportError)).includes(
-              error.message,
-            )
+            error instanceof Error && Object.values([400, 401, 403, 422, 503].map(exportError)).includes(error.message)
               ? error.message
               : 'The report could not be downloaded. Please retry.',
-          retry: format,
+          retry: format
         });
     } finally {
       await response?.body?.cancel().catch(() => undefined);
@@ -115,14 +103,9 @@ export default function ReportDownload({
   }
   const active = state.key === key ? state : undefined;
   return (
-    <div
-      className="mt-3"
-      role="group"
-      aria-label={type + ' report downloads'}
-      aria-busy={!!active?.busy}
-    >
+    <div className="mt-3" role="group" aria-label={type + ' report downloads'} aria-busy={!!active?.busy}>
       <div className="flex gap-3">
-        {(['pdf', 'csv'] as const).map((format) => (
+        {(['pdf', 'csv'] as const).map(format => (
           <button
             key={format}
             type="button"
@@ -145,11 +128,7 @@ export default function ReportDownload({
       {active?.error && (
         <p role="alert" className="text-[10.5px] text-black mt-2">
           {active.error}{' '}
-          <button
-            type="button"
-            className="underline"
-            onClick={() => void download(active.retry!)}
-          >
+          <button type="button" className="underline" onClick={() => void download(active.retry!)}>
             Retry download
           </button>
         </p>

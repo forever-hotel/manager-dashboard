@@ -11,6 +11,6 @@ import { InitialManagerService } from './initial-manager.service';
   imports: [JwtModule.register({})],
   controllers: [AuthController],
   providers: [AuthService, TokenService, JwtAuthGuard, InitialManagerService],
-  exports: [AuthService, JwtAuthGuard],
+  exports: [AuthService, JwtAuthGuard]
 })
 export class AuthModule {}

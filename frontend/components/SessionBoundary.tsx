@@ -6,29 +6,19 @@ import { isSession, safeDestination, Session } from '@/lib/auth';
 function loginDestination() {
   return (
     '/login?reason=expired&next=' +
-    encodeURIComponent(
-      safeDestination(window.location.pathname + window.location.search),
-    )
+    encodeURIComponent(safeDestination(window.location.pathname + window.location.search))
   );
 }
 
-export function SessionBoundary({
-  session,
-  children,
-}: {
-  session: Session;
-  children: React.ReactNode;
-}) {
+export function SessionBoundary({ session, children }: { session: Session; children: React.ReactNode }) {
   const router = useRouter();
-  const [state, setState] = useState<'ready' | 'checking' | 'unavailable'>(
-    'ready',
-  );
+  const [state, setState] = useState<'ready' | 'checking' | 'unavailable'>('ready');
   const check = useCallback(async () => {
     setState('checking');
     try {
       const result = await fetch('/api/auth/session', {
         cache: 'no-store',
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(8000)
       });
       if (result.status === 401 || result.status === 403) {
         window.location.replace(loginDestination());
@@ -40,11 +30,7 @@ export function SessionBoundary({
       if (current.passwordChangeRequired) {
         window.location.replace(
           '/change-password?next=' +
-            encodeURIComponent(
-              safeDestination(
-                window.location.pathname + window.location.search,
-              ),
-            ),
+            encodeURIComponent(safeDestination(window.location.pathname + window.location.search))
         );
         return;
       }
@@ -59,7 +45,7 @@ export function SessionBoundary({
         setState('checking');
         window.location.replace(loginDestination());
       },
-      Math.max(0, session.expiresAt * 1000 - Date.now()),
+      Math.max(0, session.expiresAt * 1000 - Date.now())
     );
     const poll = window.setInterval(() => {
       void check();

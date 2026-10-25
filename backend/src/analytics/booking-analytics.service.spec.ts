@@ -14,17 +14,14 @@ describe('DDP-009 booking summaries', () => {
     bucket_date: '2026-09-27',
     count: '2',
     source_updated_at: new Date('2026-09-27T03:00:00Z'),
-    queried_at: clock,
+    queried_at: clock
   };
   let query: jest.Mock;
   let service: BookingAnalyticsService;
 
   beforeEach(() => {
     query = jest.fn().mockResolvedValue([row]);
-    service = new BookingAnalyticsService(
-      { query } as unknown as DataSource,
-      () => clock,
-    );
+    service = new BookingAnalyticsService({ query } as unknown as DataSource, () => clock);
   });
 
   it('returns explicit check-in semantics, UTC boundaries and freshness', async () => {
@@ -40,15 +37,15 @@ describe('DDP-009 booking summaries', () => {
       total: 2,
       freshness: {
         queriedAt: clock.toISOString(),
-        sourceLatestUpdatedAt: '2026-09-27T03:00:00.000Z',
-      },
+        sourceLatestUpdatedAt: '2026-09-27T03:00:00.000Z'
+      }
     });
     expect(result.trend[0]).toMatchObject({ date: '2026-09-27', count: 2 });
     expect(query).toHaveBeenCalledWith(expect.any(String), [
       'day',
       'Asia/Colombo',
       clock.toISOString(),
-      ['CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'],
+      ['CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT']
     ]);
   });
 
@@ -59,52 +56,34 @@ describe('DDP-009 booking summaries', () => {
     expect(result.trend[0].count).toBe(0);
     expect(result.freshness.sourceLatestUpdatedAt).toBeNull();
     query.mockRejectedValue(new Error('private connection details'));
-    await expect(service.summary('day')).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
-    );
+    await expect(service.summary('day')).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it.each(['-1', '1.5', 'NaN', 'Infinity', '9007199254740992'])(
     'refuses invalid or imprecise count %s',
-    async (count) => {
+    async count => {
       query.mockResolvedValue([{ ...row, count }]);
-      await expect(service.summary('day')).rejects.toBeInstanceOf(
-        ServiceUnavailableException,
-      );
-    },
+      await expect(service.summary('day')).rejects.toBeInstanceOf(ServiceUnavailableException);
+    }
   );
 
   it('refuses a total that cannot be represented accurately', async () => {
-    query.mockResolvedValue([
-      { ...row, count: String(Number.MAX_SAFE_INTEGER) },
-      row,
-    ]);
-    await expect(service.summary('week')).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
-    );
+    query.mockResolvedValue([{ ...row, count: String(Number.MAX_SAFE_INTEGER) }, row]);
+    await expect(service.summary('week')).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('does not report success if the database returns no calendar rows', async () => {
     query.mockResolvedValue([]);
-    await expect(service.summary('month')).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
-    );
+    await expect(service.summary('month')).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
-  it.each(['day', 'week', 'month'])('accepts period %s', async (period) => {
-    expect(
-      await validate(Object.assign(new BookingQueryDto(), { period })),
-    ).toHaveLength(0);
+  it.each(['day', 'week', 'month'])('accepts period %s', async period => {
+    expect(await validate(Object.assign(new BookingQueryDto(), { period }))).toHaveLength(0);
   });
 
-  it.each(['year', '', 'DAY', ['day', 'week'], null])(
-    'rejects invalid period %s',
-    async (period) => {
-      expect(
-        await validate(Object.assign(new BookingQueryDto(), { period })),
-      ).not.toHaveLength(0);
-    },
-  );
+  it.each(['year', '', 'DAY', ['day', 'week'], null])('rejects invalid period %s', async period => {
+    expect(await validate(Object.assign(new BookingQueryDto(), { period }))).not.toHaveLength(0);
+  });
 
   it('defaults an omitted period to day', () => {
     expect(new BookingQueryDto().period).toBe('day');

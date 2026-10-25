@@ -2,14 +2,7 @@
 import ReportDownload from './ReportDownload';
 import LowDemandAlerts from './LowDemandAlerts';
 import { useEffect, useState, type ReactNode } from 'react';
-import {
-  AnalyticsError,
-  loadAnalytics,
-  money,
-  percentage,
-  type Overview,
-  type Period,
-} from '@/lib/analytics';
+import { AnalyticsError, loadAnalytics, money, percentage, type Overview, type Period } from '@/lib/analytics';
 
 type State = { period: Period; data?: Overview; error?: number };
 const button =
@@ -17,13 +10,9 @@ const button =
 const localDate = (value: string) =>
   new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Colombo',
-    dateStyle: 'medium',
+    dateStyle: 'medium'
   }).format(new Date(value));
-export default function AnalyticsDashboard({
-  children,
-}: {
-  children?: ReactNode;
-}) {
+export default function AnalyticsDashboard({ children }: { children?: ReactNode }) {
   const [period, setPeriod] = useState<Period>('week');
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<State>({ period: 'week' });
@@ -31,14 +20,14 @@ export default function AnalyticsDashboard({
     const controller = new AbortController();
     let active = true;
     loadAnalytics(period, controller.signal)
-      .then((data) => {
+      .then(data => {
         if (active) setState({ period, data });
       })
-      .catch((error) => {
+      .catch(error => {
         if (active)
           setState({
             period,
-            error: error instanceof AnalyticsError ? error.status : 503,
+            error: error instanceof AnalyticsError ? error.status : 503
           });
       });
     return () => {
@@ -56,25 +45,19 @@ export default function AnalyticsDashboard({
   };
   const retry = () => {
     setState({ period });
-    setAttempt((value) => value + 1);
+    setAttempt(value => value + 1);
   };
   return (
     <main className="flex-1 min-w-0 px-8 py-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-medium text-[15px] text-black">Analytics</h1>
-        <div
-          role="group"
-          aria-label="Reporting period"
-          className="flex gap-1 bg-gray-100 rounded-md p-1"
-        >
-          {(['day', 'week', 'month'] as const).map((value) => (
+        <div role="group" aria-label="Reporting period" className="flex gap-1 bg-gray-100 rounded-md p-1">
+          {(['day', 'week', 'month'] as const).map(value => (
             <button
               key={value}
               type="button"
               aria-pressed={period === value}
-              className={
-                button + (period === value ? ' bg-white shadow-sm' : '')
-              }
+              className={button + (period === value ? ' bg-white shadow-sm' : '')}
               onClick={() => choose(value)}
             >
               {value[0].toUpperCase() + value.slice(1)}
@@ -111,25 +94,15 @@ export default function AnalyticsDashboard({
       {data && (
         <>
           <p className="text-[10.5px] text-black/60 mb-3">
-            {localDate(data.bookings.start)} ?{' '}
-            {localDate(
-              new Date(Date.parse(data.bookings.end) - 1).toISOString(),
-            )}{' '}
-            ? Asia/Colombo ? Calendar {period}
+            {localDate(data.bookings.start)} ? {localDate(new Date(Date.parse(data.bookings.end) - 1).toISOString())} ?
+            Asia/Colombo ? Calendar {period}
           </p>
           <section className="mb-6" aria-labelledby="booking-revenue-title">
-            <h2
-              id="booking-revenue-title"
-              className="font-medium text-[12px] underline text-black mb-3"
-            >
+            <h2 id="booking-revenue-title" className="font-medium text-[12px] underline text-black mb-3">
               Booking &amp; revenue
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card
-                title={`Total bookings (${period})`}
-                value={String(data.bookings.total)}
-                note="By check-in date"
-              />
+              <Card title={`Total bookings (${period})`} value={String(data.bookings.total)} note="By check-in date" />
               <Card
                 title={`Completed-payment revenue (${period})`}
                 value={money(data.revenue.currentMinor)}
@@ -142,15 +115,11 @@ export default function AnalyticsDashboard({
               />
             </div>
             <p className="text-[10.5px] text-black/60 mt-3">
-              Completed payments only; refunded, pending and failed payments
-              excluded. Whole calendar periods are compared; the current period
-              is still in progress.
+              Completed payments only; refunded, pending and failed payments excluded. Whole calendar periods are
+              compared; the current period is still in progress.
             </p>
             {data.revenue.percentageChange === null && (
-              <p className="text-[10.5px] mt-2">
-                Percentage comparison: N/A because previous-period revenue is
-                zero.
-              </p>
+              <p className="text-[10.5px] mt-2">Percentage comparison: N/A because previous-period revenue is zero.</p>
             )}
           </section>
           {data.bookings.total === 0 && (
@@ -169,9 +138,7 @@ export default function AnalyticsDashboard({
             </div>
           </div>
           <BookingTrend data={data} />
-          <p className="text-[10px] text-black/60 mt-3">
-            Reporting timestamp: {data.bookings.asOf}
-          </p>
+          <p className="text-[10px] text-black/60 mt-3">Reporting timestamp: {data.bookings.asOf}</p>
         </>
       )}
       <LowDemandAlerts />
@@ -179,15 +146,7 @@ export default function AnalyticsDashboard({
     </main>
   );
 }
-function Card({
-  title,
-  value,
-  note,
-}: {
-  title: string;
-  value: string;
-  note: string;
-}) {
+function Card({ title, value, note }: { title: string; value: string; note: string }) {
   return (
     <div className="border border-gray-200 rounded-lg p-4">
       <h3 className="font-normal text-[10px] text-black/60 mb-2">{title}</h3>
@@ -199,9 +158,8 @@ function Card({
 function BookingTrend({ data }: { data: Overview }) {
   const [view, setView] = useState<'bar' | 'line'>('bar');
   const trend = data.bookings.trend;
-  const max = Math.max(1, ...trend.map((row) => row.count));
-  const x = (index: number) =>
-    30 + (trend.length === 1 ? 300 : (index * 600) / (trend.length - 1));
+  const max = Math.max(1, ...trend.map(row => row.count));
+  const x = (index: number) => 30 + (trend.length === 1 ? 300 : (index * 600) / (trend.length - 1));
   const y = (count: number) => 170 - (count / max) * 140;
   return (
     <section aria-labelledby="trend-title" className="mb-6">
@@ -210,7 +168,7 @@ function BookingTrend({ data }: { data: Overview }) {
           Bookings per day
         </h2>
         <div role="group" aria-label="Chart view">
-          {(['bar', 'line'] as const).map((value) => (
+          {(['bar', 'line'] as const).map(value => (
             <button
               type="button"
               key={value}
@@ -231,19 +189,14 @@ function BookingTrend({ data }: { data: Overview }) {
           viewBox="0 0 660 220"
           className="w-full max-h-64"
         >
-          <title id="chart-title">
-            {view === 'bar' ? 'Bar' : 'Line'} chart of daily bookings
-          </title>
+          <title id="chart-title">{view === 'bar' ? 'Bar' : 'Line'} chart of daily bookings</title>
           <desc id="chart-description">
-            Daily counts for the selected {data.bookings.period}. Exact dates
-            and values are in the table below.
+            Daily counts for the selected {data.bookings.period}. Exact dates and values are in the table below.
           </desc>
           <line x1="20" y1="170" x2="650" y2="170" stroke="#999" />
           {view === 'line' && (
             <polyline
-              points={trend
-                .map((row, index) => `${x(index)},${y(row.count)}`)
-                .join(' ')}
+              points={trend.map((row, index) => `${x(index)},${y(row.count)}`).join(' ')}
               fill="none"
               stroke="#1f2937"
               strokeWidth="2"
@@ -262,12 +215,7 @@ function BookingTrend({ data }: { data: Overview }) {
               ) : (
                 <circle cx={x(index)} cy={y(row.count)} r="3" fill="#1f2937" />
               )}
-              <text
-                x={x(index)}
-                y={y(row.count) - 8}
-                textAnchor="middle"
-                fontSize="9"
-              >
+              <text x={x(index)} y={y(row.count) - 8} textAnchor="middle" fontSize="9">
                 {row.count}
               </text>
               <text x={x(index)} y="190" textAnchor="middle" fontSize="9">
@@ -279,16 +227,9 @@ function BookingTrend({ data }: { data: Overview }) {
             Day of month (Asia/Colombo)
           </text>
         </svg>
-        <div
-          className="overflow-x-auto mt-4"
-          tabIndex={0}
-          role="region"
-          aria-label="Daily booking data"
-        >
+        <div className="overflow-x-auto mt-4" tabIndex={0} role="region" aria-label="Daily booking data">
           <table className="w-full text-left border-collapse text-[10.5px]">
-            <caption className="text-left font-medium mb-2">
-              Daily booking data ? {data.bookings.period}
-            </caption>
+            <caption className="text-left font-medium mb-2">Daily booking data ? {data.bookings.period}</caption>
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th scope="col" className="px-4 py-3">
@@ -300,7 +241,7 @@ function BookingTrend({ data }: { data: Overview }) {
               </tr>
             </thead>
             <tbody>
-              {trend.map((row) => (
+              {trend.map(row => (
                 <tr key={row.date} className="border-b border-gray-100">
                   <th scope="row" className="px-4 py-3 font-normal">
                     {row.date}

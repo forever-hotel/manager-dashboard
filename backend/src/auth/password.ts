@@ -4,15 +4,11 @@ import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 const options = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
 function derive(password: string, salt: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    scrypt(password, salt, 64, options, (error, key) =>
-      error ? reject(error) : resolve(key),
-    );
+    scrypt(password, salt, 64, options, (error, key) => (error ? reject(error) : resolve(key)));
   });
 }
 export function validPassword(password: string) {
-  return (
-    password.length >= 12 && password.length <= 1024 && /\S/.test(password)
-  );
+  return password.length >= 12 && password.length <= 1024 && /\S/.test(password);
 }
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');

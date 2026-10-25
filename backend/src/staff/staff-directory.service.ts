@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { isUUID } from 'class-validator';
 import { STAFF_ROLES } from './create-staff.dto';
@@ -14,10 +10,7 @@ coalesce(d.status,'none') AS "deliveryStatus"`;
 function text(value: unknown, max: number, nullable = false) {
   return (
     (nullable && value === null) ||
-    (typeof value === 'string' &&
-      (nullable || Boolean(value.trim())) &&
-      value.length <= max &&
-      !/\p{Cc}/u.test(value))
+    (typeof value === 'string' && (nullable || Boolean(value.trim())) && value.length <= max && !/\p{Cc}/u.test(value))
   );
 }
 @Injectable()
@@ -44,8 +37,8 @@ SELECT (SELECT count(*)::integer FROM filtered) AS total,coalesce((SELECT jsonb_
           query.status === undefined ? null : query.status === 'active',
           query.pageSize,
           (query.page - 1) * query.pageSize,
-          id ?? null,
-        ],
+          id ?? null
+        ]
       );
       if (
         !row ||
@@ -53,43 +46,34 @@ SELECT (SELECT count(*)::integer FROM filtered) AS total,coalesce((SELECT jsonb_
         !Number.isSafeInteger(row.total) ||
         row.total < 0 ||
         (id !== undefined && row.total > 1) ||
-        row.items.length !==
-          Math.min(
-            query.pageSize,
-            Math.max(0, row.total - (query.page - 1) * query.pageSize),
-          )
+        row.items.length !== Math.min(query.pageSize, Math.max(0, row.total - (query.page - 1) * query.pageSize))
       )
         throw new Error();
       const seen = new Set<string>();
-      const items = row.items.map((item) => {
+      const items = row.items.map(item => {
         if (
           !item ||
           typeof item !== 'object' ||
           typeof item.staffId !== 'string' ||
           !isUUID(item.staffId) ||
           seen.has(item.staffId.toLowerCase()) ||
-          (id !== undefined &&
-            item.staffId.toLowerCase() !== id.toLowerCase()) ||
+          (id !== undefined && item.staffId.toLowerCase() !== id.toLowerCase()) ||
           !STAFF_ROLES.includes(item.role) ||
           (query.role !== undefined && item.role !== query.role) ||
           typeof item.isActive !== 'boolean' ||
-          (query.status !== undefined &&
-            item.isActive !== (query.status === 'active')) ||
+          (query.status !== undefined && item.isActive !== (query.status === 'active')) ||
           typeof item.passwordChangeRequired !== 'boolean' ||
           !Number.isSafeInteger(item.version) ||
           item.version < 0 ||
           item.version > 2147483647 ||
-          !['pending', 'failed', 'sent', 'cancelled', 'none'].includes(
-            item.deliveryStatus,
-          ) ||
+          !['pending', 'failed', 'sent', 'cancelled', 'none'].includes(item.deliveryStatus) ||
           !text(item.name, 255) ||
           !text(item.vocation, 100) ||
           !text(item.email, 320) ||
           !text(item.username, 100) ||
           !text(item.phone, 20, true) ||
           !text(item.nic, 50, true) ||
-          (item.age !== null &&
-            (!Number.isSafeInteger(item.age) || item.age < 1 || item.age > 120))
+          (item.age !== null && (!Number.isSafeInteger(item.age) || item.age < 1 || item.age > 120))
         )
           throw new Error();
         seen.add(item.staffId.toLowerCase());
@@ -106,14 +90,14 @@ SELECT (SELECT count(*)::integer FROM filtered) AS total,coalesce((SELECT jsonb_
           isActive: item.isActive,
           passwordChangeRequired: item.passwordChangeRequired,
           version: item.version,
-          deliveryStatus: item.deliveryStatus,
+          deliveryStatus: item.deliveryStatus
         };
       });
       return {
         items,
         total: row.total,
         page: query.page,
-        pageSize: query.pageSize,
+        pageSize: query.pageSize
       };
     } catch {
       throw new ServiceUnavailableException();

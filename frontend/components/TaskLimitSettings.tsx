@@ -1,10 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  taskLimitInput,
-  taskLimitSchema,
-  type TaskLimit,
-} from '@/lib/task-limit';
+import { taskLimitInput, taskLimitSchema, type TaskLimit } from '@/lib/task-limit';
 const button =
   'rounded border border-gray-200 px-3 py-2 text-[11px] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50';
 export default function TaskLimitSettings() {
@@ -26,7 +22,7 @@ export default function TaskLimitSettings() {
     try {
       const response = await fetch('/api/settings/task-limit', {
         cache: 'no-store',
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(8000)
       });
       if (!mounted.current || generation.current !== current) return;
       if (response.status === 401 || response.status === 403) {
@@ -35,18 +31,13 @@ export default function TaskLimitSettings() {
         setData(undefined);
         throw new Error('Please sign in with manager access.');
       }
-      if (!response.ok)
-        throw new Error(
-          'Settings are unavailable. Retry to confirm the current policy.',
-        );
+      if (!response.ok) throw new Error('Settings are unavailable. Retry to confirm the current policy.');
       const next = taskLimitSchema.parse(await response.json());
       if (!mounted.current || generation.current !== current) return;
       setData(next);
       if (rebase || !dirty.current) setError('');
-      setNotice((current) =>
-        next.status === 'EFFECTIVE' && current.startsWith('Saved.')
-          ? 'WKMS has confirmed this policy.'
-          : current,
+      setNotice(current =>
+        next.status === 'EFFECTIVE' && current.startsWith('Saved.') ? 'WKMS has confirmed this policy.' : current
       );
       if (rebase || !dirty.current) {
         setVersion(next.version);
@@ -76,12 +67,10 @@ export default function TaskLimitSettings() {
     if (locked.current || denied || accessDenied.current) return;
     const parsed = taskLimitInput.safeParse({
       limit: /^\d+$/.test(draft) ? Number(draft) : NaN,
-      version,
+      version
     });
     if (!parsed.success) {
-      setError(
-        'Enter a whole number from 1 to 10 and load a current policy version.',
-      );
+      setError('Enter a whole number from 1 to 10 and load a current policy version.');
       return;
     }
     locked.current = true;
@@ -94,7 +83,7 @@ export default function TaskLimitSettings() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsed.data),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(8000)
       });
       if (!mounted.current) return;
       if (response.status === 401 || response.status === 403) {
@@ -107,7 +96,7 @@ export default function TaskLimitSettings() {
         throw new Error(
           response.status === 409
             ? 'Policy changed. Reload the current version, review your draft and save again.'
-            : 'Save could not be confirmed. Refresh before retrying; it may already have completed.',
+            : 'Save could not be confirmed. Refresh before retrying; it may already have completed.'
         );
       const next = taskLimitSchema.parse(await response.json());
       if (!mounted.current) return;
@@ -118,13 +107,10 @@ export default function TaskLimitSettings() {
       setNotice(
         next.status === 'EFFECTIVE'
           ? 'WKMS has confirmed this policy.'
-          : 'Saved. Waiting for WKMS confirmation; the previous effective policy still applies.',
+          : 'Saved. Waiting for WKMS confirmation; the previous effective policy still applies.'
       );
     } catch (e) {
-      if (mounted.current)
-        setError(
-          e instanceof Error ? e.message : 'Save could not be confirmed.',
-        );
+      if (mounted.current) setError(e instanceof Error ? e.message : 'Save could not be confirmed.');
     } finally {
       locked.current = false;
       if (mounted.current) setSaving(false);
@@ -133,20 +119,13 @@ export default function TaskLimitSettings() {
   return (
     <main className="min-w-0 flex-1 px-4 py-6 sm:px-8">
       <h1 className="mb-6 text-[15px] font-medium text-black">Settings</h1>
-      <section
-        className="rounded-lg border border-gray-200 p-5 text-[11px]"
-        aria-labelledby="task-limit-title"
-      >
-        <h2
-          id="task-limit-title"
-          className="text-[12px] font-medium text-black"
-        >
+      <section className="rounded-lg border border-gray-200 p-5 text-[11px]" aria-labelledby="task-limit-title">
+        <h2 id="task-limit-title" className="text-[12px] font-medium text-black">
           Worker active-task limit
         </h2>
         <p className="mt-2 text-black/60">
-          Default 3; allowed range 1–10. Assigned, In Progress and Escalated
-          tasks count when assigned to a worker. Existing tasks are retained
-          when the limit is reduced.
+          Default 3; allowed range 1–10. Assigned, In Progress and Escalated tasks count when assigned to a worker.
+          Existing tasks are retained when the limit is reduced.
         </p>
         {error && (
           <p role="alert" className="mt-3">
@@ -165,12 +144,8 @@ export default function TaskLimitSettings() {
               Requested limit: {data.limit} (version {data.version})
             </p>
             <p>
-              WKMS-confirmed limit:{' '}
-              {data.effectiveLimit === null
-                ? 'Not confirmed'
-                : data.effectiveLimit}{' '}
-              {data.effectiveVersion !== null &&
-                `(version ${data.effectiveVersion})`}
+              WKMS-confirmed limit: {data.effectiveLimit === null ? 'Not confirmed' : data.effectiveLimit}{' '}
+              {data.effectiveVersion !== null && `(version ${data.effectiveVersion})`}
             </p>
             <p>
               {data.status === 'EFFECTIVE'
@@ -181,7 +156,7 @@ export default function TaskLimitSettings() {
               <p>
                 Confirmed:{' '}
                 {new Date(data.confirmedAt).toLocaleString('en-GB', {
-                  timeZone: 'Asia/Colombo',
+                  timeZone: 'Asia/Colombo'
                 })}{' '}
                 · Asia/Colombo
               </p>
@@ -189,10 +164,7 @@ export default function TaskLimitSettings() {
           </div>
         )}
         {!denied && (
-          <form
-            onSubmit={(event) => void save(event)}
-            className="mt-4 flex flex-wrap items-end gap-3"
-          >
+          <form onSubmit={event => void save(event)} className="mt-4 flex flex-wrap items-end gap-3">
             <label>
               Maximum active tasks per worker
               <input
@@ -203,18 +175,14 @@ export default function TaskLimitSettings() {
                 step={1}
                 value={draft}
                 disabled={saving || version === undefined}
-                onChange={(e) => {
+                onChange={e => {
                   dirty.current = true;
                   setDraft(e.target.value);
                 }}
                 required
               />
             </label>
-            <button
-              className={button}
-              disabled={saving || version === undefined}
-              type="submit"
-            >
+            <button className={button} disabled={saving || version === undefined} type="submit">
               {saving ? 'Saving…' : 'Save task limit'}
             </button>
           </form>

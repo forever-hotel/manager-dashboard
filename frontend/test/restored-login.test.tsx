@@ -22,10 +22,10 @@ describe('Reference login design with real authentication', () => {
     vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})));
     render(<LoginForm />);
     fireEvent.change(screen.getByLabelText('Username'), {
-      target: { value: 'manager' },
+      target: { value: 'manager' }
     });
     fireEvent.change(screen.getByLabelText('Password'), {
-      target: { value: 'test-password' },
+      target: { value: 'test-password' }
     });
     const button = screen.getByRole('button', { name: 'Sign in' });
     fireEvent.click(button);
@@ -33,59 +33,41 @@ describe('Reference login design with real authentication', () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     expect(button).toBeDisabled();
   });
-  it.each([true, false])(
-    'routes according to passwordChangeRequired=%s',
-    async (required) => {
-      vi.stubGlobal(
-        'fetch',
-        vi
-          .fn()
-          .mockResolvedValue(
-            new Response(JSON.stringify({ passwordChangeRequired: required })),
-          ),
-      );
-      render(<LoginForm next="/rooms" />);
-      fireEvent.change(screen.getByLabelText('Username'), {
-        target: { value: 'manager' },
-      });
-      fireEvent.change(screen.getByLabelText('Password'), {
-        target: { value: 'private-test-password' },
-      });
-      fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-      await waitFor(() =>
-        expect(navigate).toHaveBeenCalledWith(
-          required ? '/change-password?next=%2Frooms' : '/rooms',
-        ),
-      );
-      expect(fetch).toHaveBeenCalledWith(
-        '/api/auth/login',
-        expect.objectContaining({
-          body: JSON.stringify({
-            username: 'manager',
-            password: 'private-test-password',
-          }),
-        }),
-      );
-    },
-  );
-  it('keeps failed authentication on the login page', async () => {
+  it.each([true, false])('routes according to passwordChangeRequired=%s', async required => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(new Response('{}', { status: 401 })),
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ passwordChangeRequired: required })))
     );
-    render(<LoginForm />);
+    render(<LoginForm next="/rooms" />);
     fireEvent.change(screen.getByLabelText('Username'), {
-      target: { value: 'manager' },
+      target: { value: 'manager' }
     });
     fireEvent.change(screen.getByLabelText('Password'), {
-      target: { value: 'wrong' },
+      target: { value: 'private-test-password' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(
-      await screen.findByText(
-        'Unable to sign in. Check your username and password.',
-      ),
-    ).toBeVisible();
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith(required ? '/change-password?next=%2Frooms' : '/rooms'));
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/auth/login',
+      expect.objectContaining({
+        body: JSON.stringify({
+          username: 'manager',
+          password: 'private-test-password'
+        })
+      })
+    );
+  });
+  it('keeps failed authentication on the login page', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 401 })));
+    render(<LoginForm />);
+    fireEvent.change(screen.getByLabelText('Username'), {
+      target: { value: 'manager' }
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'wrong' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByText('Unable to sign in. Check your username and password.')).toBeVisible();
     expect(navigate).not.toHaveBeenCalled();
   });
 });

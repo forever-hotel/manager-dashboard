@@ -20,10 +20,6 @@ export class MadManagerAuth1790726400000 implements MigrationInterface {
     `);
   }
   down(): Promise<void> {
-    return Promise.reject(
-      new Error(
-        'Destructive rollback is disabled; use a reviewed forward migration.',
-      ),
-    );
+    return Promise.reject(new Error('Destructive rollback is disabled; use a reviewed forward migration.'));
   }
 }

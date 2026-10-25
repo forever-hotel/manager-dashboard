@@ -10,7 +10,7 @@ export const REPORT_TYPES = [
   'food-orders',
   'service-requests',
   'occupancy',
-  'low-booking-alerts',
+  'low-booking-alerts'
 ] as const;
 export type ReportType = (typeof REPORT_TYPES)[number];
 export interface ReportQuery {
@@ -20,39 +20,21 @@ export interface ReportQuery {
   from?: string;
   to?: string;
 }
-export function parseReportQuery(
-  type: string,
-  raw: Record<string, unknown>,
-): ReportQuery {
+export function parseReportQuery(type: string, raw: Record<string, unknown>): ReportQuery {
   const fail = () => {
-    throw new BadRequestException(
-      'Use a supported report type, format and its documented filters.',
-    );
+    throw new BadRequestException('Use a supported report type, format and its documented filters.');
   };
   if (!REPORT_TYPES.includes(type as ReportType)) return fail();
   const allowed = [
     'format',
-    ...(type === 'occupancy'
-      ? ['from', 'to']
-      : type === 'low-booking-alerts'
-        ? []
-        : ['period']),
-    ...(['staff', 'worker-performance'].includes(type) ? ['workerId'] : []),
+    ...(type === 'occupancy' ? ['from', 'to'] : type === 'low-booking-alerts' ? [] : ['period']),
+    ...(['staff', 'worker-performance'].includes(type) ? ['workerId'] : [])
   ];
-  if (
-    Object.keys(raw).some(
-      (key) => !allowed.includes(key) || typeof raw[key] !== 'string',
-    )
-  )
-    return fail();
+  if (Object.keys(raw).some(key => !allowed.includes(key) || typeof raw[key] !== 'string')) return fail();
   if (raw.format !== 'csv' && raw.format !== 'pdf') return fail();
   const period = raw.period ?? 'day';
   if (!['day', 'week', 'month'].includes(period as string)) return fail();
-  if (
-    raw.workerId !== undefined &&
-    (typeof raw.workerId !== 'string' || !isUUID(raw.workerId))
-  )
-    return fail();
+  if (raw.workerId !== undefined && (typeof raw.workerId !== 'string' || !isUUID(raw.workerId))) return fail();
   if (
     type === 'occupancy' &&
     (!isCalendarDate(raw.from) ||
@@ -66,6 +48,6 @@ export function parseReportQuery(
     period: period as BookingPeriod,
     workerId: raw.workerId,
     from: raw.from as string | undefined,
-    to: raw.to as string | undefined,
+    to: raw.to as string | undefined
   };
 }

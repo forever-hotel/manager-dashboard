@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  Res,
-  StreamableFile,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query, Res, StreamableFile, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { parseReportQuery, ReportType } from './report-query';
@@ -18,7 +10,7 @@ export class ReportsController {
   @Get(':type') async download(
     @Param('type') type: string,
     @Query() raw: Record<string, unknown>,
-    @Res({ passthrough: true }) response: Response,
+    @Res({ passthrough: true }) response: Response
   ) {
     const query = parseReportQuery(type, raw);
     const result = await this.reports.download(type as ReportType, query);
@@ -27,7 +19,7 @@ export class ReportsController {
     return new StreamableFile(result.buffer, {
       type: result.contentType,
       disposition: `attachment; filename="${result.filename}"`,
-      length: result.buffer.length,
+      length: result.buffer.length
     });
   }
 }

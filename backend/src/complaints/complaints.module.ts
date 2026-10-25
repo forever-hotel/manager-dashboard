@@ -6,9 +6,6 @@ import { COMPLAINT_CLOCK, ComplaintsService } from './complaints.service';
 @Module({
   imports: [AuthModule],
   controllers: [ComplaintsController],
-  providers: [
-    ComplaintsService,
-    { provide: COMPLAINT_CLOCK, useValue: () => new Date() },
-  ],
+  providers: [ComplaintsService, { provide: COMPLAINT_CLOCK, useValue: () => new Date() }]
 })
 export class ComplaintsModule {}

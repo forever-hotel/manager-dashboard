@@ -2,7 +2,7 @@ import PromotionsDashboard from '@/components/PromotionsDashboard';
 import { promotionDates } from '@/lib/low-demand';
 
 export default async function PromotionsPage({
-  searchParams,
+  searchParams
 }: {
   searchParams: Promise<{ lowDemandDate?: string | string[] }>;
 }) {
@@ -10,10 +10,7 @@ export default async function PromotionsPage({
   return (
     <PromotionsDashboard
       initialDate={
-        typeof query.lowDemandDate === 'string' &&
-        promotionDates(query.lowDemandDate)
-          ? query.lowDemandDate
-          : undefined
+        typeof query.lowDemandDate === 'string' && promotionDates(query.lowDemandDate) ? query.lowDemandDate : undefined
       }
     />
   );

@@ -14,7 +14,6 @@ describe('Local password storage', () => {
   });
   it('accepts long passphrases and rejects weak lengths or whitespace', () => {
     expect(validPassword('a long passphrase')).toBe(true);
-    for (const password of ['short', ' '.repeat(12), 'x'.repeat(1025)])
-      expect(validPassword(password)).toBe(false);
+    for (const password of ['short', ' '.repeat(12), 'x'.repeat(1025)]) expect(validPassword(password)).toBe(false);
   });
 });

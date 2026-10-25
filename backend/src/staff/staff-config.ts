@@ -8,13 +8,9 @@ export function validateStaffConfig(env: Record<string, unknown>) {
   if (
     key !== undefined &&
     key !== '' &&
-    (typeof key !== 'string' ||
-      !/^[A-Za-z0-9+/]{43}=$/.test(key) ||
-      Buffer.from(key, 'base64').length !== 32)
+    (typeof key !== 'string' || !/^[A-Za-z0-9+/]{43}=$/.test(key) || Buffer.from(key, 'base64').length !== 32)
   )
-    throw new Error(
-      'Configuration: STAFF_CREDENTIALS_KEY must be a base64-encoded 32-byte key',
-    );
+    throw new Error('Configuration: STAFF_CREDENTIALS_KEY must be a base64-encoded 32-byte key');
   if (
     enabled === 'true' &&
     (!key ||
@@ -24,11 +20,9 @@ export function validateStaffConfig(env: Record<string, unknown>) {
       !isEmail(env.SENDGRID_FROM_EMAIL))
   )
     throw new Error(
-      'Configuration: enabled staff email requires STAFF_CREDENTIALS_KEY, SENDGRID_API_KEY and a verified SENDGRID_FROM_EMAIL',
+      'Configuration: enabled staff email requires STAFF_CREDENTIALS_KEY, SENDGRID_API_KEY and a verified SENDGRID_FROM_EMAIL'
     );
   // Profile/credential SQL parameters must never enter the application log.
   if (env.DB_LOGGING === 'true')
-    throw new Error(
-      'Configuration: DB_LOGGING must be false to protect staff credentials and personal data',
-    );
+    throw new Error('Configuration: DB_LOGGING must be false to protect staff credentials and personal data');
 }

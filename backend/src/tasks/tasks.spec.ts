@@ -5,10 +5,7 @@ import { validate } from 'class-validator';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
 import { TasksQueryDto } from './tasks-query.dto';
-import {
-  parseTaskEvent,
-  TaskEventsConsumer,
-} from '../realtime/task-events.consumer';
+import { parseTaskEvent, TaskEventsConsumer } from '../realtime/task-events.consumer';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 const id = '67f4568c-89ab-4c12-b321-123456789012';
 const task = {
@@ -21,47 +18,33 @@ const task = {
   submittedAt: '2026-10-20T00:00:00Z',
   updatedAt: '2026-10-20T00:00:00Z',
   completedAt: null,
-  version: Date.parse('2026-10-20T00:00:00Z') * 1000,
+  version: Date.parse('2026-10-20T00:00:00Z') * 1000
 };
 const event = {
   eventId: id,
   taskId: id,
   type: 'task.changed' as const,
   version: 2,
-  occurredAt: task.updatedAt,
+  occurredAt: task.updatedAt
 };
 describe('DDP-042 task snapshots', () => {
   it('maps read-only snapshots, filters, pagination and the single-task source lookup', async () => {
-    const query = jest
-      .fn()
-      .mockResolvedValue([{ queried_at: new Date(), total: 1, tasks: [task] }]);
+    const query = jest.fn().mockResolvedValue([{ queried_at: new Date(), total: 1, tasks: [task] }]);
     const service = new TasksService({ query } as unknown as DataSource);
     const dto = Object.assign(new TasksQueryDto(), {
       status: 'UNASSIGNED',
       page: 1,
-      pageSize: 10,
+      pageSize: 10
     });
     expect(await new TasksController(service).list(dto)).toMatchObject({
       tasks: [task],
       source: 'WKMS',
       readOnly: true,
-      page: 1,
+      page: 1
     });
-    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('SELECT'), [
-      'UNASSIGNED',
-      null,
-      10,
-      0,
-      null,
-    ]);
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('SELECT'), ['UNASSIGNED', null, 10, 0, null]);
     expect(await service.find(id)).toEqual(task);
-    expect(query).toHaveBeenLastCalledWith(expect.any(String), [
-      null,
-      null,
-      20,
-      0,
-      id,
-    ]);
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), [null, null, 20, 0, id]);
     expect(() => new TasksController(service).denyMutation()).toThrow();
   });
   it('accepts completed tasks and empty sources; rejects malformed sources without disclosing SQL', async () => {
@@ -75,16 +58,12 @@ describe('DDP-042 task snapshots', () => {
           ...task,
           status: 'COMPLETED',
           completedAt: task.updatedAt,
-          assignee: { id, name: 'Worker' },
-        },
-      ],
+          assignee: { id, name: 'Worker' }
+        }
+      ]
     ]) {
-      query.mockResolvedValueOnce([
-        { queried_at: new Date(), total: tasks.length, tasks },
-      ]);
-      expect((await service.snapshot(new TasksQueryDto())).tasks).toEqual(
-        tasks,
-      );
+      query.mockResolvedValueOnce([{ queried_at: new Date(), total: tasks.length, tasks }]);
+      expect((await service.snapshot(new TasksQueryDto())).tasks).toEqual(tasks);
     }
     for (const rows of [
       [],
@@ -110,19 +89,15 @@ describe('DDP-042 task snapshots', () => {
         { submittedAt: 'bad' },
         { status: 'COMPLETED' },
         { status: 'COMPLETED', completedAt: 'bad' },
-        { completedAt: task.updatedAt },
-      ].map((patch) => [
-        { queried_at: new Date(), total: 1, tasks: [{ ...task, ...patch }] },
-      ]),
+        { completedAt: task.updatedAt }
+      ].map(patch => [{ queried_at: new Date(), total: 1, tasks: [{ ...task, ...patch }] }])
     ]) {
       query.mockResolvedValueOnce(rows);
-      await expect(service.snapshot(new TasksQueryDto())).rejects.toMatchObject(
-        { status: 503 },
-      );
+      await expect(service.snapshot(new TasksQueryDto())).rejects.toMatchObject({ status: 503 });
     }
     query.mockRejectedValue(new Error('private SQL'));
     await expect(service.snapshot(new TasksQueryDto())).rejects.toMatchObject({
-      status: 503,
+      status: 503
     });
   });
   it('validates states, worker UUID and bounded paging', async () => {
@@ -139,15 +114,15 @@ describe('DDP-042 task snapshots', () => {
       { page: '0x10' },
       { pageSize: '1.0' },
       { page: ['1', '2'] },
-      { extra: 1 },
+      { extra: 1 }
     ]) {
       expect(
         (
           await validate(plainToInstance(TasksQueryDto, raw), {
             whitelist: true,
-            forbidNonWhitelisted: true,
+            forbidNonWhitelisted: true
           })
-        ).length,
+        ).length
       ).toBeGreaterThan(0);
     }
   });
@@ -157,44 +132,34 @@ describe('DDP-042 task snapshots', () => {
     const row = {
       queried_at: new Date('2026-10-20T01:00:00Z'),
       total: 1,
-      tasks: [task],
+      tasks: [task]
     };
-    query.mockResolvedValueOnce([
-      { ...row, tasks: [{ ...task, password: 'private' }] },
-    ]);
+    query.mockResolvedValueOnce([{ ...row, tasks: [{ ...task, password: 'private' }] }]);
     expect((await service.snapshot(new TasksQueryDto())).tasks).toEqual([task]);
     for (const source of [
       { ...row, tasks: [] },
       { ...row, total: 2, tasks: [task, task] },
       { ...row, queried_at: new Date('invalid') },
       { ...row, tasks: [null] },
-      { ...row, tasks: [{ ...task, assignee: { id, name: ' ' } }] },
+      { ...row, tasks: [{ ...task, assignee: { id, name: ' ' } }] }
     ]) {
       query.mockResolvedValueOnce([source]);
-      await expect(service.snapshot(new TasksQueryDto())).rejects.toMatchObject(
-        { status: 503 },
-      );
+      await expect(service.snapshot(new TasksQueryDto())).rejects.toMatchObject({ status: 503 });
     }
     for (const filter of [{ status: 'ASSIGNED' }, { worker: id }]) {
       query.mockResolvedValueOnce([row]);
-      await expect(
-        service.snapshot(Object.assign(new TasksQueryDto(), filter)),
-      ).rejects.toMatchObject({ status: 503 });
+      await expect(service.snapshot(Object.assign(new TasksQueryDto(), filter))).rejects.toMatchObject({ status: 503 });
     }
     query.mockResolvedValueOnce([row]);
-    await expect(
-      service.find('77f4568c-89ab-4c12-b321-123456789012'),
-    ).rejects.toMatchObject({ status: 503 });
+    await expect(service.find('77f4568c-89ab-4c12-b321-123456789012')).rejects.toMatchObject({ status: 503 });
     query.mockResolvedValueOnce([{ ...row, tasks: [] }]);
     expect(await service.snapshot({ page: 2, pageSize: 20 })).toMatchObject({
       total: 1,
-      tasks: [],
+      tasks: []
     });
   });
   it('validates event envelopes and strips producer task data', () => {
-    expect(parseTaskEvent({ ...event, task: { secret: 'hidden' } })).toEqual(
-      event,
-    );
+    expect(parseTaskEvent({ ...event, task: { secret: 'hidden' } })).toEqual(event);
     for (const raw of [
       null,
       'bad',
@@ -208,33 +173,30 @@ describe('DDP-042 task snapshots', () => {
         { version: -1 },
         { occurredAt: 3 },
         { occurredAt: 'bad' },
-        { occurredAt: '2026-10-20T00:00:00' },
-      ].map((patch) => ({ ...event, ...patch })),
+        { occurredAt: '2026-10-20T00:00:00' }
+      ].map(patch => ({ ...event, ...patch }))
     ])
       expect(() => parseTaskEvent(raw)).toThrow();
   });
   it('persists authoritative versions once and refuses missing or behind source data', async () => {
     const query = jest.fn().mockResolvedValue([]);
-    const transaction = jest.fn(
-      async (work: (m: { query: typeof query }) => Promise<void>) =>
-        work({ query }),
-    );
+    const transaction = jest.fn(async (work: (m: { query: typeof query }) => Promise<void>) => work({ query }));
     const find = jest.fn().mockResolvedValue(task);
     const consumer = new TaskEventsConsumer(
       new ConfigService(),
       { transaction } as unknown as DataSource,
       {} as RealtimeGateway,
-      { find } as unknown as TasksService,
+      { find } as unknown as TasksService
     );
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: false }])
       .mockResolvedValueOnce([]);
     await consumer.accept(event);
-    expect(query).toHaveBeenLastCalledWith(
-      expect.stringContaining('INSERT INTO mad_task_versions'),
-      [id, task.version],
-    );
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('INSERT INTO mad_task_versions'), [
+      id,
+      task.version
+    ]);
     query
       .mockClear()
       .mockResolvedValueOnce([])
@@ -249,34 +211,24 @@ describe('DDP-042 task snapshots', () => {
     await consumer.accept(event);
     expect(query).toHaveBeenLastCalledWith(
       expect.stringContaining('INSERT INTO mad_task_events'),
-      expect.arrayContaining([true]),
+      expect.arrayContaining([true])
     );
-    find
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({ ...task, version: 1 });
+    find.mockResolvedValueOnce(undefined).mockResolvedValueOnce({ ...task, version: 1 });
     await expect(consumer.accept(event)).rejects.toThrow();
     await expect(consumer.accept(event)).rejects.toThrow();
   });
   it('keeps pending delivery on socket failure and marks only successful publication', async () => {
-    const query = jest
-      .fn()
-      .mockResolvedValue([{ event_id: id, payload: event }]);
-    const publishTask = jest
-      .fn()
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValue(undefined);
+    const query = jest.fn().mockResolvedValue([{ event_id: id, payload: event }]);
+    const publishTask = jest.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined);
     const consumer = new TaskEventsConsumer(
       new ConfigService(),
       { query } as unknown as DataSource,
       { publishTask } as unknown as RealtimeGateway,
-      {} as TasksService,
+      {} as TasksService
     );
     await expect(consumer.dispatch()).rejects.toThrow();
     expect(query).toHaveBeenCalledTimes(1);
     await consumer.dispatch();
-    expect(query).toHaveBeenLastCalledWith(
-      expect.stringContaining('UPDATE mad_task_events'),
-      [id],
-    );
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('UPDATE mad_task_events'), [id]);
   });
 });

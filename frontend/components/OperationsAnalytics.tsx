@@ -1,36 +1,22 @@
 'use client';
 import { useState } from 'react';
 import { type Period } from '@/lib/analytics';
-import {
-  foodSchema,
-  serviceSchema,
-  localBoundary,
-} from '@/lib/operations-analytics';
+import { foodSchema, serviceSchema, localBoundary } from '@/lib/operations-analytics';
 import { useAnalyticsSnapshot } from './useAnalyticsSnapshot';
-import {
-  AnalyticsClock,
-  PeriodButtons,
-  AnalyticsFailure,
-  MetricCard,
-  DataTable,
-} from './AnalyticsControls';
+import { AnalyticsClock, PeriodButtons, AnalyticsFailure, MetricCard, DataTable } from './AnalyticsControls';
 import ReportDownload from './ReportDownload';
 import KitchenQueue from './KitchenQueue';
-export default function OperationsAnalytics({
-  type,
-}: {
-  type: 'food-orders' | 'service-requests';
-}) {
+export default function OperationsAnalytics({ type }: { type: 'food-orders' | 'service-requests' }) {
   const [period, setPeriod] = useState<Period>('week');
   const food = useAnalyticsSnapshot(
     '/api/analytics/operations/food-orders?period=' + period,
     foodSchema,
-    type === 'food-orders',
+    type === 'food-orders'
   );
   const service = useAnalyticsSnapshot(
     '/api/analytics/operations/service-requests?period=' + period,
     serviceSchema,
-    type === 'service-requests',
+    type === 'service-requests'
   );
   const data = type === 'food-orders' ? food.data : service.data;
   const state = type === 'food-orders' ? food : service;
@@ -49,20 +35,13 @@ export default function OperationsAnalytics({
       ) : (
         <>
           <p className="text-[10.5px] text-black/60 mb-3">
-            {localBoundary(data.start)} to {localBoundary(data.end)} (exclusive
-            end). Asia/Colombo.
+            {localBoundary(data.start)} to {localBoundary(data.end)} (exclusive end). Asia/Colombo.
           </p>
           <section className="mb-6">
-            <h2 className="font-medium text-[12px] underline text-black mb-3">
-              {title} analytics
-            </h2>
+            <h2 className="font-medium text-[12px] underline text-black mb-3">{title} analytics</h2>
             <div className="grid grid-cols-4 gap-4">
               <MetricCard
-                label={
-                  type === 'food-orders'
-                    ? 'Orders placed'
-                    : 'Requests submitted'
-                }
+                label={type === 'food-orders' ? 'Orders placed' : 'Requests submitted'}
                 value={String(data.total)}
               />
               {type === 'food-orders' && food.data ? (
@@ -71,17 +50,12 @@ export default function OperationsAnalytics({
                     label="Peak hours"
                     value={
                       food.data.peakHours.length
-                        ? food.data.peakHours
-                            .map((h) => String(h).padStart(2, '0') + ':00')
-                            .join(', ')
+                        ? food.data.peakHours.map(h => String(h).padStart(2, '0') + ':00').join(', ')
                         : 'N/A'
                     }
                     note="Hotel-local placement hour"
                   />
-                  <MetricCard
-                    label="Most popular item"
-                    value={food.data.popularItems[0]?.name ?? 'N/A'}
-                  />
+                  <MetricCard label="Most popular item" value={food.data.popularItems[0]?.name ?? 'N/A'} />
                   <MetricCard
                     label="Popular items listed"
                     value={String(food.data.popularItems.length)}
@@ -90,10 +64,7 @@ export default function OperationsAnalytics({
                 </>
               ) : service.data ? (
                 <>
-                  <MetricCard
-                    label="Completed requests"
-                    value={String(service.data.resolution.completedCount)}
-                  />
+                  <MetricCard label="Completed requests" value={String(service.data.resolution.completedCount)} />
                   <MetricCard
                     label="Average resolution time"
                     value={
@@ -128,17 +99,14 @@ export default function OperationsAnalytics({
               <DataTable
                 caption="Top ordered items"
                 headings={['Item', 'Quantity']}
-                rows={food.data.popularItems.map((i) => [i.name, i.quantity])}
+                rows={food.data.popularItems.map(i => [i.name, i.quantity])}
               />
             </section>
             <section className="col-span-3 border border-gray-200 rounded-lg p-4">
               <DataTable
                 caption="Orders by placement hour (Asia/Colombo)"
                 headings={['Local hour', 'Orders']}
-                rows={food.data.hours.map((h) => [
-                  String(h.hour).padStart(2, '0') + ':00',
-                  h.count,
-                ])}
+                rows={food.data.hours.map(h => [String(h.hour).padStart(2, '0') + ':00', h.count])}
               />
             </section>
           </>
@@ -148,16 +116,12 @@ export default function OperationsAnalytics({
               <DataTable
                 caption="Requests created by current status"
                 headings={['Status', 'Requests']}
-                rows={service.data.byStatus.map((s) => [
-                  s.status.replaceAll('_', ' '),
-                  s.count,
-                ])}
+                rows={service.data.byStatus.map(s => [s.status.replaceAll('_', ' '), s.count])}
               />
               <p className="text-[10px] mt-3">
-                Average excludes {service.data.resolution.excludedCount}{' '}
-                completed requests with invalid durations. Data quality:{' '}
-                {service.data.dataQuality.status}. Resolution uses completions
-                in the period; backlog includes all current unresolved dates.
+                Average excludes {service.data.resolution.excludedCount} completed requests with invalid durations. Data
+                quality: {service.data.dataQuality.status}. Resolution uses completions in the period; backlog includes
+                all current unresolved dates.
               </p>
             </section>
           </>
@@ -167,15 +131,14 @@ export default function OperationsAnalytics({
             <DataTable
               caption="Daily demand"
               headings={['Hotel date', 'Created count']}
-              rows={data.trend.map((d) => [d.date, d.count])}
+              rows={data.trend.map(d => [d.date, d.count])}
             />
           </section>
         )}
       </div>
       {data && (
         <p className="text-[10px] text-black/60">
-          Retrieved: {data.freshness.queriedAt}; source update:{' '}
-          {data.freshness.sourceLatestUpdatedAt ?? 'Unavailable'}.
+          Retrieved: {data.freshness.queriedAt}; source update: {data.freshness.sourceLatestUpdatedAt ?? 'Unavailable'}.
         </p>
       )}
     </main>

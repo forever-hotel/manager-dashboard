@@ -7,7 +7,7 @@ import {
   KitchenVersions,
   kitchenEventSchema,
   kitchenLabels,
-  kitchenSnapshotSchema,
+  kitchenSnapshotSchema
 } from '@/lib/kitchen';
 
 export default function KitchenQueue() {
@@ -34,11 +34,7 @@ export default function KitchenQueue() {
         socket?.removeAllListeners();
         socket?.disconnect();
         setSnapshot(null);
-        setMessage(
-          status === 401
-            ? 'Please sign in again.'
-            : 'Manager access is required.',
-        );
+        setMessage(status === 401 ? 'Please sign in again.' : 'Manager access is required.');
         return true;
       }
       return false;
@@ -51,14 +47,11 @@ export default function KitchenQueue() {
       }
       loading = true;
       try {
-        const response = await fetch(
-          '/api/kitchen/orders?page=' + page + '&pageSize=100',
-          {
-            cache: 'no-store',
-            credentials: 'same-origin',
-            signal: controller.signal,
-          },
-        );
+        const response = await fetch('/api/kitchen/orders?page=' + page + '&pageSize=100', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+          signal: controller.signal
+        });
         if (stopped || authFailed) return;
         if (failure(response.status)) return;
         if (!response.ok) throw new Error();
@@ -70,11 +63,10 @@ export default function KitchenQueue() {
             ? ''
             : exhausted
               ? 'Live updates offline after five attempts. Retry to reconnect.'
-              : 'Live updates unavailable. Showing the last snapshot.',
+              : 'Live updates unavailable. Showing the last snapshot.'
         );
       } catch {
-        if (!stopped && !authFailed)
-          setMessage('Kitchen data is stale or unavailable. Retry to refresh.');
+        if (!stopped && !authFailed) setMessage('Kitchen data is stale or unavailable. Retry to refresh.');
       } finally {
         loading = false;
         if (dirty && !stopped && !authFailed) {
@@ -89,9 +81,7 @@ export default function KitchenQueue() {
       setMessage('Kitchen data may be stale. Reconnecting...');
       if (attempt >= 5) {
         exhausted = true;
-        setMessage(
-          'Live updates offline after five attempts. Retry to reconnect.',
-        );
+        setMessage('Live updates offline after five attempts. Retry to reconnect.');
         return;
       }
       timer = setTimeout(
@@ -99,7 +89,7 @@ export default function KitchenQueue() {
           timer = undefined;
           void connect();
         },
-        Math.min(1000 * 2 ** attempt, 16000),
+        Math.min(1000 * 2 ** attempt, 16000)
       );
       attempt++;
     }
@@ -111,7 +101,7 @@ export default function KitchenQueue() {
         const response = await fetch('/api/kitchen/ticket', {
           method: 'POST',
           credentials: 'same-origin',
-          signal: controller.signal,
+          signal: controller.signal
         });
         if (stopped || authFailed || failure(response.status)) return;
         if (!response.ok) throw new Error();
@@ -125,7 +115,7 @@ export default function KitchenQueue() {
           transports: ['websocket'],
           auth: { ticket: data.ticket },
           reconnection: false,
-          timeout: 7000,
+          timeout: 7000
         });
         socket.on('connect', () => {
           attempt = 0;
@@ -133,14 +123,10 @@ export default function KitchenQueue() {
           void refresh();
         });
         socket.on('transport.status', (data: unknown) => {
-          const next =
-            typeof data === 'object' &&
-            data !== null &&
-            (data as { healthy?: unknown }).healthy === true;
+          const next = typeof data === 'object' && data !== null && (data as { healthy?: unknown }).healthy === true;
           const changed = healthy !== next;
           healthy = next;
-          if (!healthy)
-            setMessage('Live updates unavailable. Showing the last snapshot.');
+          if (!healthy) setMessage('Live updates unavailable. Showing the last snapshot.');
           if (changed) void refresh();
         });
         socket.on('kitchen.order.changed', (raw: unknown) => {
@@ -176,65 +162,43 @@ export default function KitchenQueue() {
   const group = (status: KitchenStatus) => (
     <div key={status} aria-label={kitchenLabels[status]}>
       <div className="flex items-center justify-between mb-2">
-        <span className="font-medium text-[10px] text-black">
-          {kitchenLabels[status]}
-        </span>
+        <span className="font-medium text-[10px] text-black">{kitchenLabels[status]}</span>
         <span className="font-medium text-[9.5px] text-black bg-white border border-gray-200 rounded-full w-5 h-5 flex items-center justify-center">
           {snapshot ? snapshot.counts[status] : '—'}
         </span>
       </div>
       <div className="space-y-2">
         {snapshot?.orders
-          .filter((o) => o.status === status)
-          .map((order) => (
-            <div
-              key={order.id}
-              className="bg-white rounded-md p-2.5 border border-gray-100"
-            >
-              <div className="font-medium text-[10.5px] text-black">
-                Room {order.roomNumber}
-              </div>
+          .filter(o => o.status === status)
+          .map(order => (
+            <div key={order.id} className="bg-white rounded-md p-2.5 border border-gray-100">
+              <div className="font-medium text-[10.5px] text-black">Room {order.roomNumber}</div>
               <div className="font-normal text-[9px] text-black/60">
                 {order.mealPeriod} · {order.itemCount} items
               </div>
-              <div className="font-normal text-[9px] text-black/60">
-                Order {order.id}
-              </div>
+              <div className="font-normal text-[9px] text-black/60">Order {order.id}</div>
             </div>
           ))}
-        {snapshot && !snapshot.orders.some((o) => o.status === status) && (
-          <p className="font-normal text-[9px] text-black/60">
-            No orders on this page.
-          </p>
+        {snapshot && !snapshot.orders.some(o => o.status === status) && (
+          <p className="font-normal text-[9px] text-black/60">No orders on this page.</p>
         )}
       </div>
     </div>
   );
   return (
     <section className="col-span-2 border border-gray-200 rounded-lg p-4">
-      <h2 className="font-medium text-[11.5px] text-black mb-3">
-        Kitchen queue (live)
-      </h2>
+      <h2 className="font-medium text-[11.5px] text-black mb-3">Kitchen queue (live)</h2>
       {message && (
-        <div
-          role="status"
-          className="font-normal text-[9.5px] text-black/60 mb-3"
-        >
+        <div role="status" className="font-normal text-[9.5px] text-black/60 mb-3">
           {message}{' '}
-          <button
-            type="button"
-            className="underline"
-            onClick={() => setRetry((n) => n + 1)}
-          >
+          <button type="button" className="underline" onClick={() => setRetry(n => n + 1)}>
             Retry
           </button>
         </div>
       )}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-gray-50 rounded-md p-3">{group('PLACED')}</div>
-        <div className="bg-gray-50 rounded-md p-3">
-          {group('IN_PREPARATION')}
-        </div>
+        <div className="bg-gray-50 rounded-md p-3">{group('IN_PREPARATION')}</div>
         <div className="bg-gray-50 rounded-md p-3 space-y-3">
           {group('READY')}
           {group('DELIVERED')}
@@ -242,21 +206,15 @@ export default function KitchenQueue() {
       </div>
       {snapshot && (
         <div className="font-normal text-[9px] text-black/60 mt-3">
-          Delivered: today (Asia/Colombo). Page {page} of{' '}
-          {Math.max(1, Math.ceil(snapshot.total / 100))}.{' '}
-          <button
-            type="button"
-            className="underline"
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
+          Delivered: today (Asia/Colombo). Page {page} of {Math.max(1, Math.ceil(snapshot.total / 100))}.{' '}
+          <button type="button" className="underline" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
             Previous
           </button>{' '}
           <button
             type="button"
             className="underline"
             disabled={page * 100 >= snapshot.total}
-            onClick={() => setPage((p) => p + 1)}
+            onClick={() => setPage(p => p + 1)}
           >
             Next
           </button>

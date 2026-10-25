@@ -4,11 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { DataSource } from 'typeorm';
 import { hashPassword } from '../src/auth/password';
 
-export async function seedLocalAuth(
-  database: DataSource,
-  secret: string,
-  role: string,
-) {
+export async function seedLocalAuth(database: DataSource, secret: string, role: string) {
   if (!/^[a-z_][a-z0-9_]*$/.test(role)) throw new Error('Invalid fixture role');
   await database.query(`CREATE TABLE IF NOT EXISTS staff_users (worker_id uuid PRIMARY KEY, password_hash text);
     ALTER TABLE staff_users ALTER COLUMN worker_id SET DEFAULT gen_random_uuid();
@@ -34,13 +30,7 @@ export async function seedLocalAuth(
     ids.set(username, id);
     await database.query(
       'INSERT INTO staff_users(worker_id,username,password_hash,password_change_required,role) VALUES ($1,$2,$3,$4,$5)',
-      [
-        id,
-        username,
-        passwordHash,
-        username === 'first-login',
-        username === 'worker' ? 'WORKER' : 'MANAGER',
-      ],
+      [id, username, passwordHash, username === 'first-login', username === 'worker' ? 'WORKER' : 'MANAGER']
     );
   }
   return {
@@ -53,10 +43,10 @@ export async function seedLocalAuth(
           sub,
           role: username === 'worker' ? 'WORKER' : 'MANAGER',
           ver: 0,
-          jti: randomUUID(),
+          jti: randomUUID()
         },
-        { issuer: 'mad', audience: 'mad', expiresIn: '8h' },
+        { issuer: 'mad', audience: 'mad', expiresIn: '8h' }
       );
-    },
+    }
   };
 }

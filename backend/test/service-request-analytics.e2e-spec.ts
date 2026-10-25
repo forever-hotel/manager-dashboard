@@ -27,22 +27,16 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
     if (!url || !new URL(url).pathname.includes('test'))
-      throw new Error(
-        'TEST_DATABASE_URL must identify a disposable test database',
-      );
+      throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
     await admin.initialize();
     await admin.query(`CREATE DATABASE "${name}"`);
-    await admin.query(
-      `CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`,
-    );
+    await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
-    await database.query(
-      'CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)',
-    );
+    await database.query('CREATE TABLE staff_users(worker_id uuid PRIMARY KEY,password_hash text)');
     await database.query(readSchemaSection('auth'));
     // Deliberately allow timestamp inconsistencies to exercise corrupt legacy data.
     await database.query(`CREATE TYPE service_request_status AS ENUM ('SUBMITTED','ASSIGNED','IN_PROGRESS','COMPLETED');
@@ -62,22 +56,19 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
               JWT_SECRET: secret,
               JWT_ISSUER: 'mad',
               INITIAL_MANAGER_EMAIL: '',
-              INITIAL_MANAGER_PASSWORD: '',
-            }),
-          ],
+              INITIAL_MANAGER_PASSWORD: ''
+            })
+          ]
         }),
         TypeOrmModule.forRoot({
           type: 'postgres',
           url: owner.toString(),
-          synchronize: false,
+          synchronize: false
         }),
-        AuthModule,
+        AuthModule
       ],
       controllers: [ServiceRequestAnalyticsController],
-      providers: [
-        ServiceRequestAnalyticsService,
-        { provide: BOOKING_CLOCK, useValue: () => clock },
-      ],
+      providers: [ServiceRequestAnalyticsService, { provide: BOOKING_CLOCK, useValue: () => clock }]
     }).compile();
     app = module.createNestApplication();
     configureHttp(app);
@@ -96,50 +87,34 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
       await admin.destroy();
     }
   });
-  function get(
-    query = 'period=day',
-    token: string | null = provider.issue('manager'),
-  ) {
-    const req = request(app.getHttpServer()).get(
-      '/mad/analytics/service-requests?' + query,
-    );
+  function get(query = 'period=day', token: string | null = provider.issue('manager')) {
+    const req = request(app.getHttpServer()).get('/mad/analytics/service-requests?' + query);
     if (token) req.set('Authorization', 'Bearer ' + token);
     return req;
   }
-  async function add(
-    status: string,
-    submitted: string,
-    completed: string | null = null,
-  ) {
-    await database.query(
-      'INSERT INTO foss_service_requests VALUES ($1,$2,$3,$4,$3)',
-      [randomUUID(), status, submitted, completed],
-    );
+  async function add(status: string, submitted: string, completed: string | null = null) {
+    await database.query('INSERT INTO foss_service_requests VALUES ($1,$2,$3,$4,$3)', [
+      randomUUID(),
+      status,
+      submitted,
+      completed
+    ]);
   }
   it('TC-MAD-024-AC1: distinguishes submitted cohort, completion cohort and all-date backlog', async () => {
-    for (const state of ['SUBMITTED', 'ASSIGNED', 'IN_PROGRESS'])
-      await add(state, '2026-10-19T08:00:00+05:30');
-    await add(
-      'COMPLETED',
-      '2026-10-19T08:00:00+05:30',
-      '2026-10-19T09:00:00+05:30',
-    );
-    await add(
-      'COMPLETED',
-      '2026-10-18T23:00:00+05:30',
-      '2026-10-19T01:00:00+05:30',
-    );
+    for (const state of ['SUBMITTED', 'ASSIGNED', 'IN_PROGRESS']) await add(state, '2026-10-19T08:00:00+05:30');
+    await add('COMPLETED', '2026-10-19T08:00:00+05:30', '2026-10-19T09:00:00+05:30');
+    await add('COMPLETED', '2026-10-18T23:00:00+05:30', '2026-10-19T01:00:00+05:30');
     await add('ASSIGNED', '2026-09-01T08:00:00+05:30');
     await add('SUBMITTED', '2026-10-20T08:00:00+05:30');
     const response = await get().expect(200);
     const body = response.body as Summary;
     expect(body.total).toBe(4);
-    expect(body.byStatus.map((b) => b.count)).toEqual([1, 1, 1, 1]);
+    expect(body.byStatus.map(b => b.count)).toEqual([1, 1, 1, 1]);
     expect(body.resolution).toMatchObject({
       completedCount: 2,
       validDurationCount: 2,
       averageMinutes: 90,
-      unit: 'minutes',
+      unit: 'minutes'
     });
     expect(body.backlog.count).toBe(4);
     expect(body.dataQuality.status).toBe('OK');
@@ -150,54 +125,36 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
     expect(empty.resolution).toMatchObject({
       completedCount: 0,
       validDurationCount: 0,
-      averageMinutes: null,
+      averageMinutes: null
     });
     expect(empty.total).toBe(0);
-    await add(
-      'COMPLETED',
-      '2026-10-19T08:00:00+05:30',
-      '2026-10-19T08:00:00+05:30',
-    );
-    expect(
-      ((await get().expect(200)).body as Summary).resolution.averageMinutes,
-    ).toBe(0);
+    await add('COMPLETED', '2026-10-19T08:00:00+05:30', '2026-10-19T08:00:00+05:30');
+    expect(((await get().expect(200)).body as Summary).resolution.averageMinutes).toBe(0);
   });
   it('TC-MAD-024-AC3: flags corrupt data and excludes negative durations without discarding valid completions', async () => {
-    await add(
-      'COMPLETED',
-      '2026-10-19T09:00:00+05:30',
-      '2026-10-19T08:00:00+05:30',
-    );
+    await add('COMPLETED', '2026-10-19T09:00:00+05:30', '2026-10-19T08:00:00+05:30');
     await add('COMPLETED', '2026-10-19T09:00:00+05:30');
-    await add(
-      'IN_PROGRESS',
-      '2026-10-19T09:00:00+05:30',
-      '2026-10-19T10:00:00+05:30',
-    );
+    await add('IN_PROGRESS', '2026-10-19T09:00:00+05:30', '2026-10-19T10:00:00+05:30');
     let body = (await get().expect(200)).body as Summary;
     expect(body.resolution).toMatchObject({
       completedCount: 1,
       validDurationCount: 0,
       excludedCount: 1,
-      averageMinutes: null,
+      averageMinutes: null
     });
     expect(body.dataQuality).toMatchObject({
       status: 'WARNING',
       negativeDurationCount: 1,
       missingCompletionCount: 1,
-      unexpectedCompletionCount: 1,
+      unexpectedCompletionCount: 1
     });
-    await add(
-      'COMPLETED',
-      '2026-10-19T09:00:00+05:30',
-      '2026-10-19T09:30:30+05:30',
-    );
+    await add('COMPLETED', '2026-10-19T09:00:00+05:30', '2026-10-19T09:30:30+05:30');
     body = (await get().expect(200)).body as Summary;
     expect(body.resolution).toMatchObject({
       completedCount: 2,
       validDurationCount: 1,
       excludedCount: 1,
-      averageMinutes: 30.5,
+      averageMinutes: 30.5
     });
   });
   it('uses hotel-local boundaries, Monday weeks and zero-filled leap months', async () => {
@@ -214,44 +171,35 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
     clock = new Date('2024-02-29T12:00:00Z');
     const month = (await get('period=month').expect(200)).body as Summary;
     expect(month.trend).toHaveLength(29);
-    expect(month.trend.every((b) => b.count === 0)).toBe(true);
+    expect(month.trend.every(b => b.count === 0)).toBe(true);
   });
   it('validates periods and rejects unauthorized reads without altering records', async () => {
     await add('SUBMITTED', '2026-10-19T08:00:00+05:30');
-    const before = await database.query<unknown[]>(
-      'SELECT * FROM foss_service_requests',
-    );
-    for (const query of [
-      'period=year',
-      'period=',
-      'period=day&period=month',
-      'period=day&extra=1',
-    ])
+    const before = await database.query<unknown[]>('SELECT * FROM foss_service_requests');
+    for (const query of ['period=year', 'period=', 'period=day&period=month', 'period=day&extra=1'])
       await get(query).expect(400);
     for (const [token, status] of [
       [null, 401],
       ['invalid', 401],
       [provider.issue('worker'), 403],
-      [provider.issue('first-login'), 403],
+      [provider.issue('first-login'), 403]
     ] as const)
       await get('period=day', token).expect(status);
     expect(((await get('').expect(200)).body as Summary).period).toBe('day');
-    expect(await database.query('SELECT * FROM foss_service_requests')).toEqual(
-      before,
-    );
+    expect(await database.query('SELECT * FROM foss_service_requests')).toEqual(before);
   });
   it('fails safely if reporting access is missing', async () => {
     await database.query(
-      `REVOKE SELECT(request_id,status,submitted_at,completed_at,updated_at) ON foss_service_requests FROM "${role}"`,
+      `REVOKE SELECT(request_id,status,submitted_at,completed_at,updated_at) ON foss_service_requests FROM "${role}"`
     );
     try {
       expect((await get().expect(503)).body as unknown).toEqual({
         code: 'SERVICE_UNAVAILABLE',
-        message: 'Service temporarily unavailable. Please retry.',
+        message: 'Service temporarily unavailable. Please retry.'
       });
     } finally {
       await database.query(
-        `GRANT SELECT(request_id,status,submitted_at,completed_at,updated_at) ON foss_service_requests TO "${role}"`,
+        `GRANT SELECT(request_id,status,submitted_at,completed_at,updated_at) ON foss_service_requests TO "${role}"`
       );
     }
   });

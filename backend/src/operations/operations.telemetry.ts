@@ -16,16 +16,11 @@ const resources = [
   'rooms',
   'tasks',
   'kitchen',
-  'realtime',
+  'realtime'
 ] as const;
 export function resource(path: string) {
   if (/^\/(?:mad\/)?auth(?:\/|$)/.test(path)) return 'authentication';
-  return (
-    resources.find(
-      (name) =>
-        path === '/mad/' + name || path.startsWith('/mad/' + name + '/'),
-    ) ?? 'other'
-  );
+  return resources.find(name => path === '/mad/' + name || path.startsWith('/mad/' + name + '/')) ?? 'other';
 }
 
 export class OperationsTelemetry {
@@ -37,9 +32,8 @@ export class OperationsTelemetry {
   private readonly durations = Array<number>(7).fill(0);
   private previous = '';
   constructor(
-    private readonly sink: (record: object) => void = (record) =>
-      logger.log(record),
-    private readonly clock: () => number = () => performance.now(),
+    private readonly sink: (record: object) => void = record => logger.log(record),
+    private readonly clock: () => number = () => performance.now()
   ) {
     this.started = this.clock();
   }
@@ -62,20 +56,12 @@ export class OperationsTelemetry {
       const elapsed = Math.max(0, this.clock() - start);
       this.requests++;
       if (aborted || response.statusCode >= 500) this.failures++;
-      const index = this.buckets.findIndex((limit) => elapsed <= limit);
+      const index = this.buckets.findIndex(limit => elapsed <= limit);
       this.durations[index === -1 ? 6 : index]++;
-      if (
-        !aborted &&
-        response.statusCode < 400 &&
-        ['GET', 'HEAD', 'OPTIONS'].includes(request.method)
-      )
-        return;
-      const suppliedActor: unknown = (
-        request as Request & { user?: { sub?: unknown } }
-      ).user?.sub;
+      if (!aborted && response.statusCode < 400 && ['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
+      const suppliedActor: unknown = (request as Request & { user?: { sub?: unknown } }).user?.sub;
       const actor =
-        typeof suppliedActor === 'string' &&
-        /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(suppliedActor)
+        typeof suppliedActor === 'string' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(suppliedActor)
           ? suppliedActor
           : 'anonymous';
       this.emit({
@@ -85,15 +71,7 @@ export class OperationsTelemetry {
         actorId: actor,
         correlationId,
         resource: resource(request.path),
-        method: [
-          'GET',
-          'POST',
-          'PUT',
-          'PATCH',
-          'DELETE',
-          'HEAD',
-          'OPTIONS',
-        ].includes(request.method)
+        method: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].includes(request.method)
           ? request.method
           : 'OTHER',
         status: aborted ? null : response.statusCode,
@@ -104,7 +82,7 @@ export class OperationsTelemetry {
             : [401, 403].includes(response.statusCode)
               ? 'DENIED'
               : 'FAILED',
-        durationMs: Math.round(elapsed),
+        durationMs: Math.round(elapsed)
       });
     };
     response.once('finish', () => complete(false));
@@ -121,10 +99,8 @@ export class OperationsTelemetry {
       event: 'dependencies.changed',
       actorId: 'system',
       correlationId: randomUUID(),
-      outcome: Object.values(checks).includes('unavailable')
-        ? 'DEGRADED'
-        : 'HEALTHY',
-      checks,
+      outcome: Object.values(checks).includes('unavailable') ? 'DEGRADED' : 'HEALTHY',
+      checks
     });
   }
   snapshot() {
@@ -135,8 +111,8 @@ export class OperationsTelemetry {
       auditWriteFailures: this.auditFailures,
       latencyBuckets: [...this.buckets, null].map((upperBoundMs, index) => ({
         upperBoundMs,
-        count: this.durations[index],
-      })),
+        count: this.durations[index]
+      }))
     };
   }
 }

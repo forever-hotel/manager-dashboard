@@ -4,18 +4,8 @@ import { useOperationsSnapshot } from '@/components/useOperationsSnapshot';
 import { roomSnapshotSchema } from '@/lib/rooms';
 
 const topBarSvg = (
-  <svg
-    className="w-4 h-4"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="black"
-    strokeWidth="1.5"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-    />
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
 );
 
@@ -60,7 +50,7 @@ const statusConfig = {
   OCCUPIED: { bg: '#e6f1fb', text: '#0c447c', label: 'Occ' },
   VACANT: { bg: '#eaf3de', text: '#27500a', label: 'Free' },
   REQUIRES_CLEANING: { bg: '#faeeda', text: '#633806', label: 'Clean' },
-  UNDER_MAINTENANCE: { bg: '#fcebeb', text: '#791f1f', label: 'Maint' },
+  UNDER_MAINTENANCE: { bg: '#fcebeb', text: '#791f1f', label: 'Maint' }
 };
 
 export default function RoomsPage() {
@@ -68,78 +58,49 @@ export default function RoomsPage() {
     '/api/rooms/status',
     roomSnapshotSchema,
     'rooms.transport.status',
-    'room.status.changed',
+    'room.status.changed'
   );
-  const floors = [...new Set(snapshot?.rooms.map((r) => r.floor) ?? [])].sort(
-    (a, b) => a - b,
-  );
+  const floors = [...new Set(snapshot?.rooms.map(r => r.floor) ?? [])].sort((a, b) => a - b);
   const count = (status: keyof typeof statusConfig) =>
-    snapshot ? snapshot.rooms.filter((r) => r.status === status).length : '?';
+    snapshot ? snapshot.rooms.filter(r => r.status === status).length : '?';
   return (
     <main className="flex-1 min-w-0 px-8 py-6">
       <TopBar title="Room status" />
       {message && (
-        <div
-          role="status"
-          className="font-normal text-[10px] text-black/60 mb-3"
-        >
+        <div role="status" className="font-normal text-[10px] text-black/60 mb-3">
           {message}{' '}
           <button type="button" className="underline" onClick={retry}>
             Retry
           </button>
         </div>
       )}
-      <p className="font-normal text-[10px] text-black/60 mb-3">
-        Current snapshot ? Read only
-      </p>
+      <p className="font-normal text-[10px] text-black/60 mb-3">Current snapshot ? Read only</p>
 
       {/* Summary cards */}
       <section className="mb-6">
-        <h2 className="font-medium text-[12px] underline text-black mb-3">
-          Real-time room status board
-        </h2>
+        <h2 className="font-medium text-[12px] underline text-black mb-3">Real-time room status board</h2>
         <div className="grid grid-cols-4 gap-4">
           <div className="border border-gray-200 rounded-lg p-4">
-            <div className="font-normal text-[10px] text-black/60 mb-2">
-              Vacant
-            </div>
-            <div
-              className="font-medium text-[22px]"
-              style={{ color: '#27500a' }}
-            >
+            <div className="font-normal text-[10px] text-black/60 mb-2">Vacant</div>
+            <div className="font-medium text-[22px]" style={{ color: '#27500a' }}>
               {count('VACANT')}
             </div>
           </div>
           <div className="border border-gray-200 rounded-lg p-4">
-            <div className="font-normal text-[10px] text-black/60 mb-2">
-              Occupied
-            </div>
-            <div
-              className="font-medium text-[22px]"
-              style={{ color: '#0c447c' }}
-            >
+            <div className="font-normal text-[10px] text-black/60 mb-2">Occupied</div>
+            <div className="font-medium text-[22px]" style={{ color: '#0c447c' }}>
               {count('OCCUPIED')}
             </div>
           </div>
           <div className="border border-gray-200 rounded-lg p-4">
-            <div className="font-normal text-[10px] text-black/60 mb-2">
-              Requires cleaning
-            </div>
-            <div
-              className="font-medium text-[22px]"
-              style={{ color: '#633806' }}
-            >
+            <div className="font-normal text-[10px] text-black/60 mb-2">Requires cleaning</div>
+            <div className="font-medium text-[22px]" style={{ color: '#633806' }}>
               {count('REQUIRES_CLEANING')}
             </div>
           </div>
           <div className="border border-gray-200 rounded-lg p-4">
-            <div className="font-normal text-[10px] text-black/60 mb-2">
-              Maintenance
-            </div>
-            <div
-              className="font-medium text-[22px]"
-              style={{ color: '#791f1f' }}
-            >
+            <div className="font-normal text-[10px] text-black/60 mb-2">Maintenance</div>
+            <div className="font-medium text-[22px]" style={{ color: '#791f1f' }}>
               {count('UNDER_MAINTENANCE')}
             </div>
           </div>
@@ -149,43 +110,28 @@ export default function RoomsPage() {
       {/* Floor plan */}
       <section className="mb-10">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-medium text-[13px] text-black">
-            Floor plan — all rooms
-          </h2>
+          <h2 className="font-medium text-[13px] text-black">Floor plan — all rooms</h2>
           <div className="flex items-center gap-4">
-            {(['Vacant', 'Occupied', 'Cleaning', 'Maintenance'] as const).map(
-              (label, i) => {
-                const colors = ['#eaf3de', '#e6f1fb', '#faeeda', '#fcebeb'];
-                return (
-                  <div key={label} className="flex items-center gap-1.5">
-                    <div
-                      className="w-2.5 h-2.5 rounded-sm"
-                      style={{ backgroundColor: colors[i] }}
-                    />
-                    <span className="font-normal text-[9.5px] text-black">
-                      {label}
-                    </span>
-                  </div>
-                );
-              },
-            )}
+            {(['Vacant', 'Occupied', 'Cleaning', 'Maintenance'] as const).map((label, i) => {
+              const colors = ['#eaf3de', '#e6f1fb', '#faeeda', '#fcebeb'];
+              return (
+                <div key={label} className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: colors[i] }} />
+                  <span className="font-normal text-[9.5px] text-black">{label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
         <div className="border border-gray-200 rounded-lg p-5 space-y-5">
-          {snapshot?.rooms.length === 0 && (
-            <p className="font-normal text-[10px] text-black/60">
-              No rooms available.
-            </p>
-          )}
-          {floors.map((floor) => (
+          {snapshot?.rooms.length === 0 && <p className="font-normal text-[10px] text-black/60">No rooms available.</p>}
+          {floors.map(floor => (
             <div key={floor}>
-              <div className="font-normal text-[10.5px] text-black mb-2">
-                Floor {floor}
-              </div>
+              <div className="font-normal text-[10.5px] text-black mb-2">Floor {floor}</div>
               <div className="grid grid-cols-8 gap-3">
                 {snapshot?.rooms
-                  .filter((r) => r.floor === floor)
-                  .map((room) => {
+                  .filter(r => r.floor === floor)
+                  .map(room => {
                     const cfg = statusConfig[room.status];
                     return (
                       <div
@@ -194,10 +140,7 @@ export default function RoomsPage() {
                         className="h-10 rounded flex items-center justify-center text-center"
                         style={{ backgroundColor: cfg.bg }}
                       >
-                        <span
-                          className="font-medium text-[9px] leading-tight"
-                          style={{ color: cfg.text }}
-                        >
+                        <span className="font-medium text-[9px] leading-tight" style={{ color: cfg.text }}>
                           {room.id}
                           <br />
                           {cfg.label}

@@ -16,15 +16,12 @@ export const bookingSchema = z
           date: z.iso.date(),
           start: z.iso.datetime(),
           end: z.iso.datetime(),
-          count: z.number().int().nonnegative().safe(),
-        }),
+          count: z.number().int().nonnegative().safe()
+        })
       )
-      .max(31),
+      .max(31)
   })
-  .refine(
-    (data) =>
-      data.total === data.trend.reduce((sum, bucket) => sum + bucket.count, 0),
-  );
+  .refine(data => data.total === data.trend.reduce((sum, bucket) => sum + bucket.count, 0));
 export type BookingSummary = z.infer<typeof bookingSchema>;
 export class AnalyticsError extends Error {
   constructor(public status: number) {
@@ -46,14 +43,12 @@ export const revenueSchema = z
     currentMinor: z.number().int().nonnegative().safe(),
     previousMinor: z.number().int().nonnegative().safe(),
     percentageChange: z.number().finite().nullable(),
-    percentageUnavailableReason: z.literal('PREVIOUS_REVENUE_ZERO').nullable(),
+    percentageUnavailableReason: z.literal('PREVIOUS_REVENUE_ZERO').nullable()
   })
-  .refine((data) =>
+  .refine(data =>
     data.previousMinor === 0
-      ? data.percentageChange === null &&
-        data.percentageUnavailableReason === 'PREVIOUS_REVENUE_ZERO'
-      : data.percentageChange !== null &&
-        data.percentageUnavailableReason === null,
+      ? data.percentageChange === null && data.percentageUnavailableReason === 'PREVIOUS_REVENUE_ZERO'
+      : data.percentageChange !== null && data.percentageUnavailableReason === null
   );
 export const overviewSchema = z
   .object({ bookings: bookingSchema, revenue: revenueSchema })
@@ -62,22 +57,18 @@ export const overviewSchema = z
       bookings.period === revenue.period &&
       bookings.start === revenue.start &&
       bookings.end === revenue.end &&
-      bookings.asOf === revenue.asOf,
+      bookings.asOf === revenue.asOf
   );
 export type Overview = z.infer<typeof overviewSchema>;
-export async function loadAnalytics(
-  period: Period,
-  signal: AbortSignal,
-): Promise<Overview> {
+export async function loadAnalytics(period: Period, signal: AbortSignal): Promise<Overview> {
   const response = await fetch('/api/analytics?period=' + period, {
     signal,
     cache: 'no-store',
-    credentials: 'same-origin',
+    credentials: 'same-origin'
   });
   if (!response.ok) throw new AnalyticsError(response.status);
   const data = overviewSchema.parse(await response.json());
-  if (data.bookings.period !== period)
-    throw new Error('Mismatched analytics period');
+  if (data.bookings.period !== period) throw new Error('Mismatched analytics period');
   return data;
 }
 export function money(minor: number) {

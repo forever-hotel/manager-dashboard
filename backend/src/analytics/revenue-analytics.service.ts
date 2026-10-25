@@ -1,8 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { BOOKING_CLOCK, BOOKING_TIMEZONE } from './booking-analytics.service';
 import { BookingPeriod } from './booking-query.dto';
@@ -30,7 +26,7 @@ SELECT start,finish,previous_start,current::text,previous::text,
 export class RevenueAnalyticsService {
   constructor(
     private readonly database: DataSource,
-    @Inject(BOOKING_CLOCK) private readonly now: () => Date,
+    @Inject(BOOKING_CLOCK) private readonly now: () => Date
   ) {}
   async summary(period: BookingPeriod, asOf?: string) {
     try {
@@ -47,27 +43,16 @@ export class RevenueAnalyticsService {
         }[]
       >(REVENUE_SQL, [period, BOOKING_TIMEZONE, asOf]);
       const row = rows[0];
-      if (
-        rows.length !== 1 ||
-        !row ||
-        row.invalid !== '0' ||
-        !/^\d+$/.test(row.current) ||
-        !/^\d+$/.test(row.previous)
-      )
+      if (rows.length !== 1 || !row || row.invalid !== '0' || !/^\d+$/.test(row.current) || !/^\d+$/.test(row.previous))
         throw new Error('Invalid payment data');
       const current = Number(row.current),
         previous = Number(row.previous);
-      const percentage =
-        row.percentage === null ? null : Number(row.percentage);
+      const percentage = row.percentage === null ? null : Number(row.percentage);
       if (
-        ![current, previous].every(
-          (value) => Number.isSafeInteger(value) && value >= 0,
-        ) ||
+        ![current, previous].every(value => Number.isSafeInteger(value) && value >= 0) ||
         (previous === 0
           ? row.percentage !== null
-          : row.percentage === null ||
-            !/^-?\d+(\.\d{1,2})?$/.test(row.percentage) ||
-            !Number.isFinite(percentage))
+          : row.percentage === null || !/^-?\d+(\.\d{1,2})?$/.test(row.percentage) || !Number.isFinite(percentage))
       )
         throw new Error('Invalid aggregate');
       return {
@@ -84,8 +69,7 @@ export class RevenueAnalyticsService {
         currentMinor: current,
         previousMinor: previous,
         percentageChange: percentage,
-        percentageUnavailableReason:
-          previous === 0 ? 'PREVIOUS_REVENUE_ZERO' : null,
+        percentageUnavailableReason: previous === 0 ? 'PREVIOUS_REVENUE_ZERO' : null
       };
     } catch {
       throw new ServiceUnavailableException();

@@ -11,8 +11,8 @@ describe('Migration transaction handling', () => {
             : []
           : sql.startsWith('SELECT to_regclass')
             ? [{ present: 'bookings' }]
-            : [],
-      ),
+            : []
+      )
     );
     const runner = {
       connect: jest.fn(),
@@ -20,11 +20,11 @@ describe('Migration transaction handling', () => {
       query,
       commitTransaction: jest.fn(),
       rollbackTransaction: jest.fn(),
-      release: jest.fn(),
+      release: jest.fn()
     };
     return {
       runner,
-      database: { createQueryRunner: () => runner } as unknown as DataSource,
+      database: { createQueryRunner: () => runner } as unknown as DataSource
     };
   }
   it('records migrations and always releases its connection', async () => {
@@ -37,31 +37,21 @@ describe('Migration transaction handling', () => {
   it('does not reapply a recorded version', async () => {
     const { runner, database } = setup(true);
     await migrate(database, 'mad_app');
-    expect(
-      runner.query.mock.calls.some(([sql]) =>
-        sql.includes('INSERT INTO mad_migrations'),
-      ),
-    ).toBe(false);
+    expect(runner.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO mad_migrations'))).toBe(false);
   });
   it('rolls back and releases on migration failure', async () => {
     const { runner, database } = setup();
     runner.query.mockRejectedValueOnce(new Error('database failure'));
-    await expect(migrate(database, 'mad_app')).rejects.toThrow(
-      'database failure',
-    );
+    await expect(migrate(database, 'mad_app')).rejects.toThrow('database failure');
     expect(runner.rollbackTransaction).toHaveBeenCalled();
     expect(runner.release).toHaveBeenCalled();
   });
   it('refuses injected role identifiers before connecting', async () => {
     const { runner, database } = setup();
-    await expect(
-      migrate(database, 'mad_app; DROP TABLE bookings'),
-    ).rejects.toThrow('MAD_DB_ROLE');
+    await expect(migrate(database, 'mad_app; DROP TABLE bookings')).rejects.toThrow('MAD_DB_ROLE');
     expect(runner.connect).not.toHaveBeenCalled();
   });
   it('refuses destructive rollback', async () => {
-    await expect(new MadFoundation1789600000000().down()).rejects.toThrow(
-      'rollback',
-    );
+    await expect(new MadFoundation1789600000000().down()).rejects.toThrow('rollback');
   });
 });

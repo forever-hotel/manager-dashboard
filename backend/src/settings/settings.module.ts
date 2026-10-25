@@ -5,6 +5,6 @@ import { TaskLimitService } from './task-limit.service';
 @Module({
   imports: [AuthModule],
   controllers: [TaskLimitController],
-  providers: [TaskLimitService],
+  providers: [TaskLimitService]
 })
 export class SettingsModule {}

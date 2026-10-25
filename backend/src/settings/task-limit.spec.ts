@@ -12,25 +12,20 @@ const row = {
   updated_at: new Date('2026-10-21T00:00:00Z'),
   effective_limit: null,
   effective_version: null,
-  applied_at: null,
+  applied_at: null
 };
 function setup() {
   const query = jest.fn().mockResolvedValue([row]);
-  const transaction = jest.fn(
-    async (
-      isolation: string,
-      work: (m: { query: typeof query }) => Promise<unknown>,
-    ) => {
-      expect(isolation).toBe('READ COMMITTED');
-      return work({ query });
-    },
-  );
+  const transaction = jest.fn(async (isolation: string, work: (m: { query: typeof query }) => Promise<unknown>) => {
+    expect(isolation).toBe('READ COMMITTED');
+    return work({ query });
+  });
   return {
     query,
     service: new TaskLimitService({
       query,
-      transaction,
-    } as unknown as DataSource),
+      transaction
+    } as unknown as DataSource)
   };
 }
 describe('DDP-045 versioned requested and effective task limits', () => {
@@ -44,15 +39,15 @@ describe('DDP-045 versioned requested and effective task limits', () => {
       effectiveVersion: null,
       status: 'PENDING',
       activeStates: ['ASSIGNED', 'IN_PROGRESS', 'ESCALATED'],
-      assignedWorkerRequired: true,
+      assignedWorkerRequired: true
     });
     query.mockResolvedValueOnce([
       {
         ...row,
         effective_limit: 3,
         effective_version: 0,
-        applied_at: row.updated_at,
-      },
+        applied_at: row.updated_at
+      }
     ]);
     expect((await service.get()).status).toBe('EFFECTIVE');
     query.mockResolvedValueOnce([
@@ -62,68 +57,50 @@ describe('DDP-045 versioned requested and effective task limits', () => {
         version: 1,
         effective_limit: 3,
         effective_version: 0,
-        applied_at: row.updated_at,
-      },
+        applied_at: row.updated_at
+      }
     ]);
     expect(await service.get()).toMatchObject({
       limit: 2,
       effectiveLimit: 3,
-      status: 'PENDING',
+      status: 'PENDING'
     });
   });
-  it.each([1, 10])(
-    'stores valid limit %s and an actor/version audit without claiming effectiveness',
-    async (limit) => {
-      const { service, query } = setup();
-      query
-        .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([
-          { ...row, version: 1, requested_limit: limit },
-        ]);
-      const controller = new TaskLimitController(service);
-      expect(
-        await controller.update(
-          { limit, version: 0 },
-          { user: { sub: id } } as AuthenticatedRequest,
-          {},
-        ),
-      ).toMatchObject({
-        limit,
-        version: 1,
-        status: 'PENDING',
-        effectiveLimit: null,
-      });
-      expect(query).toHaveBeenNthCalledWith(
-        1,
-        expect.stringContaining('FOR UPDATE OF p'),
-      );
-      expect(query).toHaveBeenNthCalledWith(
-        2,
-        expect.stringContaining('INSERT INTO public.mad_task_limit_history'),
-        [1, limit, id],
-      );
-      expect(query).toHaveBeenNthCalledWith(
-        3,
-        expect.stringContaining('UPDATE public.mad_task_limit_policy'),
-        [limit, 1, id],
-      );
-    },
-  );
+  it.each([1, 10])('stores valid limit %s and an actor/version audit without claiming effectiveness', async limit => {
+    const { service, query } = setup();
+    query
+      .mockResolvedValueOnce([row])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ ...row, version: 1, requested_limit: limit }]);
+    const controller = new TaskLimitController(service);
+    expect(
+      await controller.update({ limit, version: 0 }, { user: { sub: id } } as AuthenticatedRequest, {})
+    ).toMatchObject({
+      limit,
+      version: 1,
+      status: 'PENDING',
+      effectiveLimit: null
+    });
+    expect(query).toHaveBeenNthCalledWith(1, expect.stringContaining('FOR UPDATE OF p'));
+    expect(query).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO public.mad_task_limit_history'), [
+      1,
+      limit,
+      id
+    ]);
+    expect(query).toHaveBeenNthCalledWith(3, expect.stringContaining('UPDATE public.mad_task_limit_policy'), [
+      limit,
+      1,
+      id
+    ]);
+  });
   it('keeps no-op saves idempotent and rejects stale/exhausted versions before writing', async () => {
     const { service, query } = setup();
-    expect((await service.update({ limit: 3, version: 0 }, id)).version).toBe(
-      0,
-    );
+    expect((await service.update({ limit: 3, version: 0 }, id)).version).toBe(0);
     expect(query).toHaveBeenCalledTimes(1);
-    await expect(
-      service.update({ limit: 4, version: 1 }, id),
-    ).rejects.toMatchObject({ status: 409 });
+    await expect(service.update({ limit: 4, version: 1 }, id)).rejects.toMatchObject({ status: 409 });
     query.mockResolvedValueOnce([{ ...row, version: 2147483647 }]);
-    await expect(
-      service.update({ limit: 4, version: 2147483647 }, id),
-    ).rejects.toMatchObject({ status: 409 });
+    await expect(service.update({ limit: 4, version: 2147483647 }, id)).rejects.toMatchObject({ status: 409 });
   });
   it('rejects corrupt/missing policy or acknowledgements and sanitizes storage errors', async () => {
     const invalid = [
@@ -141,62 +118,56 @@ describe('DDP-045 versioned requested and effective task limits', () => {
         ...row,
         effective_version: 1,
         effective_limit: 3,
-        applied_at: row.updated_at,
+        applied_at: row.updated_at
       },
       {
         ...row,
         effective_version: 0,
         effective_limit: 2,
-        applied_at: row.updated_at,
+        applied_at: row.updated_at
       },
       {
         ...row,
         effective_version: -1,
         effective_limit: 3,
-        applied_at: row.updated_at,
+        applied_at: row.updated_at
       },
       {
         ...row,
         effective_version: 0,
         effective_limit: 0,
-        applied_at: row.updated_at,
+        applied_at: row.updated_at
       },
       {
         ...row,
         effective_version: 0,
         effective_limit: 3,
-        applied_at: new Date('bad'),
+        applied_at: new Date('bad')
       },
-      { ...row, effective_version: 0, effective_limit: 3, applied_at: null },
+      { ...row, effective_version: 0, effective_limit: 3, applied_at: null }
     ];
-    for (const source of invalid)
-      expect(() => taskLimitView(source as typeof row)).toThrow();
+    for (const source of invalid) expect(() => taskLimitView(source as typeof row)).toThrow();
     const { service, query } = setup();
     for (const rows of [[], [row, row]]) {
       query.mockResolvedValueOnce(rows);
       await expect(service.get()).rejects.toMatchObject({ status: 503 });
     }
     query.mockResolvedValueOnce([]);
-    await expect(
-      service.update({ limit: 2, version: 0 }, id),
-    ).rejects.toMatchObject({ status: 503 });
+    await expect(service.update({ limit: 2, version: 0 }, id)).rejects.toMatchObject({ status: 503 });
     query.mockRejectedValueOnce(new Error('private SQL'));
     await expect(service.get()).rejects.toMatchObject({
       status: 503,
-      message: 'Service Unavailable',
+      message: 'Service Unavailable'
     });
     query.mockRejectedValueOnce(new Error('private SQL'));
-    await expect(
-      service.update({ limit: 2, version: 0 }, id),
-    ).rejects.toMatchObject({ status: 503, message: 'Service Unavailable' });
+    await expect(service.update({ limit: 2, version: 0 }, id)).rejects.toMatchObject({
+      status: 503,
+      message: 'Service Unavailable'
+    });
   });
   it('validates integer bounds, explicit version and unexpected input', async () => {
     for (const limit of [1, 3, 10])
-      expect(
-        await validate(
-          plainToInstance(UpdateTaskLimitDto, { limit, version: 0 }),
-        ),
-      ).toEqual([]);
+      expect(await validate(plainToInstance(UpdateTaskLimitDto, { limit, version: 0 }))).toEqual([]);
     for (const input of [
       { limit: 0, version: 0 },
       { limit: 11, version: 0 },
@@ -206,15 +177,15 @@ describe('DDP-045 versioned requested and effective task limits', () => {
       { limit: 3 },
       { limit: 3, version: -1 },
       { limit: 3, version: '0' },
-      { limit: 3, version: 0, extra: true },
+      { limit: 3, version: 0, extra: true }
     ])
       expect(
         (
           await validate(plainToInstance(UpdateTaskLimitDto, input), {
             whitelist: true,
-            forbidNonWhitelisted: true,
+            forbidNonWhitelisted: true
           })
-        ).length,
+        ).length
       ).toBeGreaterThan(0);
   });
 });

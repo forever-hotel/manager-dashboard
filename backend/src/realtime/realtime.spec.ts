@@ -3,11 +3,7 @@ import { DataSource } from 'typeorm';
 import { Server, Socket } from 'socket.io';
 import { AuthService } from '../auth/auth.service';
 import { RealtimeGateway, KitchenEvent } from './realtime.gateway';
-import {
-  InvalidKitchenEvent,
-  parseKitchenEvent,
-  RealtimeConsumer,
-} from './realtime.consumer';
+import { InvalidKitchenEvent, parseKitchenEvent, RealtimeConsumer } from './realtime.consumer';
 import { RealtimeController } from './realtime.controller';
 import type { AuthenticatedRequest } from '../auth/jwt-auth.guard';
 const event: KitchenEvent = {
@@ -15,7 +11,7 @@ const event: KitchenEvent = {
   orderId: '77f4568c-89ab-4c12-b321-123456789012',
   type: 'kitchen.order.changed',
   version: 2,
-  occurredAt: '2026-10-19T00:00:00Z',
+  occurredAt: '2026-10-19T00:00:00Z'
 };
 describe('DDP-039 event validation and persistence', () => {
   it('accepts only versioned timestamped kitchen events and discards unknown fields', () => {
@@ -24,8 +20,8 @@ describe('DDP-039 event validation and persistence', () => {
       parseKitchenEvent({
         ...event,
         eventId: event.eventId.toUpperCase(),
-        orderId: event.orderId.toUpperCase(),
-      }),
+        orderId: event.orderId.toUpperCase()
+      })
     ).toEqual(event);
     for (const value of [
       null,
@@ -37,30 +33,27 @@ describe('DDP-039 event validation and persistence', () => {
       { ...event, version: -1 },
       { ...event, version: Infinity },
       { ...event, occurredAt: 'yesterday' },
-      { ...event, occurredAt: '2026-10-19T00:00:00' },
+      { ...event, occurredAt: '2026-10-19T00:00:00' }
     ])
       expect(() => parseKitchenEvent(value)).toThrow();
   });
   it('commits before delivery; suppresses duplicates and stale versions durably', async () => {
     const query = jest.fn().mockResolvedValue([]);
-    const transaction = jest.fn(
-      async (work: (manager: { query: typeof query }) => Promise<void>) =>
-        work({ query }),
-    );
+    const transaction = jest.fn(async (work: (manager: { query: typeof query }) => Promise<void>) => work({ query }));
     const service = new RealtimeConsumer(
       new ConfigService(),
       { transaction } as unknown as DataSource,
-      {} as RealtimeGateway,
+      {} as RealtimeGateway
     );
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: false }])
       .mockResolvedValueOnce([]);
     await service.accept(event);
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO mad_realtime_versions'),
-      [event.orderId, 2],
-    );
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO mad_realtime_versions'), [
+      event.orderId,
+      2
+    ]);
     query
       .mockClear()
       .mockResolvedValueOnce([])
@@ -75,7 +68,7 @@ describe('DDP-039 event validation and persistence', () => {
     await service.accept(event);
     expect(query).toHaveBeenLastCalledWith(
       expect.stringContaining('INSERT INTO mad_realtime_events'),
-      expect.arrayContaining([true]),
+      expect.arrayContaining([true])
     );
   });
   it('rejects reuse of a persisted event ID with different content without writing', async () => {
@@ -86,38 +79,26 @@ describe('DDP-039 event validation and persistence', () => {
     const service = new RealtimeConsumer(
       new ConfigService(),
       {
-        transaction: (
-          work: (manager: { query: typeof query }) => Promise<void>,
-        ) => work({ query }),
+        transaction: (work: (manager: { query: typeof query }) => Promise<void>) => work({ query })
       } as unknown as DataSource,
-      {} as RealtimeGateway,
+      {} as RealtimeGateway
     );
-    await expect(
-      service.accept({ ...event, version: 3 }),
-    ).rejects.toBeInstanceOf(InvalidKitchenEvent);
+    await expect(service.accept({ ...event, version: 3 })).rejects.toBeInstanceOf(InvalidKitchenEvent);
     expect(query).toHaveBeenCalledTimes(2);
   });
   it('leaves dispatch pending on send failure and marks it only after send succeeds', async () => {
-    const query = jest
-      .fn()
-      .mockResolvedValue([{ event_id: event.eventId, payload: event }]);
-    const publish = jest
-      .fn()
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValue(undefined);
+    const query = jest.fn().mockResolvedValue([{ event_id: event.eventId, payload: event }]);
+    const publish = jest.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined);
     const service = new RealtimeConsumer(
       new ConfigService(),
       { query } as unknown as DataSource,
-      { publish } as unknown as RealtimeGateway,
+      { publish } as unknown as RealtimeGateway
     );
     await expect(service.dispatch()).rejects.toThrow('offline');
     expect(query).toHaveBeenCalledTimes(1);
     query.mockClear();
     await service.dispatch();
-    expect(query).toHaveBeenLastCalledWith(
-      expect.stringContaining('UPDATE mad_realtime_events'),
-      [event.eventId],
-    );
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('UPDATE mad_realtime_events'), [event.eventId]);
     service.onModuleInit();
     await service.onModuleDestroy();
   });
@@ -127,12 +108,9 @@ describe('DDP-039 one-use ticket and session enforcement', () => {
     const session = jest.fn().mockResolvedValue({});
     const gateway = new RealtimeGateway(
       { session } as unknown as AuthService,
-      new ConfigService({ FRONTEND_URL: 'http://localhost:3000' }),
+      new ConfigService({ FRONTEND_URL: 'http://localhost:3000' })
     );
-    let middleware: (
-      socket: Socket,
-      next: (error?: Error) => void,
-    ) => void = () => undefined;
+    let middleware: (socket: Socket, next: (error?: Error) => void) => void = () => undefined;
     let connection: (socket: Socket) => void = () => undefined;
     gateway.afterInit({
       use: (fn: typeof middleware) => {
@@ -140,34 +118,32 @@ describe('DDP-039 one-use ticket and session enforcement', () => {
       },
       on: (_name: string, fn: typeof connection) => {
         connection = fn;
-      },
+      }
     } as unknown as Server);
     const emit = jest.fn(),
       disconnect = jest.fn();
     const sock = {
       handshake: {
         auth: { ticket: '' },
-        headers: { origin: 'http://localhost:3000' },
+        headers: { origin: 'http://localhost:3000' }
       },
       connected: true,
       emit,
       on: jest.fn(),
-      disconnect,
+      disconnect
     } as unknown as Socket;
-    const authorize = () =>
-      new Promise<Error | undefined>((resolve) => middleware(sock, resolve));
+    const authorize = () => new Promise<Error | undefined>(resolve => middleware(sock, resolve));
     return { gateway, session, sock, authorize, connection, emit, disconnect };
   }
   it('checks origin, ticket expiry/reuse and account session before subscribing or sending', async () => {
-    const { gateway, session, sock, authorize, connection, emit, disconnect } =
-      setup();
+    const { gateway, session, sock, authorize, connection, emit, disconnect } = setup();
     try {
       expect(await authorize()).toBeInstanceOf(Error);
       sock.handshake.auth.ticket = gateway.ticket('private').ticket;
       expect(await authorize()).toBeUndefined();
       connection(sock);
       expect(emit).toHaveBeenCalledWith('transport.status', {
-        healthy: false,
+        healthy: false
       });
       expect(await authorize()).toBeInstanceOf(Error);
       await gateway.publish(event);
@@ -177,14 +153,14 @@ describe('DDP-039 one-use ticket and session enforcement', () => {
         type: 'room.status.changed' as const,
         roomId: '101',
         version: 2,
-        occurredAt: event.occurredAt,
+        occurredAt: event.occurredAt
       };
       await gateway.publishRoom(roomEvent);
       expect(emit).toHaveBeenCalledWith('room.status.changed', roomEvent);
       const taskEvent = {
         ...event,
         type: 'task.changed' as const,
-        taskId: event.orderId,
+        taskId: event.orderId
       };
       await gateway.publishTask(taskEvent);
       expect(emit).toHaveBeenCalledWith('task.changed', taskEvent);
@@ -203,8 +179,8 @@ describe('DDP-039 one-use ticket and session enforcement', () => {
           version: 2,
           sourceUpdatedAt: event.occurredAt,
           raisedAt: event.occurredAt,
-          clearedAt: null,
-        },
+          clearedAt: null
+        }
       };
       await gateway.publishStock(stockEvent);
       expect(emit).toHaveBeenCalledWith('stock.alert.changed', stockEvent);
@@ -241,31 +217,23 @@ describe('DDP-039 one-use ticket and session enforcement', () => {
       clock.mockRestore();
       gateway.onModuleDestroy();
     }
-    await expect(
-      new RealtimeGateway({} as AuthService, new ConfigService()).publish(
-        event,
-      ),
-    ).rejects.toMatchObject({ status: 503 });
+    await expect(new RealtimeGateway({} as AuthService, new ConfigService()).publish(event)).rejects.toMatchObject({
+      status: 503
+    });
   });
   it('issues the socket ticket from the protected bearer context only', () => {
     const ticket = jest.fn().mockReturnValue({ ticket: 'one-use' });
     const controller = new RealtimeController({
-      ticket,
+      ticket
     } as unknown as RealtimeGateway);
     expect(
       controller.ticket({
-        headers: { authorization: 'Bearer private' },
-      } as AuthenticatedRequest),
+        headers: { authorization: 'Bearer private' }
+      } as AuthenticatedRequest)
     ).toEqual({ ticket: 'one-use' });
     expect(ticket).toHaveBeenCalledWith('private');
   });
-  it.each([
-    [null],
-    [[]],
-    ['invalid'],
-    [{ ticket: 1 }],
-    [{ ticket: 'oversized'.repeat(100) }],
-  ])(
+  it.each([[null], [[]], ['invalid'], [{ ticket: 1 }], [{ ticket: 'oversized'.repeat(100) }]])(
     'rejects malformed handshake auth without exposing an exception: %j',
     async (auth: unknown) => {
       const { gateway, sock, authorize } = setup();
@@ -275,6 +243,6 @@ describe('DDP-039 one-use ticket and session enforcement', () => {
       } finally {
         gateway.onModuleDestroy();
       }
-    },
+    }
   );
 });

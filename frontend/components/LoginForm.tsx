@@ -10,18 +10,12 @@ import { Hotel, Lock, User, ArrowRight } from 'lucide-react';
 
 const loginSchema = z.object({
   username: z.string().trim().min(1, 'Username is required.').max(100),
-  password: z.string().min(1, 'Password is required.').max(1024),
+  password: z.string().min(1, 'Password is required.').max(1024)
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export function LoginForm({
-  next,
-  expired = false,
-}: {
-  next?: string;
-  expired?: boolean;
-}) {
+export function LoginForm({ next, expired = false }: { next?: string; expired?: boolean }) {
   const locked = useRef(false);
   const [pending, setPending] = useState(false);
 
@@ -29,9 +23,9 @@ export function LoginForm({
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting }
   } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(loginSchema)
   });
 
   const onSubmit = async (data: LoginFormValues) => {
@@ -45,14 +39,14 @@ export function LoginForm({
         signal: AbortSignal.timeout(10000),
         body: JSON.stringify({
           username: data.username,
-          password: data.password,
-        }),
+          password: data.password
+        })
       });
       if (!response.ok)
         throw new Error(
           response.status >= 500
             ? 'Service unavailable. Please retry.'
-            : 'Unable to sign in. Check your username and password.',
+            : 'Unable to sign in. Check your username and password.'
         );
       const result: unknown = await response.json();
       if (
@@ -65,7 +59,7 @@ export function LoginForm({
       navigate(
         result.passwordChangeRequired
           ? '/change-password?next=' + encodeURIComponent(safeDestination(next))
-          : safeDestination(next),
+          : safeDestination(next)
       );
     } catch (error) {
       locked.current = false;
@@ -77,7 +71,7 @@ export function LoginForm({
             ? 'The request timed out. Please retry.'
             : error instanceof Error && error.name !== 'TypeError'
               ? error.message
-              : 'Service unavailable. Please retry.',
+              : 'Service unavailable. Please retry.'
       });
     }
   };
@@ -90,34 +84,26 @@ export function LoginForm({
           <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mb-3">
             <Hotel className="w-5 h-5 text-black" />
           </div>
-          <h1 className="font-medium text-[15px] text-black">
-            Manager Dashboard
-          </h1>
+          <h1 className="font-medium text-[15px] text-black">Manager Dashboard</h1>
           <p className="font-normal text-[10.5px] text-black/60 mt-1">
             Sign in to access your administrative workspace.
           </p>
         </div>
 
         {expired && (
-          <p
-            role="status"
-            className="font-normal text-[10.5px] text-black/60 mb-4"
-          >
+          <p role="status" className="font-normal text-[10.5px] text-black/60 mb-4">
             Your session ended. Please sign in again.
           </p>
         )}
         <form
           noValidate
-          onSubmit={(event) => {
+          onSubmit={event => {
             void handleSubmit(onSubmit)(event);
           }}
           className="flex flex-col gap-4"
         >
           <div>
-            <label
-              className="font-normal text-[10px] text-black/60 block mb-1"
-              htmlFor="username"
-            >
+            <label className="font-normal text-[10px] text-black/60 block mb-1" htmlFor="username">
               Username
             </label>
             <div className="relative">
@@ -129,30 +115,21 @@ export function LoginForm({
                 type="text"
                 autoComplete="username"
                 aria-invalid={!!errors.username}
-                aria-describedby={
-                  errors.username ? 'username-error' : undefined
-                }
+                aria-describedby={errors.username ? 'username-error' : undefined}
                 placeholder="manager"
                 className="w-full border border-gray-200 rounded-md pl-9 pr-3 py-2 text-[11px] text-black placeholder:text-black/30 focus:outline-none focus:border-black"
                 {...register('username')}
               />
             </div>
             {errors.username && (
-              <p
-                id="username-error"
-                role="alert"
-                className="font-normal text-[9.5px] text-red-600 mt-1"
-              >
+              <p id="username-error" role="alert" className="font-normal text-[9.5px] text-red-600 mt-1">
                 {errors.username.message}
               </p>
             )}
           </div>
 
           <div>
-            <label
-              className="font-normal text-[10px] text-black/60 block mb-1"
-              htmlFor="password"
-            >
+            <label className="font-normal text-[10px] text-black/60 block mb-1" htmlFor="password">
               Password
             </label>
             <div className="relative">
@@ -164,20 +141,14 @@ export function LoginForm({
                 type="password"
                 autoComplete="current-password"
                 aria-invalid={!!errors.password}
-                aria-describedby={
-                  errors.password ? 'password-error' : undefined
-                }
+                aria-describedby={errors.password ? 'password-error' : undefined}
                 placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                 className="w-full border border-gray-200 rounded-md pl-9 pr-3 py-2 text-[11px] text-black placeholder:text-black/30 focus:outline-none focus:border-black"
                 {...register('password')}
               />
             </div>
             {errors.password && (
-              <p
-                id="password-error"
-                role="alert"
-                className="font-normal text-[9.5px] text-red-600 mt-1"
-              >
+              <p id="password-error" role="alert" className="font-normal text-[9.5px] text-red-600 mt-1">
                 {errors.password.message}
               </p>
             )}

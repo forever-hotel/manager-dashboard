@@ -1,18 +1,8 @@
-import {
-  BadRequestException,
-  Inject,
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { LowBookingAlertsService } from './low-booking-alerts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RevenueAnalyticsService } from './revenue-analytics.service';
-import {
-  BOOKING_CLOCK,
-  BookingAnalyticsService,
-} from './booking-analytics.service';
+import { BOOKING_CLOCK, BookingAnalyticsService } from './booking-analytics.service';
 import { BookingQueryDto } from './booking-query.dto';
 import { OccupancyAnalyticsService } from './occupancy-analytics.service';
 import { OccupancyQueryDto } from './occupancy-query.dto';
@@ -25,7 +15,7 @@ export class AnalyticsController {
     private readonly occupancy: OccupancyAnalyticsService,
     private readonly lowBooking: LowBookingAlertsService,
     private readonly revenue: RevenueAnalyticsService,
-    @Inject(BOOKING_CLOCK) private readonly now: () => Date,
+    @Inject(BOOKING_CLOCK) private readonly now: () => Date
   ) {}
 
   @Get('revenue')
@@ -38,7 +28,7 @@ export class AnalyticsController {
     const asOf = this.now().toISOString();
     const [bookings, revenue] = await Promise.all([
       this.bookings.summary(query.period, asOf),
-      this.revenue.summary(query.period, asOf),
+      this.revenue.summary(query.period, asOf)
     ]);
     return { bookings, revenue };
   }
@@ -55,10 +45,7 @@ export class AnalyticsController {
 
   @Get('low-booking-alerts')
   lowBookingAlerts(@Query() query: Record<string, unknown>) {
-    if (Object.keys(query).length)
-      throw new BadRequestException(
-        'This endpoint does not accept query parameters.',
-      );
+    if (Object.keys(query).length) throw new BadRequestException('This endpoint does not accept query parameters.');
     return this.lowBooking.alerts();
   }
 }

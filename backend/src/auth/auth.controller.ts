@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Headers,
-  Post,
-  HttpCode,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, HttpCode, UnauthorizedException } from '@nestjs/common';
 import { IsString, Length, Matches } from 'class-validator';
 import { AuthService } from './auth.service';
 
@@ -19,8 +11,7 @@ export class PasswordDto {
   @IsString() @Length(1, 1024) newPassword!: string;
 }
 export function bearer(header?: string) {
-  if (!header?.startsWith('Bearer ') || !header.slice(7))
-    throw new UnauthorizedException();
+  if (!header?.startsWith('Bearer ') || !header.slice(7)) throw new UnauthorizedException();
   return header.slice(7);
 }
 @Controller('auth')
@@ -42,10 +33,7 @@ export class AuthController {
   }
   @Post('change-password')
   @HttpCode(200)
-  changePassword(
-    @Body() body: PasswordDto,
-    @Headers('authorization') header?: string,
-  ) {
+  changePassword(@Body() body: PasswordDto, @Headers('authorization') header?: string) {
     return this.auth.changePassword(bearer(header), body);
   }
 }

@@ -3,7 +3,7 @@ export const room: RoomType = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Suite',
   priceMinor: 10000,
-  maxGuests: 2,
+  maxGuests: 2
 };
 export const promotion = (changes: Partial<Promotion> = {}): Promotion => ({
   id: '22222222-2222-4222-8222-222222222222',
@@ -23,11 +23,11 @@ export const promotion = (changes: Partial<Promotion> = {}): Promotion => ({
   currency: 'LKR',
   createdAt: '2026-10-01T00:00:00.000Z',
   updatedAt: '2026-10-01T00:00:00.000Z',
-  ...changes,
+  ...changes
 });
 export const page = <T>(items: T[], total = items.length, number = 1) => ({
   items,
   total,
   page: number,
-  pageSize: 20,
+  pageSize: 20
 });

@@ -7,6 +7,6 @@ import { NotificationsWorker } from './notifications.worker';
 @Module({
   imports: [AuthModule, RealtimeModule],
   controllers: [NotificationsController],
-  providers: [NotificationsService, NotificationsWorker],
+  providers: [NotificationsService, NotificationsWorker]
 })
 export class NotificationsModule {}

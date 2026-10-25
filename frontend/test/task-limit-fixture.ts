@@ -10,5 +10,5 @@ export const taskLimitFixture = () => ({
   minLimit: 1,
   maxLimit: 10,
   activeStates: ['ASSIGNED', 'IN_PROGRESS', 'ESCALATED'],
-  assignedWorkerRequired: true,
+  assignedWorkerRequired: true
 });
