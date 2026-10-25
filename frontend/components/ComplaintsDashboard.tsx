@@ -1,4 +1,5 @@
 'use client';
+import { statusColor } from '@/lib/status-color';
 import { useEffect, useRef, useState } from 'react';
 import {
   COMPLAINT_CHANGED_EVENT,
@@ -14,8 +15,8 @@ import {
   type Complaint,
   type ComplaintDetail
 } from '@/lib/complaints';
-const button = 'font-normal text-[10px] text-black underline';
-const control = 'w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black';
+const button = 'font-normal text-xs text-ink underline';
+const control = 'w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink';
 const date = (iso: string) => new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Colombo' });
 const errorText = (e: unknown) =>
   e instanceof ComplaintError
@@ -206,32 +207,32 @@ export default function ComplaintsDashboard({
     <main className="flex-1 min-w-0 px-8 py-6">
       {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-medium text-[15px] text-black">Complaints</h1>
+        <h1 className="font-medium text-[22px] text-brand">Complaints</h1>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-gray-100 rounded-md p-1">
+          <div className="flex items-center gap-1 bg-brand-light rounded-md p-1">
             <button
               disabled
               title="The complaint API lists all dates"
-              className="font-normal text-[10.5px] text-black px-3 py-1 rounded"
+              className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
             >
               Day
             </button>
             <button
               disabled
               title="The complaint API lists all dates"
-              className="font-medium text-[10.5px] text-black px-3 py-1 rounded bg-white shadow-sm"
+              className="font-medium text-xs text-ink px-3 py-1 rounded bg-surface shadow-sm button button-secondary"
             >
               Week
             </button>
             <button
               disabled
               title="The complaint API lists all dates"
-              className="font-normal text-[10.5px] text-black px-3 py-1 rounded"
+              className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
             >
               Month
             </button>
           </div>
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.5">
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
@@ -239,23 +240,23 @@ export default function ComplaintsDashboard({
 
       {/* Stats */}
       <section className="mb-6">
-        <h2 className="font-medium text-[12px] underline text-black mb-3">Complaint register</h2>
+        <h2 className="underline mb-3 font-medium text-base text-ink">Complaint register</h2>
         <div className="grid grid-cols-4 gap-4">
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="font-normal text-[10px] text-black/60 mb-2">Open complaints</div>
-            <div className="font-medium text-[19px] text-black">{counts?.open ?? 'Unavailable'}</div>
+          <div className="border border-border rounded-lg p-4 bg-surface">
+            <div className="font-normal text-xs text-muted mb-2">Open complaints</div>
+            <div className="font-medium text-[24px] text-brand">{counts?.open ?? 'Unavailable'}</div>
           </div>
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="font-normal text-[10px] text-black/60 mb-2">Under review</div>
-            <div className="font-medium text-[19px] text-black">{counts?.review ?? 'Unavailable'}</div>
+          <div className="border border-border rounded-lg p-4 bg-surface">
+            <div className="font-normal text-xs text-muted mb-2">Under review</div>
+            <div className="font-medium text-[24px] text-brand">{counts?.review ?? 'Unavailable'}</div>
           </div>
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="font-normal text-[10px] text-black/60 mb-2">Resolved (month)</div>
-            <div className="font-medium text-[19px] text-black">Unavailable</div>
+          <div className="border border-border rounded-lg p-4 bg-surface">
+            <div className="font-normal text-xs text-muted mb-2">Resolved (month)</div>
+            <div className="font-medium text-[24px] text-brand">Unavailable</div>
           </div>
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="font-normal text-[10px] text-black/60 mb-2">Avg resolution</div>
-            <div className="font-medium text-[19px] text-black">Unavailable</div>
+          <div className="border border-border rounded-lg p-4 bg-surface">
+            <div className="font-normal text-xs text-muted mb-2">Avg resolution</div>
+            <div className="font-medium text-[24px] text-brand">Unavailable</div>
           </div>
         </div>
       </section>
@@ -282,7 +283,7 @@ export default function ComplaintsDashboard({
         }}
         className="grid grid-cols-3 gap-4 mb-4"
       >
-        <label className="font-normal text-[10px] text-black/60">
+        <label className="font-normal text-xs text-muted">
           Status
           <select
             className={control}
@@ -297,7 +298,7 @@ export default function ComplaintsDashboard({
             ))}
           </select>
         </label>
-        <label className="font-normal text-[10px] text-black/60">
+        <label className="font-normal text-xs text-muted">
           Category (exact match)
           <input
             className={control}
@@ -306,7 +307,7 @@ export default function ComplaintsDashboard({
             onChange={e => setDraft({ ...draft, category: e.target.value })}
           />
         </label>
-        <label className="font-normal text-[10px] text-black/60">
+        <label className="font-normal text-xs text-muted">
           Worker ID
           <input
             className={control}
@@ -314,7 +315,7 @@ export default function ComplaintsDashboard({
             onChange={e => setDraft({ ...draft, workerId: e.target.value })}
           />
         </label>
-        <button type="submit" disabled={saving} className={button}>
+        <button type="submit" disabled={saving} className={button + ' button button-secondary'}>
           Search complaints
         </button>
         <button
@@ -322,25 +323,25 @@ export default function ComplaintsDashboard({
           disabled={saving || loading}
           onClick={reloadList}
           id="complaint-refresh"
-          className={button}
+          className={button + ' button button-secondary'}
         >
           Refresh register
         </button>
       </form>
-      <p className="font-normal text-[10px] text-black/60 mb-3">
+      <p className="font-normal text-xs text-muted mb-3">
         All dates; times shown in Asia/Colombo. Room, severity, monthly resolutions and average resolution time are not
         provided by this API.
       </p>
       {error && (
-        <p role="alert" className="text-[11px] text-red-600 mb-3">
+        <p role="alert" className="text-[13px] text-danger mb-3">
           {error}
         </p>
       )}
       {/* Table */}
       <section className="mb-10">
-        <h2 className="font-medium text-[12px] text-black mb-3">Complaint register</h2>
+        <h2 className="mb-3 font-medium text-base text-ink">Complaint register</h2>
         <div
-          className="border border-gray-200 rounded-lg overflow-x-auto"
+          className="border border-border rounded-lg overflow-x-auto bg-surface"
           tabIndex={0}
           role="region"
           aria-label="Complaint register data"
@@ -348,9 +349,9 @@ export default function ComplaintsDashboard({
           <table className="w-full text-left border-collapse">
             <caption className="sr-only">Complaints matching current filters</caption>
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
+              <tr className="border-b border-border bg-surface-alt">
                 {['ID', 'Room', 'Category', 'Severity', 'Submitted', 'Worker ref', 'Status', 'Action'].map(h => (
-                  <th key={h} className="font-medium text-[10.5px] text-black px-3 py-3">
+                  <th key={h} className="font-medium text-xs text-ink px-3 py-3">
                     {h}
                   </th>
                 ))}
@@ -359,40 +360,36 @@ export default function ComplaintsDashboard({
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={8} role="status" className="text-[10.5px] text-black px-3 py-3">
+                  <td colSpan={8} role="status" className="text-xs text-ink px-3 py-3">
                     Loading complaints...
                   </td>
                 </tr>
               )}
               {!loading && !rows.length && !error && (
                 <tr>
-                  <td colSpan={8} className="text-[10.5px] text-black px-3 py-3">
+                  <td colSpan={8} className="text-xs text-ink px-3 py-3">
                     No complaints match these filters.
                   </td>
                 </tr>
               )}
               {!loading &&
                 rows.map((row, i, arr) => (
-                  <tr key={row.id} className={i < arr.length - 1 ? 'border-b border-gray-100' : ''}>
-                    <td className="text-[10.5px] text-black px-3 py-3">
+                  <tr key={row.id} className={i < arr.length - 1 ? 'border-b border-border' : ''}>
+                    <td className="text-xs text-ink px-3 py-3">
                       {row.id}
-                      <p className="font-normal text-[10px] text-black/60 whitespace-pre-wrap">{row.description}</p>
+                      <p className="font-normal text-xs text-muted whitespace-pre-wrap">{row.description}</p>
                     </td>
-                    <td className="text-[10.5px] text-black px-3 py-3">Not provided</td>
-                    <td className="text-[10.5px] text-black px-3 py-3">{row.category}</td>
+                    <td className="text-xs text-ink px-3 py-3">Not provided</td>
+                    <td className="text-xs text-ink px-3 py-3">{row.category}</td>
                     <td className="px-3 py-3">
-                      <span className="font-medium text-[9.5px] text-black bg-gray-100 rounded-full px-2 py-1">
+                      <span className="font-medium text-xs text-ink bg-brand-light rounded-full px-2 py-1">
                         Not provided
                       </span>
                     </td>
-                    <td className="text-[10.5px] text-black px-3 py-3">{date(row.submittedAt)}</td>
-                    <td className="text-[10.5px] text-black px-3 py-3">
-                      {row.referencedWorkerId ?? 'No worker referenced'}
-                    </td>
+                    <td className="text-xs text-ink px-3 py-3">{date(row.submittedAt)}</td>
+                    <td className="text-xs text-ink px-3 py-3">{row.referencedWorkerId ?? 'No worker referenced'}</td>
                     <td className="px-3 py-3">
-                      <span className="font-medium text-[9.5px] text-black bg-gray-100 rounded-full px-2 py-1">
-                        {statusLabel[row.status]}
-                      </span>
+                      <span className={'status-badge ' + statusColor(row.status)}>{statusLabel[row.status]}</span>
                     </td>
                     <td className="px-3 py-3">
                       <button
@@ -400,7 +397,7 @@ export default function ComplaintsDashboard({
                         onClick={e => open(row, e.currentTarget)}
                         id={`complaint-open-${row.id}`}
                         aria-label={`View complaint ${row.id}`}
-                        className="font-normal text-[10px] text-black underline"
+                        className="font-normal text-xs text-ink underline button button-ghost"
                       >
                         View / update
                       </button>
@@ -419,11 +416,11 @@ export default function ComplaintsDashboard({
             setError('');
             setPage(page - 1);
           }}
-          className={button}
+          className={button + ' button button-secondary'}
         >
           Previous page
         </button>
-        <span className="text-[10.5px] text-black">
+        <span className="text-xs text-ink">
           Page {page} / {Math.max(1, Math.ceil(total / 20))}
         </span>
         <button
@@ -433,7 +430,7 @@ export default function ComplaintsDashboard({
             setError('');
             setPage(page + 1);
           }}
-          className={button}
+          className={button + ' button button-secondary'}
         >
           Next page
         </button>
@@ -444,29 +441,29 @@ export default function ComplaintsDashboard({
           tabIndex={-1}
           aria-labelledby="complaint-detail-heading"
           aria-busy={detailLoading || saving}
-          className="border border-gray-200 rounded-lg p-5 mb-8"
+          className="border border-border rounded-lg p-5 mb-8 bg-surface"
         >
           <div className="flex justify-between mb-3">
-            <h2 id="complaint-detail-heading" className="font-medium text-[12px] text-black">
+            <h2 id="complaint-detail-heading" className="font-medium text-base text-ink">
               Complaint details
             </h2>
-            <button disabled={saving} onClick={close} className={button}>
+            <button disabled={saving} onClick={close} className={button + ' button button-secondary'}>
               Close details
             </button>
           </div>
-          <p className="text-[10.5px] text-black">{selectedId}</p>
+          <p className="text-xs text-ink">{selectedId}</p>
           {detailLoading && (
-            <p role="status" className="text-[11px] text-black">
+            <p role="status" className="text-[13px] text-ink">
               Loading complaint details...
             </p>
           )}
           {detailError && (
-            <p id="complaint-note-error" role="alert" className="text-[11px] text-red-600">
+            <p id="complaint-note-error" role="alert" className="text-[13px] text-danger">
               {detailError}
             </p>
           )}
           {notice && (
-            <p role="status" className="text-[11px] text-black">
+            <p role="status" className="text-[13px] text-ink">
               {notice}
             </p>
           )}
@@ -476,13 +473,13 @@ export default function ComplaintsDashboard({
               setNotice('');
               void loadDetail(selectedId);
             }}
-            className={button}
+            className={button + ' button button-secondary'}
           >
             Reload latest version (keep note)
           </button>
           {detail && (
             <>
-              <dl className="text-[11px] text-black mb-4">
+              <dl className="text-[13px] text-ink mb-4">
                 <dt>Category</dt>
                 <dd>{detail.category}</dd>
                 <dt>Guest description</dt>
@@ -502,11 +499,11 @@ export default function ComplaintsDashboard({
                   </>
                 )}
               </dl>
-              <h3 className="font-medium text-[11.5px] text-black mb-3">Internal resolution history</h3>
-              {!detail.history.length && <p className="text-[11px] text-black/60">No recorded resolution notes.</p>}
+              <h3 className="font-medium text-[13px] text-ink mb-3">Internal resolution history</h3>
+              {!detail.history.length && <p className="text-[13px] text-muted">No recorded resolution notes.</p>}
               <ol>
                 {detail.history.map(entry => (
-                  <li key={entry.version} className="text-[11px] text-black border-b border-gray-100 py-2">
+                  <li key={entry.version} className="text-[13px] text-ink border-b border-border py-2">
                     <p>
                       {statusLabel[entry.fromStatus]} to {statusLabel[entry.status]} / {date(entry.recordedAt)} /
                       Manager {entry.actorId}
@@ -522,12 +519,12 @@ export default function ComplaintsDashboard({
                 }}
                 className="mt-4"
               >
-                <p className="text-[11px] text-black mb-3">
+                <p className="text-[13px] text-ink mb-3">
                   {nextStatus(detail.status)
                     ? `Next status: ${statusLabel[nextStatus(detail.status)!]}`
                     : 'Resolved complaints cannot be reopened.'}
                 </p>
-                <label htmlFor="complaint-note" className="font-normal text-[10px] text-black/60 block mb-1">
+                <label htmlFor="complaint-note" className="font-normal text-xs text-muted block mb-1">
                   Internal note (manager only)
                 </label>
                 <textarea
@@ -546,7 +543,7 @@ export default function ComplaintsDashboard({
                 <button
                   type="submit"
                   disabled={saving || detailLoading || conflict || !nextStatus(detail.status)}
-                  className="font-normal text-[11px] text-black bg-gray-100 rounded-md px-4 py-2 mt-3"
+                  className="font-normal text-[13px] text-ink bg-brand-light rounded-md px-4 py-2 mt-3 button button-primary"
                 >
                   {saving ? 'Saving...' : 'Save resolution update'}
                 </button>

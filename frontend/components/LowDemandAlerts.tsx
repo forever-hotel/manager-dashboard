@@ -25,12 +25,12 @@ export default function LowDemandAlerts() {
   }, [attempt]);
   return (
     <section aria-labelledby="low-demand-title" className="mb-6 mt-6">
-      <h2 id="low-demand-title" className="font-medium text-[12px] underline text-black mb-3">
+      <h2 id="low-demand-title" className="underline mb-3 font-medium text-base text-ink">
         Low-demand dates
       </h2>
       {!data && !error && <p role="status">Loading low-demand alerts...</p>}
       {error && (
-        <div role="alert" className="border border-gray-200 rounded-lg p-4">
+        <div role="alert" className="border border-border rounded-lg p-4 bg-surface">
           <p>
             {error === 401
               ? 'Your session ended. Sign in again.'
@@ -48,6 +48,7 @@ export default function LowDemandAlerts() {
                 setData(undefined);
                 setAttempt(n => n + 1);
               }}
+              className="button button-secondary"
             >
               Retry low-demand alerts
             </button>
@@ -56,20 +57,20 @@ export default function LowDemandAlerts() {
       )}
       {data && (
         <>
-          <p className="text-[10.5px] text-black/60 mb-3">
+          <p className="text-xs text-muted mb-3">
             {data.from} to {data.to} (Asia/Colombo). Alerts are strictly below {data.threshold * 100}% expected
             occupancy, using active rooms excluding maintenance.
           </p>
           {!data.alerts.length && <p role="status">No low-demand alerts for dates with available occupancy data.</p>}
           <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {data.alerts.map(day => (
-              <li key={day.date} className="border border-gray-200 rounded-lg p-4">
-                <h3 className="font-medium text-[12px]">{day.date}</h3>
-                <p className="text-[10.5px]">
+              <li key={day.date} className="border border-border rounded-lg p-4 bg-surface">
+                <h3 className="font-medium text-[13px]">{day.date}</h3>
+                <p className="text-xs">
                   Expected occupancy: {((day.rate ?? 0) * 100).toFixed(1)}% ({day.occupiedRooms}/{day.eligibleRooms}{' '}
                   rooms)
                 </p>
-                <a className="font-medium text-[10.5px] underline" href={'/promotions?lowDemandDate=' + day.date}>
+                <a className="button button-accent mt-3" href={'/promotions?lowDemandDate=' + day.date}>
                   Create Promotion
                   <span className="sr-only"> for {day.date}</span>
                 </a>
@@ -77,12 +78,12 @@ export default function LowDemandAlerts() {
             ))}
           </ul>
           {data.unavailableDates.length > 0 && (
-            <p role="status" className="text-[10.5px] mt-3">
+            <p role="status" className="text-xs mt-3">
               Occupancy unavailable (no eligible rooms): {data.unavailableDates.map(day => day.date).join(', ')}. These
               dates cannot be assessed as healthy demand.
             </p>
           )}
-          <p className="text-[10px] text-black/60 mt-3">Reporting timestamp: {data.freshness.queriedAt}</p>
+          <p className="text-xs text-muted mt-3">Reporting timestamp: {data.freshness.queriedAt}</p>
           <ReportDownload type="low-booking-alerts" filters={{}} />
         </>
       )}

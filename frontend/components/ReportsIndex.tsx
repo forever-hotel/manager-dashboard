@@ -25,13 +25,13 @@ export default function ReportsIndex() {
   } catch {
     valid = false;
   }
-  const control = 'block border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black';
+  const control = 'block border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink';
   return (
     <main className="min-w-0 flex-1 px-4 py-6 sm:px-8">
-      <h1 className="mb-6 text-[15px] font-medium text-black">Reports</h1>
-      <section className="rounded-lg border border-gray-200 p-5">
-        <h2 className="text-[12px] font-medium text-black">Download analytical reports</h2>
-        <div className="flex flex-wrap gap-4 my-4 text-[10.5px]">
+      <h1 className="mb-6 font-medium text-[22px] text-brand">Reports</h1>
+      <section className="rounded-lg border border-border p-5 bg-surface">
+        <h2 className="font-medium text-base text-ink">Download analytical reports</h2>
+        <div className="flex flex-wrap gap-4 my-4 text-xs">
           <label>
             Report
             <select value={type} onChange={e => setType(e.target.value as ReportType)} className={control}>
@@ -72,12 +72,12 @@ export default function ReportsIndex() {
             </label>
           )}
         </div>
-        <p className="text-[10.5px] text-black/60">
+        <p className="text-xs text-muted">
           Asia/Colombo calendar periods. Occupancy dates include both endpoints (maximum 366 days). Low-booking alerts
           cover the next 14 days. Downloads contain the full matching analytics summary.
         </p>
         {!valid && (
-          <p role="alert" className="text-[10.5px] mt-3">
+          <p role="alert" className="text-xs mt-3">
             Check the worker ID or use a valid ordered date range of up to 366 days.
           </p>
         )}

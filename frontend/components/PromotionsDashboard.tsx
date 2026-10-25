@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { statusColor } from '@/lib/status-color';
 import { promotionDates } from '@/lib/low-demand';
 import {
   createSchema,
@@ -206,7 +207,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
   }
   const fieldError = (name: string) =>
     errors[name] ? (
-      <p id={`${name}-error`} role="alert" className="font-normal text-[10px] text-red-600 mt-1">
+      <p id={`${name}-error`} role="alert" className="font-normal text-xs text-danger mt-1">
         {errors[name]}
       </p>
     ) : null;
@@ -214,44 +215,44 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
     <main className="flex-1 min-w-0 px-8 py-6">
       {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-medium text-[15px] text-black">Promotions</h1>
+        <h1 className="font-medium text-[22px] text-brand">Promotions</h1>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-gray-100 rounded-md p-1">
+          <div className="flex items-center gap-1 bg-brand-light rounded-md p-1">
             <button
               disabled
               title="All promotion validity periods are listed"
-              className="font-normal text-[10.5px] text-black px-3 py-1 rounded"
+              className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
             >
               Day
             </button>
             <button
               disabled
               title="All promotion validity periods are listed"
-              className="font-medium text-[10.5px] text-black px-3 py-1 rounded bg-white shadow-sm"
+              className="font-medium text-xs text-ink px-3 py-1 rounded bg-surface shadow-sm button button-secondary"
             >
               Week
             </button>
             <button
               disabled
               title="All promotion validity periods are listed"
-              className="font-normal text-[10.5px] text-black px-3 py-1 rounded"
+              className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
             >
               Month
             </button>
           </div>
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.5">
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
       </div>
 
       {error && (
-        <p role="alert" className="font-normal text-[11px] text-red-600 mb-3">
+        <p role="alert" className="font-normal text-[13px] text-danger mb-3">
           {error}
         </p>
       )}
       {notice && (
-        <p role="status" className="font-normal text-[11px] text-black mb-3">
+        <p role="status" className="font-normal text-[13px] text-ink mb-3">
           {notice}
         </p>
       )}
@@ -259,7 +260,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
         type="button"
         disabled={busy || loading}
         onClick={reload}
-        className="font-normal text-[10px] text-black underline"
+        className="font-normal text-xs text-ink underline button button-ghost"
       >
         Refresh promotions
       </button>
@@ -268,29 +269,29 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
           type="button"
           disabled={busy}
           onClick={recover}
-          className="font-normal text-[10px] text-black underline"
+          className="font-normal text-xs text-ink underline button button-ghost"
         >
           Reload latest version (keep entered values)
         </button>
       )}
       {/* Create promotion form */}
       <section className="mb-8">
-        <h2 className="font-medium text-[12px] underline text-black mb-3">Promotion management</h2>
+        <h2 className="underline mb-3 font-medium text-base text-ink">Promotion management</h2>
         <form
           noValidate
           onSubmit={event => {
             event.preventDefault();
             save('ACTIVE');
           }}
-          className="border border-gray-200 rounded-lg p-5"
+          className="border border-border rounded-lg p-5"
         >
-          <h3 className="font-medium text-[11.5px] text-black mb-4">
+          <h3 className="font-medium text-[13px] text-ink mb-4">
             {editing ? 'Edit promotion' : 'Create new promotion'}
           </h3>
 
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
-              <label htmlFor="code" className="font-normal text-[10px] text-black/60 block mb-1">
+              <label htmlFor="code" className="font-normal text-xs text-muted block mb-1">
                 Promo code
               </label>
               <input
@@ -300,14 +301,14 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                 aria-describedby={errors.code ? 'code-error' : undefined}
                 disabled={busy}
                 type="text"
-                className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11.5px] text-black"
+                className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
                 value={form.code}
                 onChange={e => field('code', e.target.value)}
               />
               {fieldError('code')}
             </div>
             <div>
-              <label htmlFor="discountType" className="font-normal text-[10px] text-black/60 block mb-1">
+              <label htmlFor="discountType" className="font-normal text-xs text-muted block mb-1">
                 Discount type
               </label>
               <select
@@ -316,7 +317,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                 aria-invalid={!!errors.discountType}
                 aria-describedby={errors.discountType ? 'discountType-error' : undefined}
                 disabled={busy}
-                className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
+                className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
                 value={form.discountType}
                 onChange={e => field('discountType', e.target.value as PromotionForm['discountType'])}
               >
@@ -326,7 +327,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
               {fieldError('discountType')}
             </div>
             <div>
-              <label htmlFor="discountValue" className="font-normal text-[10px] text-black/60 block mb-1">
+              <label htmlFor="discountValue" className="font-normal text-xs text-muted block mb-1">
                 Discount value
               </label>
               <input
@@ -338,7 +339,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                 type="number"
                 min="1"
                 step="1"
-                className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
+                className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
                 value={form.discountValue}
                 onChange={e => field('discountValue', e.target.value)}
               />
@@ -348,7 +349,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
 
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
-              <label htmlFor="validFrom" className="font-normal text-[10px] text-black/60 block mb-1">
+              <label htmlFor="validFrom" className="font-normal text-xs text-muted block mb-1">
                 Valid from
               </label>
               <input
@@ -359,14 +360,14 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                 disabled={busy}
                 type="datetime-local"
                 step="0.001"
-                className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
+                className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
                 value={form.validFrom}
                 onChange={e => field('validFrom', e.target.value)}
               />
               {fieldError('validFrom')}
             </div>
             <div>
-              <label htmlFor="validUntil" className="font-normal text-[10px] text-black/60 block mb-1">
+              <label htmlFor="validUntil" className="font-normal text-xs text-muted block mb-1">
                 Valid until
               </label>
               <input
@@ -377,14 +378,14 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                 disabled={busy}
                 type="datetime-local"
                 step="0.001"
-                className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
+                className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
                 value={form.validUntil}
                 onChange={e => field('validUntil', e.target.value)}
               />
               {fieldError('validUntil')}
             </div>
             <div>
-              <label htmlFor="maxRedemptions" className="font-normal text-[10px] text-black/60 block mb-1">
+              <label htmlFor="maxRedemptions" className="font-normal text-xs text-muted block mb-1">
                 Max redemptions
               </label>
               <input
@@ -396,7 +397,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                 type="number"
                 min="1"
                 step="1"
-                className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
+                className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
                 value={form.maxRedemptions}
                 onChange={e => field('maxRedemptions', e.target.value)}
               />
@@ -405,7 +406,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
           </div>
 
           <div className="mb-5">
-            <label htmlFor="roomTypeIds" className="font-normal text-[10px] text-black/60 block mb-1">
+            <label htmlFor="roomTypeIds" className="font-normal text-xs text-muted block mb-1">
               Applicable room types
             </label>
             <select
@@ -415,7 +416,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
               aria-invalid={!!errors.roomTypeIds}
               aria-describedby={errors.roomTypeIds ? 'roomTypeIds-error' : undefined}
               disabled={busy}
-              className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11.5px] text-black"
+              className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
               value={form.roomTypeIds}
               onChange={e =>
                 field(
@@ -433,7 +434,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
             {fieldError('roomTypeIds')}
           </div>
 
-          <p className="font-normal text-[10px] text-black/60 mb-3">
+          <p className="font-normal text-xs text-muted mb-3">
             Times use Asia/Colombo (+05:30), start inclusive and end exclusive. Fixed discounts use integer LKR cents
             (100 cents = LKR 1). Select one or more room types.
           </p>
@@ -441,7 +442,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
             <button
               type="submit"
               disabled={busy || !roomsReady || conflict}
-              className="font-normal text-[11px] text-black bg-gray-100 rounded-md px-4 py-2"
+              className="font-normal text-[13px] text-ink bg-brand-light rounded-md px-4 py-2 button button-accent"
             >
               {busy ? 'Saving...' : editing ? 'Save changes' : 'Save & activate'}
             </button>
@@ -456,7 +457,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                   setConflict(false);
                 } else save('INACTIVE');
               }}
-              className="font-normal text-[11px] text-black border border-gray-200 rounded-md px-4 py-2"
+              className="font-normal text-[13px] text-ink border border-border rounded-md px-4 py-2 button button-primary"
             >
               {editing ? 'Cancel edit' : 'Save as draft'}
             </button>
@@ -466,9 +467,9 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
 
       {/* Promotions table */}
       <section className="mb-10">
-        <h2 className="font-medium text-[12px] text-black mb-3">Promotions</h2>
+        <h2 className="mb-3 font-medium text-base text-ink">Promotions</h2>
         <div
-          className="border border-gray-200 rounded-lg overflow-x-auto"
+          className="border border-border rounded-lg overflow-x-auto bg-surface"
           tabIndex={0}
           role="region"
           aria-label="Promotion register data"
@@ -476,9 +477,9 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
           <table className="w-full text-left border-collapse">
             <caption className="sr-only">Promotions matching current filters</caption>
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
+              <tr className="border-b border-border bg-surface-alt">
                 {['Code', 'Discount', 'Valid until', 'Used / Max', 'Rooms', 'Status', 'Actions'].map(h => (
-                  <th key={h} className="font-medium text-[10.5px] text-black px-3 py-3">
+                  <th key={h} className="font-medium text-xs text-ink px-3 py-3">
                     {h}
                   </th>
                 ))}
@@ -487,51 +488,47 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} role="status" className="text-[10.5px] text-black px-3 py-3">
+                  <td colSpan={7} role="status" className="text-xs text-ink px-3 py-3">
                     Loading promotions...
                   </td>
                 </tr>
               )}
               {!loading && !promos.length && !error && (
                 <tr>
-                  <td colSpan={7} className="text-[10.5px] text-black px-3 py-3">
+                  <td colSpan={7} className="text-xs text-ink px-3 py-3">
                     No promotions yet.
                   </td>
                 </tr>
               )}
               {!loading &&
                 promos.map((p, i, arr) => (
-                  <tr key={p.code} className={i < arr.length - 1 ? 'border-b border-gray-100' : ''}>
-                    <td className="text-[10.5px] text-black px-3 py-3">{p.code}</td>
-                    <td className="text-[10.5px] text-black px-3 py-3">
+                  <tr key={p.code} className={i < arr.length - 1 ? 'border-b border-border' : ''}>
+                    <td className="text-xs text-ink px-3 py-3">{p.code}</td>
+                    <td className="text-xs text-ink px-3 py-3">
                       {p.discountType === 'PERCENTAGE'
                         ? `${p.discountValue}%`
                         : `LKR ${(p.discountValue / 100).toFixed(2)}`}
                     </td>
-                    <td className="text-[10.5px] text-black px-3 py-3">
+                    <td className="text-xs text-ink px-3 py-3">
                       {new Date(p.validUntil).toLocaleString('en-GB', {
                         timeZone: 'Asia/Colombo'
                       })}
                     </td>
-                    <td className="text-[10.5px] text-black px-3 py-3">
+                    <td className="text-xs text-ink px-3 py-3">
                       {p.currentRedemptions} / {p.maxRedemptions}
                     </td>
-                    <td className="text-[10.5px] text-black px-3 py-3">
+                    <td className="text-xs text-ink px-3 py-3">
                       {p.roomTypeIds.map(id => rooms.find(r => r.id === id)?.name ?? id).join(', ')}
                     </td>
                     <td className="px-3 py-3">
-                      <span className="font-medium text-[9.5px] text-black bg-gray-100 rounded-full px-2 py-1">
-                        {p.lifecycleState}
-                      </span>
-                      <p className="font-normal text-[10px] text-black/60 mt-1">
-                        {publicationLabel(p.publicationStatus)}
-                      </p>
+                      <span className={'status-badge ' + statusColor(p.lifecycleState)}>{p.lifecycleState}</span>
+                      <p className="font-normal text-xs text-muted mt-1">{publicationLabel(p.publicationStatus)}</p>
                     </td>
                     <td className="px-3 py-3">
                       <button
                         disabled={busy || conflict}
                         onClick={() => edit(p)}
-                        className="font-normal text-[10px] text-black underline"
+                        className="font-normal text-xs text-ink underline button button-ghost"
                       >
                         Edit
                       </button>
@@ -544,7 +541,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                             (Date.parse(p.validUntil) <= Date.now() || p.currentRedemptions >= p.maxRedemptions))
                         }
                         onClick={() => action(p, p.status === 'ACTIVE' ? 'deactivate' : 'activate')}
-                        className="font-normal text-[10px] text-black underline"
+                        className={'button ' + (p.status === 'ACTIVE' ? 'button-danger' : 'button-success')}
                       >
                         {p.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
                       </button>
@@ -552,7 +549,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                       <button
                         disabled={busy || conflict}
                         onClick={() => action(p, 'delete')}
-                        className="font-normal text-[10px] text-black underline"
+                        className="font-normal text-xs text-ink underline button button-danger"
                       >
                         Delete
                       </button>
@@ -569,11 +566,11 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
               setLoading(true);
               setPage(page - 1);
             }}
-            className="font-normal text-[10px] text-black underline"
+            className="font-normal text-xs text-ink underline button button-ghost"
           >
             Previous page
           </button>
-          <span className="text-[10.5px] text-black">
+          <span className="text-xs text-ink">
             Page {page} / {Math.max(1, Math.ceil(total / 20))}
           </span>
           <button
@@ -582,7 +579,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
               setLoading(true);
               setPage(page + 1);
             }}
-            className="font-normal text-[10px] text-black underline"
+            className="font-normal text-xs text-ink underline button button-ghost"
           >
             Next page
           </button>

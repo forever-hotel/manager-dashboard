@@ -81,10 +81,12 @@ export function AuthForm({
     }
   }
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white p-4">
-      <section className="w-full max-w-sm rounded-lg border border-gray-200 p-8">
-        <h1 className="text-xl font-semibold">{changePassword ? 'Change your password' : 'Manager sign in'}</h1>
-        <p className="mt-2 text-sm text-gray-600">
+    <main className="flex min-h-screen items-center justify-center bg-canvas p-4">
+      <section className="w-full max-w-sm rounded-lg border border-border p-8 bg-surface">
+        <h1 className="font-medium text-[22px] text-brand">
+          {changePassword ? 'Change your password' : 'Manager sign in'}
+        </h1>
+        <p className="mt-2 text-sm text-muted">
           {changePassword
             ? 'This is your first sign-in. Replace your initial password with a new password. Use the new password for future sign-ins.'
             : 'Sign in to Forever Hotel.'}
@@ -130,13 +132,13 @@ export function AuthForm({
             )}
           </div>
           {error && (
-            <p role="alert" className="text-sm text-red-700">
+            <p role="alert" className="text-sm text-danger">
               {error}
             </p>
           )}
           <button
             disabled={isSubmitting || pending}
-            className="w-full rounded bg-black px-4 py-2 text-white disabled:opacity-50"
+            className="w-full rounded bg-brand px-4 py-2 text-white disabled:opacity-50 button button-primary"
           >
             {isSubmitting || pending ? 'Please wait…' : changePassword ? 'Change password' : 'Sign in'}
           </button>

@@ -112,8 +112,9 @@ export default function ReportDownload({
             disabled={disabled || !!active?.busy}
             onClick={() => void download(format)}
             className={
-              'font-normal text-[10.5px] text-black rounded-md px-4 py-2 ' +
-              (format === 'pdf' ? 'bg-gray-100' : 'border border-gray-200')
+              'font-normal text-xs text-ink rounded-md px-4 py-2 ' +
+              (format === 'pdf' ? 'bg-brand-light' : 'border border-border') +
+              ' button button-secondary'
             }
           >
             Export {format.toUpperCase()}
@@ -121,14 +122,14 @@ export default function ReportDownload({
         ))}
       </div>
       {active?.busy && (
-        <p role="status" className="text-[10.5px] text-black/60 mt-2">
+        <p role="status" className="text-xs text-muted mt-2">
           Preparing {active.busy.toUpperCase()} report...
         </p>
       )}
       {active?.error && (
-        <p role="alert" className="text-[10.5px] text-black mt-2">
+        <p role="alert" className="text-xs text-ink mt-2">
           {active.error}{' '}
-          <button type="button" className="underline" onClick={() => void download(active.retry!)}>
+          <button type="button" className="underline button button-ghost" onClick={() => void download(active.retry!)}>
             Retry download
           </button>
         </p>

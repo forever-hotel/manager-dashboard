@@ -1,11 +1,219 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
 
+@theme {
+  --color-brand: #1a3c5e;
+  --color-brand-hover: #2e5f8a;
+  --color-brand-light: #e8eef4;
+  --color-accent: #c9920d;
+  --color-accent-light: #fdf6e3;
+  --color-sidebar: #12263a;
+  --color-sidebar-foreground: #ffffff;
+  --color-sidebar-muted: #c4d1de;
+  --color-success: #1a6b3c;
+  --color-success-light: #e8f5ee;
+  --color-danger: #8b1a1a;
+  --color-danger-light: #fbeaea;
+  --color-warning: #7a4f00;
+  --color-warning-light: #fef7e6;
+  --color-canvas: #f5f3ef;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f9f7f4;
+  --color-border: #ddd8cf;
+  --color-ink: #1a1a18;
+  --color-muted: #5a5650;
+}
+
+@layer base {
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  h1 {
+    color: var(--color-brand);
+    font-size: 22px;
+    font-weight: 500;
+  }
+
+  h2 {
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  label,
+  th {
+    color: var(--color-muted);
+    font-size: 12px;
+  }
+
+  :where(input, select, textarea) {
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+    color: var(--color-ink);
+    font-size: 13px;
+    accent-color: var(--color-brand);
+  }
+
+  :where(input, select, textarea)::placeholder {
+    color: var(--color-muted);
+    opacity: 0.75;
+  }
+
+  :where(input, select, textarea)[aria-invalid='true'] {
+    border-color: var(--color-danger);
+  }
+
+  :where([role='alert']) {
+    color: var(--color-danger);
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: var(--color-surface-alt);
+  }
+
+  svg text {
+    fill: var(--color-muted);
+  }
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--color-brand);
+  border-radius: 0.375rem;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 150ms,
+    color 150ms,
+    border-color 150ms;
+}
+
+.button-secondary {
+  background-color: var(--color-surface);
+  color: var(--color-brand);
+}
+
+.button-secondary:hover:not(:disabled) {
+  background-color: var(--color-brand-light);
+}
+
+.button-primary,
+.button[aria-pressed='true'] {
+  background-color: var(--color-brand);
+  border-color: var(--color-brand);
+  color: var(--color-surface);
+}
+
+.button-primary:hover:not(:disabled),
+.button[aria-pressed='true']:hover:not(:disabled) {
+  background-color: var(--color-brand-hover);
+  border-color: var(--color-brand-hover);
+  color: var(--color-surface);
+}
+
+.button-accent {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-ink);
+}
+
+.button-accent:hover:not(:disabled) {
+  background-color: var(--color-accent-light);
+  color: var(--color-warning);
+}
+
+.button-success {
+  background-color: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-surface);
+}
+
+.button-success:hover:not(:disabled) {
+  background-color: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.button-danger {
+  background-color: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-surface);
+}
+
+.button-danger:hover:not(:disabled) {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.button-ghost {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--color-brand);
+}
+
+.button-ghost:hover:not(:disabled) {
+  background-color: var(--color-brand-light);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.dashboard-sidebar .button-ghost {
+  color: var(--color-sidebar-foreground);
+}
+
+.dashboard-sidebar .button-ghost:hover:not(:disabled) {
+  background-color: var(--color-brand);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-width: 1px;
+  border-radius: 9999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.calendar-day {
+  display: block;
+  min-height: 5.5rem;
+  padding: 0.5rem;
+  font-size: 12px;
+  text-align: center;
+}
+
+.calendar-day[aria-pressed='true'] {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
 /* Keyboard focus must remain visible on every native control and scroll region. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid #111827;
+  outline: 2px solid var(--color-brand);
   outline-offset: 3px;
+  box-shadow: 0 0 0 4px var(--color-brand-light);
   scroll-margin-block: 5rem;
+}
+
+.dashboard-sidebar :focus-visible,
+.mobile-header :focus-visible {
+  outline-color: var(--color-accent);
+  box-shadow: none;
 }
 
 /* Keep existing desktop layout; allow controls to wrap at narrow/zoomed widths. */

@@ -28,14 +28,14 @@ export default function WorkerAnalytics() {
   return (
     <main className="flex-1 min-w-0 px-8 py-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-medium text-[15px] text-black">Worker performance</h1>
+        <h1 className="font-medium text-[22px] text-brand">Worker performance</h1>
         <div className="flex items-center gap-4">
           <PeriodButtons period={period} onChange={choose} />
           <AnalyticsClock />
         </div>
       </div>
       <form
-        className="flex gap-3 mb-4 text-[10.5px]"
+        className="flex gap-3 mb-4 text-xs"
         onSubmit={e => {
           e.preventDefault();
           const value = draft.trim();
@@ -51,13 +51,13 @@ export default function WorkerAnalytics() {
         <label>
           Worker ID
           <input
-            className="block border border-gray-200 rounded-md px-3 py-2"
+            className="block border border-border rounded-md px-3 py-2"
             value={draft}
             onChange={e => setDraft(e.target.value)}
             aria-invalid={!!filterError}
           />
         </label>
-        <button type="submit" className="underline">
+        <button type="submit" className="underline button button-primary">
           Apply worker filter
         </button>
       </form>
@@ -66,11 +66,11 @@ export default function WorkerAnalytics() {
         <AnalyticsFailure error={error} retry={retry} />
       ) : (
         <>
-          <p className="text-[10.5px] text-black/60 mb-3">
+          <p className="text-xs text-muted mb-3">
             {localBoundary(data.start)} to {localBoundary(data.end)} (exclusive end). Asia/Colombo.
           </p>
           <section className="mb-6">
-            <h2 className="font-medium text-[12px] underline text-black mb-3">Worker performance</h2>
+            <h2 className="underline mb-3 font-medium text-base text-ink">Worker performance</h2>
             <div className="grid grid-cols-4 gap-4">
               <MetricCard
                 label="Tasks completed"
@@ -83,22 +83,20 @@ export default function WorkerAnalytics() {
               />
               <MetricCard label="Active workers" value={String(data.workers.filter(w => w.isActive).length)} />
             </div>
-            <p className="text-[10px] text-black/60 mt-3">
+            <p className="text-xs text-muted mt-3">
               Durations start at submission and use valid completed tasks in the period. Open complaints include
               currently open records across all dates. Inactive and historical assignees remain visible.
             </p>
             <ReportDownload type="worker-performance" filters={{ period, ...(workerId ? { workerId } : {}) }} />
-            <p className="text-[10px]">
-              Exports include all matching workers. Sorting and paging affect this table only.
-            </p>
+            <p className="text-xs">Exports include all matching workers. Sorting and paging affect this table only.</p>
           </section>
           <div className="grid grid-cols-3 gap-4 mb-8">
-            <section className="border border-gray-200 rounded-lg p-4">
-              <h2 className="font-medium text-[11px] text-black mb-3">Per-worker summary</h2>
-              <label className="text-[10.5px]">
+            <section className="border border-border rounded-lg p-4 bg-surface">
+              <h2 className="mb-3 font-medium text-base text-ink">Per-worker summary</h2>
+              <label className="text-xs">
                 Sort workers
                 <select
-                  className="block border border-gray-200 rounded-md p-2"
+                  className="block border border-border rounded-md p-2"
                   value={sort}
                   onChange={e => {
                     setSort(e.target.value as SortKey);
@@ -119,7 +117,7 @@ export default function WorkerAnalytics() {
               </label>
               <button
                 type="button"
-                className="text-[10.5px] underline my-2"
+                className="text-xs underline my-2 button button-ghost"
                 aria-pressed={descending}
                 onClick={() => {
                   setDescending(v => !v);
@@ -129,12 +127,12 @@ export default function WorkerAnalytics() {
                 {descending ? 'Descending' : 'Ascending'}
               </button>
               <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Worker performance data">
-                <table className="w-full text-left border-collapse text-[10px]">
+                <table className="w-full text-left border-collapse text-xs">
                   <caption className="sr-only">Worker performance in minutes, current filters</caption>
                   <thead>
                     <tr>
                       {['Worker', 'Completed tasks', 'Average minutes', 'Open complaints'].map(h => (
-                        <th key={h} scope="col" className="font-medium text-[9.5px] text-black py-2">
+                        <th key={h} scope="col" className="font-medium text-xs text-ink py-2">
                           {h}
                         </th>
                       ))}
@@ -142,7 +140,7 @@ export default function WorkerAnalytics() {
                   </thead>
                   <tbody>
                     {ordered.slice((page - 1) * 10, page * 10).map(w => (
-                      <tr key={w.workerId} className="border-b border-gray-100">
+                      <tr key={w.workerId} className="border-b border-border">
                         <td className="py-2">
                           {w.fullName}
                           <p>
@@ -179,17 +177,22 @@ export default function WorkerAnalytics() {
                   </tbody>
                 </table>
               </div>
-              {ordered.length === 0 && <p className="text-[10px]">No workers match these filters.</p>}
-              <div className="text-[10px] mt-3">
+              {ordered.length === 0 && <p className="text-xs">No workers match these filters.</p>}
+              <div className="text-xs mt-3">
                 Page {page} of {Math.max(1, Math.ceil(ordered.length / 10))}.{' '}
-                <button type="button" disabled={page === 1} onClick={() => setPage(p => p - 1)} className="underline">
+                <button
+                  type="button"
+                  disabled={page === 1}
+                  onClick={() => setPage(p => p - 1)}
+                  className="underline button button-ghost"
+                >
                   Previous workers
                 </button>{' '}
                 <button
                   type="button"
                   disabled={page * 10 >= ordered.length}
                   onClick={() => setPage(p => p + 1)}
-                  className="underline"
+                  className="underline button button-ghost"
                 >
                   Next workers
                 </button>
@@ -199,7 +202,7 @@ export default function WorkerAnalytics() {
               <TaskQueue />
             </section>
           </div>
-          <p className="text-[10px] text-black/60">
+          <p className="text-xs text-muted">
             Retrieved: {data.freshness.queriedAt}. Data quality covers all tasks assigned to each worker.
           </p>
         </>

@@ -24,7 +24,7 @@ export default function OperationsAnalytics({ type }: { type: 'food-orders' | 's
   return (
     <main className="flex-1 min-w-0 px-8 py-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-medium text-[15px] text-black">{title}</h1>
+        <h1 className="font-medium text-[22px] text-brand">{title}</h1>
         <div className="flex items-center gap-4">
           <PeriodButtons period={period} onChange={setPeriod} />
           <AnalyticsClock />
@@ -34,11 +34,11 @@ export default function OperationsAnalytics({ type }: { type: 'food-orders' | 's
         <AnalyticsFailure error={state.error} retry={state.retry} />
       ) : (
         <>
-          <p className="text-[10.5px] text-black/60 mb-3">
+          <p className="text-xs text-muted mb-3">
             {localBoundary(data.start)} to {localBoundary(data.end)} (exclusive end). Asia/Colombo.
           </p>
           <section className="mb-6">
-            <h2 className="font-medium text-[12px] underline text-black mb-3">{title} analytics</h2>
+            <h2 className="underline mb-3 font-medium text-base text-ink">{title} analytics</h2>
             <div className="grid grid-cols-4 gap-4">
               <MetricCard
                 label={type === 'food-orders' ? 'Orders placed' : 'Requests submitted'}
@@ -84,7 +84,7 @@ export default function OperationsAnalytics({ type }: { type: 'food-orders' | 's
             </div>
             <ReportDownload type={type} filters={{ period }} />
             {data.total === 0 && (
-              <p role="status" className="text-[10.5px] mt-3">
+              <p role="status" className="text-xs mt-3">
                 No orders/requests created for this period.
               </p>
             )}
@@ -95,14 +95,14 @@ export default function OperationsAnalytics({ type }: { type: 'food-orders' | 's
         {type === 'food-orders' && <KitchenQueue />}
         {type === 'food-orders' && food.data ? (
           <>
-            <section className="border border-gray-200 rounded-lg p-4">
+            <section className="border border-border rounded-lg p-4 bg-surface">
               <DataTable
                 caption="Top ordered items"
                 headings={['Item', 'Quantity']}
                 rows={food.data.popularItems.map(i => [i.name, i.quantity])}
               />
             </section>
-            <section className="col-span-3 border border-gray-200 rounded-lg p-4">
+            <section className="col-span-3 border border-border rounded-lg p-4 bg-surface">
               <DataTable
                 caption="Orders by placement hour (Asia/Colombo)"
                 headings={['Local hour', 'Orders']}
@@ -112,13 +112,13 @@ export default function OperationsAnalytics({ type }: { type: 'food-orders' | 's
           </>
         ) : service.data ? (
           <>
-            <section className="col-span-3 border border-gray-200 rounded-lg p-4">
+            <section className="col-span-3 border border-border rounded-lg p-4 bg-surface">
               <DataTable
                 caption="Requests created by current status"
                 headings={['Status', 'Requests']}
                 rows={service.data.byStatus.map(s => [s.status.replaceAll('_', ' '), s.count])}
               />
-              <p className="text-[10px] mt-3">
+              <p className="text-xs mt-3">
                 Average excludes {service.data.resolution.excludedCount} completed requests with invalid durations. Data
                 quality: {service.data.dataQuality.status}. Resolution uses completions in the period; backlog includes
                 all current unresolved dates.
@@ -127,7 +127,7 @@ export default function OperationsAnalytics({ type }: { type: 'food-orders' | 's
           </>
         ) : null}
         {data && (
-          <section className="col-span-3 border border-gray-200 rounded-lg p-4">
+          <section className="col-span-3 border border-border rounded-lg p-4 bg-surface">
             <DataTable
               caption="Daily demand"
               headings={['Hotel date', 'Created count']}
@@ -137,7 +137,7 @@ export default function OperationsAnalytics({ type }: { type: 'food-orders' | 's
         )}
       </div>
       {data && (
-        <p className="text-[10px] text-black/60">
+        <p className="text-xs text-muted">
           Retrieved: {data.freshness.queriedAt}; source update: {data.freshness.sourceLatestUpdatedAt ?? 'Unavailable'}.
         </p>
       )}

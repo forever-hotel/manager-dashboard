@@ -77,21 +77,19 @@ export function LoginForm({ next, expired = false }: { next?: string; expired?: 
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-white p-4">
-      <div className="w-full max-w-sm border border-gray-200 rounded-lg p-8">
+    <div className="flex min-h-screen w-full items-center justify-center bg-canvas p-4">
+      <div className="w-full max-w-sm border border-border rounded-lg p-8 bg-surface">
         {/* Header */}
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mb-3">
-            <Hotel className="w-5 h-5 text-black" />
+          <div className="w-10 h-10 bg-brand-light rounded-lg flex items-center justify-center mb-3">
+            <Hotel className="w-5 h-5 text-ink" />
           </div>
-          <h1 className="font-medium text-[15px] text-black">Manager Dashboard</h1>
-          <p className="font-normal text-[10.5px] text-black/60 mt-1">
-            Sign in to access your administrative workspace.
-          </p>
+          <h1 className="font-medium text-[22px] text-brand">Manager Dashboard</h1>
+          <p className="font-normal text-xs text-muted mt-1">Sign in to access your administrative workspace.</p>
         </div>
 
         {expired && (
-          <p role="status" className="font-normal text-[10.5px] text-black/60 mb-4">
+          <p role="status" className="font-normal text-xs text-muted mb-4">
             Your session ended. Please sign in again.
           </p>
         )}
@@ -103,12 +101,12 @@ export function LoginForm({ next, expired = false }: { next?: string; expired?: 
           className="flex flex-col gap-4"
         >
           <div>
-            <label className="font-normal text-[10px] text-black/60 block mb-1" htmlFor="username">
+            <label className="font-normal text-xs text-muted block mb-1" htmlFor="username">
               Username
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User className="h-4 w-4 text-black/40" />
+                <User className="h-4 w-4 text-muted" />
               </div>
               <input
                 id="username"
@@ -117,24 +115,24 @@ export function LoginForm({ next, expired = false }: { next?: string; expired?: 
                 aria-invalid={!!errors.username}
                 aria-describedby={errors.username ? 'username-error' : undefined}
                 placeholder="manager"
-                className="w-full border border-gray-200 rounded-md pl-9 pr-3 py-2 text-[11px] text-black placeholder:text-black/30 focus:outline-none focus:border-black"
+                className="w-full border border-border rounded-md pl-9 pr-3 py-2 text-[13px] text-ink placeholder:text-muted/70 focus:outline-none focus:border-brand"
                 {...register('username')}
               />
             </div>
             {errors.username && (
-              <p id="username-error" role="alert" className="font-normal text-[9.5px] text-red-600 mt-1">
+              <p id="username-error" role="alert" className="font-normal text-xs text-danger mt-1">
                 {errors.username.message}
               </p>
             )}
           </div>
 
           <div>
-            <label className="font-normal text-[10px] text-black/60 block mb-1" htmlFor="password">
+            <label className="font-normal text-xs text-muted block mb-1" htmlFor="password">
               Password
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-4 w-4 text-black/40" />
+                <Lock className="h-4 w-4 text-muted" />
               </div>
               <input
                 id="password"
@@ -143,12 +141,12 @@ export function LoginForm({ next, expired = false }: { next?: string; expired?: 
                 aria-invalid={!!errors.password}
                 aria-describedby={errors.password ? 'password-error' : undefined}
                 placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
-                className="w-full border border-gray-200 rounded-md pl-9 pr-3 py-2 text-[11px] text-black placeholder:text-black/30 focus:outline-none focus:border-black"
+                className="w-full border border-border rounded-md pl-9 pr-3 py-2 text-[13px] text-ink placeholder:text-muted/70 focus:outline-none focus:border-brand"
                 {...register('password')}
               />
             </div>
             {errors.password && (
-              <p id="password-error" role="alert" className="font-normal text-[9.5px] text-red-600 mt-1">
+              <p id="password-error" role="alert" className="font-normal text-xs text-danger mt-1">
                 {errors.password.message}
               </p>
             )}
@@ -157,7 +155,7 @@ export function LoginForm({ next, expired = false }: { next?: string; expired?: 
           <button
             type="submit"
             disabled={isSubmitting || pending}
-            className="w-full bg-black text-white rounded-md py-2 mt-2 font-medium text-[11px] flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full bg-brand text-white rounded-md py-2 mt-2 font-medium text-[13px] flex items-center justify-center gap-2 disabled:opacity-50 button button-primary"
           >
             {isSubmitting || pending ? (
               <>

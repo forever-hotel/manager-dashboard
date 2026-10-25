@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { statusColor } from '@/lib/status-color';
 import { Staff, staffDetail, staffInput, staffLabels, staffPage, staffRoles } from '@/lib/staff';
 const empty = {
   name: '',
@@ -231,14 +232,14 @@ export default function StaffAccounts() {
     <main className="flex-1 min-w-0 px-8 py-6">
       {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-medium text-[15px] text-black">Staff accounts</h1>
+        <h1 className="font-medium text-[22px] text-brand">Staff accounts</h1>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-gray-100 rounded-md p-1">
+          <div className="flex items-center gap-1 bg-brand-light rounded-md p-1">
             <button
               type="button"
               disabled
               title="Staff directory shows current accounts"
-              className="font-normal text-[10.5px] text-black px-3 py-1 rounded"
+              className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
             >
               Day
             </button>
@@ -246,7 +247,7 @@ export default function StaffAccounts() {
               type="button"
               disabled
               title="Staff directory shows current accounts"
-              className="font-medium text-[10.5px] text-black px-3 py-1 rounded bg-white shadow-sm"
+              className="font-medium text-xs text-ink px-3 py-1 rounded bg-surface shadow-sm button button-secondary"
             >
               Week
             </button>
@@ -254,34 +255,39 @@ export default function StaffAccounts() {
               type="button"
               disabled
               title="Staff directory shows current accounts"
-              className="font-normal text-[10.5px] text-black px-3 py-1 rounded"
+              className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
             >
               Month
             </button>
           </div>
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.5">
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
       </div>
 
       {message && (
-        <p role="alert" className="font-normal text-[11px] text-black mb-4">
+        <p role="alert" className="font-normal text-[13px] text-ink mb-4">
           {message}
         </p>
       )}
       <section className="mb-8">
-        <h2 className="font-medium text-[12px] underline text-black mb-3">Staff account management</h2>
-        <form onSubmit={save} className="border border-gray-200 rounded-lg p-5">
-          <h3 className="font-medium text-[11.5px] text-black mb-4">
+        <h2 className="underline mb-3 font-medium text-base text-ink">Staff account management</h2>
+        <form onSubmit={save} className="border border-border rounded-lg p-5">
+          <h3 className="font-medium text-[13px] text-ink mb-4">
             {editing ? 'Edit staff account' : 'Create staff account'}
           </h3>
           {editing && (
-            <div className="font-normal text-[10px] text-black mb-4">
+            <div className="font-normal text-xs text-ink mb-4">
               Current profile: {editing.name}, {editing.email}, {staffLabels[editing.role]}, {editing.vocation}, age{' '}
               {editing.age ?? 'unknown'}, phone {editing.phone ?? 'unknown'}, NIC {editing.nic ?? 'unknown'}. Version{' '}
               {editing.version}.{' '}
-              <button type="button" disabled={busy} className="underline" onClick={() => void rebase()}>
+              <button
+                type="button"
+                disabled={busy}
+                className="underline button button-ghost"
+                onClick={() => void rebase()}
+              >
                 Reload current version and keep draft
               </button>
             </div>
@@ -289,7 +295,7 @@ export default function StaffAccounts() {
           <div className="grid grid-cols-3 gap-4 mb-4">
             {(['name', 'role', 'vocation', 'email', 'phone', 'nic', 'age'] as const).map(key => (
               <div key={key}>
-                <label htmlFor={'staff-' + key} className="font-normal text-[10px] text-black/60 block mb-1">
+                <label htmlFor={'staff-' + key} className="font-normal text-xs text-muted block mb-1">
                   {
                     {
                       name: 'Full name',
@@ -308,7 +314,7 @@ export default function StaffAccounts() {
                     disabled={busy}
                     value={form.role}
                     onChange={e => setForm({ ...form, role: e.target.value })}
-                    className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
+                    className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
                   >
                     {staffRoles.map(r => (
                       <option key={r} value={r}>
@@ -327,27 +333,30 @@ export default function StaffAccounts() {
                     max={key === 'age' ? 120 : undefined}
                     value={form[key]}
                     onChange={e => setForm({ ...form, [key]: e.target.value })}
-                    className="w-full border border-gray-200 rounded-md px-3 py-2 font-normal text-[11px] text-black"
+                    className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
                   />
                 )}
               </div>
             ))}
           </div>
-          <div className="bg-gray-50 rounded-md px-3 py-3 mb-5">
-            <span className="font-normal text-[10px] text-black">
+          <div className="bg-surface-alt rounded-md px-3 py-3 mb-5">
+            <span className="font-normal text-xs text-ink">
               Username and temporary password are generated and emailed when delivery is enabled. Passwords are never
               displayed here.
             </span>
           </div>
           <div className="flex gap-3">
-            <button disabled={busy} className="font-normal text-[11px] text-black bg-gray-100 rounded-md px-4 py-2">
+            <button
+              disabled={busy}
+              className="font-normal text-[13px] text-ink bg-brand-light rounded-md px-4 py-2 button button-primary"
+            >
               {busy ? 'Saving?' : editing ? 'Save changes' : 'Create account'}
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={clear}
-              className="font-normal text-[11px] text-black border border-gray-200 rounded-md px-4 py-2"
+              className="font-normal text-[13px] text-ink border border-border rounded-md px-4 py-2 button button-secondary"
             >
               Cancel
             </button>
@@ -368,12 +377,12 @@ export default function StaffAccounts() {
               setConfirm(null);
             }
           }}
-          className="border border-gray-200 rounded-lg p-5 mb-4"
+          className="border border-border rounded-lg p-5 mb-4 bg-surface"
         >
-          <h2 id="staff-confirm-title" className="font-medium text-[12px]">
+          <h2 id="staff-confirm-title" className="font-medium text-base text-ink">
             {confirm.action === 'reset' ? 'Reset password' : 'Deactivate account'} for {confirm.staff.name}?
           </h2>
-          <p id="staff-confirm-description" className="font-normal text-[11px] my-3">
+          <p id="staff-confirm-description" className="font-normal text-[13px] my-3">
             {confirm.action === 'reset'
               ? 'This invalidates existing sessions and emails new temporary credentials.'
               : 'This blocks access and invalidates existing sessions.'}
@@ -382,7 +391,7 @@ export default function StaffAccounts() {
             type="button"
             disabled={busy}
             onClick={() => void action()}
-            className="font-normal text-[11px] bg-gray-100 rounded-md px-4 py-2"
+            className="font-normal text-[13px] bg-brand-light rounded-md px-4 py-2 button button-danger"
           >
             Confirm {confirm.action === 'reset' ? 'reset' : 'deactivation'}
           </button>{' '}
@@ -390,7 +399,7 @@ export default function StaffAccounts() {
             type="button"
             disabled={busy}
             onClick={() => setConfirm(null)}
-            className="font-normal text-[11px] border border-gray-200 rounded-md px-4 py-2"
+            className="font-normal text-[13px] border border-border rounded-md px-4 py-2 button button-secondary"
           >
             Keep account unchanged
           </button>
@@ -398,17 +407,17 @@ export default function StaffAccounts() {
       )}
       <section className="mb-10">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium text-[12px] text-black">All staff accounts</h2>
+          <h2 className="font-medium text-base text-ink">All staff accounts</h2>
           <button
             type="button"
             disabled={busy}
             onClick={clear}
-            className="font-medium text-[10px] text-black underline"
+            className="font-medium text-xs text-ink underline button button-primary"
           >
             + Add new
           </button>
         </div>
-        <div className="flex gap-4 mb-3 font-normal text-[11px] text-black">
+        <div className="flex gap-4 mb-3 font-normal text-[13px] text-ink">
           <label>
             Search
             <input
@@ -419,7 +428,7 @@ export default function StaffAccounts() {
                 setPage(1);
                 setLoading(true);
               }}
-              className="block border border-gray-200 rounded-md px-3 py-2"
+              className="block border border-border rounded-md px-3 py-2"
             />
           </label>
           <label>
@@ -431,7 +440,7 @@ export default function StaffAccounts() {
                 setPage(1);
                 setLoading(true);
               }}
-              className="block border border-gray-200 rounded-md px-3 py-2"
+              className="block border border-border rounded-md px-3 py-2"
             >
               <option value="">All roles</option>
               {staffRoles.map(r => (
@@ -450,29 +459,29 @@ export default function StaffAccounts() {
                 setPage(1);
                 setLoading(true);
               }}
-              className="block border border-gray-200 rounded-md px-3 py-2"
+              className="block border border-border rounded-md px-3 py-2"
             >
               <option value="">All statuses</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
           </label>
-          <button type="button" onClick={reload} className="underline">
+          <button type="button" onClick={reload} className="underline button button-ghost">
             Refresh directory
           </button>
         </div>
         {loading && (
-          <p role="status" className="text-[11px]">
+          <p role="status" className="text-[13px]">
             Loading staff?
           </p>
         )}
         {listError && (
-          <p role="status" className="text-[11px]">
+          <p role="status" className="text-[13px]">
             {listError} Use Refresh directory to retry.
           </p>
         )}
         <div
-          className="border border-gray-200 rounded-lg overflow-x-auto"
+          className="border border-border rounded-lg overflow-x-auto bg-surface"
           tabIndex={0}
           role="region"
           aria-label="Staff directory data"
@@ -480,9 +489,9 @@ export default function StaffAccounts() {
           <table className="w-full text-left border-collapse">
             <caption className="sr-only">Staff accounts matching current filters</caption>
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
+              <tr className="border-b border-border bg-surface-alt">
                 {['Name', 'Role', 'Email', 'Status', 'Last login', 'Delivery', 'Actions'].map(h => (
-                  <th key={h} scope="col" className="font-medium text-[10.5px] text-black px-3 py-3">
+                  <th key={h} scope="col" className="font-medium text-xs text-ink px-3 py-3">
                     {h}
                   </th>
                 ))}
@@ -490,11 +499,11 @@ export default function StaffAccounts() {
             </thead>
             <tbody>
               {rows.map((s, i) => (
-                <tr key={s.staffId} className={i < rows.length - 1 ? 'border-b border-gray-100' : ''}>
+                <tr key={s.staffId} className={i < rows.length - 1 ? 'border-b border-border' : ''}>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-                        <span className="font-medium text-[9px] text-black">
+                      <div className="w-6 h-6 rounded-full bg-brand-light flex items-center justify-center">
+                        <span className="font-medium text-xs text-ink">
                           {s.name
                             .split(/\s+/)
                             .map(n => n[0])
@@ -502,18 +511,18 @@ export default function StaffAccounts() {
                             .join('')}
                         </span>
                       </div>
-                      <span className="font-normal text-[10.5px] text-black">{s.name}</span>
+                      <span className="font-normal text-xs text-ink">{s.name}</span>
                     </div>
                   </td>
-                  <td className="text-[10.5px] text-black px-3 py-3">{staffLabels[s.role]}</td>
-                  <td className="text-[10.5px] text-black px-3 py-3">{s.email}</td>
+                  <td className="text-xs text-ink px-3 py-3">{staffLabels[s.role]}</td>
+                  <td className="text-xs text-ink px-3 py-3">{s.email}</td>
                   <td className="px-3 py-3">
-                    <span className="font-medium text-[9.5px] text-black bg-gray-100 rounded-full px-2 py-1">
+                    <span className={'status-badge ' + statusColor(s.isActive ? 'ACTIVE' : 'INACTIVE')}>
                       {s.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="text-[10.5px] text-black px-3 py-3">Not recorded</td>
-                  <td className="text-[10.5px] text-black px-3 py-3">
+                  <td className="text-xs text-ink px-3 py-3">Not recorded</td>
+                  <td className="text-xs text-ink px-3 py-3">
                     {
                       {
                         pending: 'Queued for delivery',
@@ -530,7 +539,7 @@ export default function StaffAccounts() {
                       type="button"
                       disabled={busy}
                       onClick={() => void select(s)}
-                      className="font-normal text-[10px] text-black underline"
+                      className="font-normal text-xs text-ink underline button button-ghost"
                     >
                       Edit
                     </button>
@@ -541,7 +550,7 @@ export default function StaffAccounts() {
                           type="button"
                           disabled={busy}
                           onClick={() => setConfirm({ staff: s, action: 'reset' })}
-                          className="font-normal text-[10px] text-black underline"
+                          className="font-normal text-xs text-ink underline button button-ghost"
                         >
                           Reset pwd
                         </button>
@@ -550,7 +559,7 @@ export default function StaffAccounts() {
                           type="button"
                           disabled={busy}
                           onClick={() => setConfirm({ staff: s, action: 'deactivate' })}
-                          className="font-normal text-[10px] text-black underline"
+                          className="font-normal text-xs text-ink underline button button-danger"
                         >
                           Deactivate
                         </button>
@@ -563,9 +572,9 @@ export default function StaffAccounts() {
           </table>
         </div>
         {!loading && !listError && rows.length === 0 && (
-          <p className="text-[11px] my-3">No staff match these filters.</p>
+          <p className="text-[13px] my-3">No staff match these filters.</p>
         )}
-        <div className="font-normal text-[11px] text-black mt-3">
+        <div className="font-normal text-[13px] text-ink mt-3">
           Page {page} ? {total} accounts{' '}
           <button
             type="button"
@@ -574,7 +583,7 @@ export default function StaffAccounts() {
               setPage(p => p - 1);
               setLoading(true);
             }}
-            className="underline"
+            className="underline button button-ghost"
           >
             Previous
           </button>{' '}
@@ -585,7 +594,7 @@ export default function StaffAccounts() {
               setPage(p => p + 1);
               setLoading(true);
             }}
-            className="underline"
+            className="underline button button-ghost"
           >
             Next
           </button>

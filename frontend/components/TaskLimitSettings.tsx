@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { taskLimitInput, taskLimitSchema, type TaskLimit } from '@/lib/task-limit';
 const button =
-  'rounded border border-gray-200 px-3 py-2 text-[11px] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50';
+  'rounded border border-border px-3 py-2 text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50';
 export default function TaskLimitSettings() {
   const [data, setData] = useState<TaskLimit>();
   const [draft, setDraft] = useState('');
@@ -118,12 +118,15 @@ export default function TaskLimitSettings() {
   }
   return (
     <main className="min-w-0 flex-1 px-4 py-6 sm:px-8">
-      <h1 className="mb-6 text-[15px] font-medium text-black">Settings</h1>
-      <section className="rounded-lg border border-gray-200 p-5 text-[11px]" aria-labelledby="task-limit-title">
-        <h2 id="task-limit-title" className="text-[12px] font-medium text-black">
+      <h1 className="mb-6 font-medium text-[22px] text-brand">Settings</h1>
+      <section
+        className="rounded-lg border border-border p-5 text-[13px] bg-surface"
+        aria-labelledby="task-limit-title"
+      >
+        <h2 id="task-limit-title" className="font-medium text-base text-ink">
           Worker active-task limit
         </h2>
-        <p className="mt-2 text-black/60">
+        <p className="mt-2 text-muted">
           Default 3; allowed range 1–10. Assigned, In Progress and Escalated tasks count when assigned to a worker.
           Existing tasks are retained when the limit is reduced.
         </p>
@@ -168,7 +171,7 @@ export default function TaskLimitSettings() {
             <label>
               Maximum active tasks per worker
               <input
-                className="mt-1 block w-40 rounded-md border border-gray-200 px-3 py-2"
+                className="mt-1 block w-40 rounded-md border border-border px-3 py-2"
                 type="number"
                 min={1}
                 max={10}
@@ -182,14 +185,18 @@ export default function TaskLimitSettings() {
                 required
               />
             </label>
-            <button className={button} disabled={saving || version === undefined} type="submit">
+            <button
+              className={button + ' button button-primary'}
+              disabled={saving || version === undefined}
+              type="submit"
+            >
               {saving ? 'Saving…' : 'Save task limit'}
             </button>
           </form>
         )}
         <button
           type="button"
-          className={button + ' mt-4'}
+          className={button + ' mt-4' + ' button button-secondary'}
           disabled={saving || denied}
           onClick={() => void refresh(true)}
         >

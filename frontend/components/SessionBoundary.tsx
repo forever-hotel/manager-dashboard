@@ -80,7 +80,7 @@ export function SessionBoundary({ session, children }: { session: Session; child
         ) : (
           <>
             Service unavailable.{' '}
-            <button className="underline" onClick={() => void check()}>
+            <button className="underline button button-ghost" onClick={() => void check()}>
               Retry
             </button>
           </>

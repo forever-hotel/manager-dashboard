@@ -52,11 +52,11 @@ export function ClientLayout({ children, session }: { children: React.ReactNode;
     <SessionBoundary session={session}>
       <a
         href="#dashboard-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-white focus:p-4"
+        className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-surface focus:p-4"
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-50 grid h-16 grid-cols-[44px_1fr_44px] items-center gap-2 border-b border-gray-200 bg-white px-3 md:hidden">
+      <header className="mobile-header sticky top-0 z-50 grid h-16 grid-cols-[44px_1fr_44px] items-center gap-2 border-b border-brand bg-sidebar text-sidebar-foreground px-3 md:hidden">
         <button
           ref={toggle}
           type="button"
@@ -64,7 +64,7 @@ export function ClientLayout({ children, session }: { children: React.ReactNode;
           aria-expanded={open}
           aria-controls="dashboard-navigation"
           onClick={() => setOpen(value => !value)}
-          className="flex h-11 w-11 items-center justify-center rounded-md text-black hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+          className="flex h-11 w-11 items-center justify-center rounded-md text-sidebar-foreground hover:bg-brand focus-visible:outline-2 focus-visible:outline-offset-2"
         >
           <svg
             aria-hidden="true"
@@ -80,8 +80,8 @@ export function ClientLayout({ children, session }: { children: React.ReactNode;
           </svg>
         </button>
         <div className="min-w-0 text-center leading-tight">
-          <div className="text-[13px] font-medium text-black">Forever Hotel</div>
-          <div className="text-[10px] font-normal text-black/60">Manager Dashboard</div>
+          <div className="text-[13px] font-medium text-sidebar-foreground">Forever Hotel</div>
+          <div className="text-xs font-normal text-sidebar-muted">Manager Dashboard</div>
         </div>
       </header>
       {open && (
@@ -93,7 +93,7 @@ export function ClientLayout({ children, session }: { children: React.ReactNode;
           className="fixed inset-x-0 bottom-0 top-16 z-30 bg-black/30 md:hidden"
         />
       )}
-      <div className="md:flex w-full min-h-screen bg-white text-black">
+      <div className="md:flex w-full min-h-screen bg-canvas text-ink">
         <Sidebar open={open} close={() => setOpen(false)} username={session.username} />
         <div id="dashboard-content" inert={open} tabIndex={-1} className="flex-1 min-w-0 md:pl-[220px]">
           <NotificationsBanner />

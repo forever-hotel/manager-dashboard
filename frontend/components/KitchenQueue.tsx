@@ -162,8 +162,8 @@ export default function KitchenQueue() {
   const group = (status: KitchenStatus) => (
     <div key={status} aria-label={kitchenLabels[status]}>
       <div className="flex items-center justify-between mb-2">
-        <span className="font-medium text-[10px] text-black">{kitchenLabels[status]}</span>
-        <span className="font-medium text-[9.5px] text-black bg-white border border-gray-200 rounded-full w-5 h-5 flex items-center justify-center">
+        <span className="font-medium text-xs text-ink">{kitchenLabels[status]}</span>
+        <span className="font-medium text-xs text-ink bg-surface border border-border rounded-full w-5 h-5 flex items-center justify-center">
           {snapshot ? snapshot.counts[status] : '—'}
         </span>
       </div>
@@ -171,48 +171,53 @@ export default function KitchenQueue() {
         {snapshot?.orders
           .filter(o => o.status === status)
           .map(order => (
-            <div key={order.id} className="bg-white rounded-md p-2.5 border border-gray-100">
-              <div className="font-medium text-[10.5px] text-black">Room {order.roomNumber}</div>
-              <div className="font-normal text-[9px] text-black/60">
+            <div key={order.id} className="bg-surface rounded-md p-2.5 border border-border">
+              <div className="font-medium text-xs text-ink">Room {order.roomNumber}</div>
+              <div className="font-normal text-xs text-muted">
                 {order.mealPeriod} · {order.itemCount} items
               </div>
-              <div className="font-normal text-[9px] text-black/60">Order {order.id}</div>
+              <div className="font-normal text-xs text-muted">Order {order.id}</div>
             </div>
           ))}
         {snapshot && !snapshot.orders.some(o => o.status === status) && (
-          <p className="font-normal text-[9px] text-black/60">No orders on this page.</p>
+          <p className="font-normal text-xs text-muted">No orders on this page.</p>
         )}
       </div>
     </div>
   );
   return (
-    <section className="col-span-2 border border-gray-200 rounded-lg p-4">
-      <h2 className="font-medium text-[11.5px] text-black mb-3">Kitchen queue (live)</h2>
+    <section className="col-span-2 border border-border rounded-lg p-4 bg-surface">
+      <h2 className="mb-3 font-medium text-base text-ink">Kitchen queue (live)</h2>
       {message && (
-        <div role="status" className="font-normal text-[9.5px] text-black/60 mb-3">
+        <div role="status" className="font-normal text-xs text-muted mb-3">
           {message}{' '}
-          <button type="button" className="underline" onClick={() => setRetry(n => n + 1)}>
+          <button type="button" className="underline button button-ghost" onClick={() => setRetry(n => n + 1)}>
             Retry
           </button>
         </div>
       )}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-gray-50 rounded-md p-3">{group('PLACED')}</div>
-        <div className="bg-gray-50 rounded-md p-3">{group('IN_PREPARATION')}</div>
-        <div className="bg-gray-50 rounded-md p-3 space-y-3">
+        <div className="bg-surface-alt rounded-md p-3">{group('PLACED')}</div>
+        <div className="bg-surface-alt rounded-md p-3">{group('IN_PREPARATION')}</div>
+        <div className="bg-surface-alt rounded-md p-3 space-y-3">
           {group('READY')}
           {group('DELIVERED')}
         </div>
       </div>
       {snapshot && (
-        <div className="font-normal text-[9px] text-black/60 mt-3">
+        <div className="font-normal text-xs text-muted mt-3">
           Delivered: today (Asia/Colombo). Page {page} of {Math.max(1, Math.ceil(snapshot.total / 100))}.{' '}
-          <button type="button" className="underline" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+          <button
+            type="button"
+            className="underline button button-ghost"
+            disabled={page === 1}
+            onClick={() => setPage(p => p - 1)}
+          >
             Previous
           </button>{' '}
           <button
             type="button"
-            className="underline"
+            className="underline button button-ghost"
             disabled={page * 100 >= snapshot.total}
             onClick={() => setPage(p => p + 1)}
           >
