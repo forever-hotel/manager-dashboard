@@ -39,7 +39,8 @@ describe('DDP-028 room board', () => {
     for (const room of data.rooms)
       expect(screen.getByLabelText(`Room ${room.number}, ${room.label}, Deluxe`)).toBeVisible();
     expect(screen.queryByRole('button', { name: /edit|claim|assign/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Week' })).toBeDisabled();
+    for (const name of ['Day', 'Week', 'Month']) expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    expect(screen.queryByText('Room connection details')).not.toBeInTheDocument();
   });
   it('AC2: rereads authoritative data on events and reconnect', async () => {
     render(<RoomsPage />);

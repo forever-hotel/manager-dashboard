@@ -4,45 +4,6 @@ import React from 'react';
 import { useOperationsSnapshot } from '@/components/useOperationsSnapshot';
 import { roomSnapshotSchema } from '@/lib/rooms';
 
-const topBarSvg = <HeaderNotifications />;
-
-function TopBar({ title }: { title: string }) {
-  return (
-    <div className="page-topbar">
-      <h1 className="font-medium text-[22px] text-brand">{title}</h1>
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1 bg-brand-light rounded-md p-1">
-          <button
-            type="button"
-            disabled
-            title="Room status shows the current snapshot only"
-            className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
-          >
-            Day
-          </button>
-          <button
-            type="button"
-            disabled
-            title="Room status shows the current snapshot only"
-            className="font-medium text-xs text-ink px-3 py-1 rounded bg-surface shadow-sm button button-secondary"
-          >
-            Week
-          </button>
-          <button
-            type="button"
-            disabled
-            title="Room status shows the current snapshot only"
-            className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
-          >
-            Month
-          </button>
-        </div>
-        {topBarSvg}
-      </div>
-    </div>
-  );
-}
-
 const statusConfig = {
   OCCUPIED: { bg: 'var(--color-brand-light)', text: 'var(--color-brand)', label: 'Occ' },
   VACANT: { bg: 'var(--color-success-light)', text: 'var(--color-success)', label: 'Free' },
@@ -62,7 +23,20 @@ export default function RoomsPage() {
     snapshot ? snapshot.rooms.filter(r => r.status === status).length : '\u2014';
   return (
     <main className="dashboard-page">
-      <TopBar title="Room status" />
+      <div className="page-topbar">
+        <h1>Room status</h1>
+        <HeaderNotifications />
+      </div>
+      {message && (
+        <div role="status" className="page-note mb-4">
+          {message}
+          {message !== 'Loading...' && (
+            <button type="button" className="button button-ghost" onClick={retry}>
+              Retry
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Summary cards */}
       <section className="mb-6">
@@ -146,15 +120,6 @@ export default function RoomsPage() {
           ))}
         </div>
       </section>
-      <details className="advanced-controls">
-        <summary>Room connection details</summary>
-        <div role="status" className="font-normal text-xs text-muted mb-3">
-          {message}{' '}
-          <button type="button" className="underline button button-ghost" onClick={retry}>
-            Retry
-          </button>
-        </div>
-      </details>
     </main>
   );
 }
