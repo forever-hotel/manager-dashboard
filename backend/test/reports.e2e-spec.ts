@@ -59,10 +59,14 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
       CREATE TABLE kms_food_orders(order_id uuid PRIMARY KEY,status text,placed_at timestamptz,updated_at timestamptz);
       CREATE TABLE kms_food_order_items(order_id uuid,menu_item_id uuid,name text,quantity integer,updated_at timestamptz);
       CREATE TABLE foss_service_requests(request_id uuid PRIMARY KEY,status text,submitted_at timestamptz,completed_at timestamptz,updated_at timestamptz);
+      CREATE TABLE guests(guest_id uuid PRIMARY KEY,full_name text);
+      CREATE TABLE room_types(room_type_id uuid PRIMARY KEY,type_name text);
+      CREATE TABLE bookings(booking_id uuid PRIMARY KEY,guest_id uuid,room_type_id uuid,check_in_date date,check_out_date date,total_amount integer,source text,status text,created_at timestamptz DEFAULT now());
+      CREATE TABLE rooms(room_number text PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now());
       CREATE TABLE mad_occupancy_rooms(room_id text,active_from date,active_to date,updated_at timestamptz DEFAULT now());
       CREATE TABLE mad_occupancy_allocations(room_id text,check_in_date date,check_out_date date,status text,updated_at timestamptz DEFAULT now());
       CREATE TABLE mad_occupancy_maintenance(room_id text,start_date date,end_date date,updated_at timestamptz DEFAULT now());
-      GRANT SELECT ON mad_booking_analytics,payments,kms_food_orders,kms_food_order_items,foss_service_requests,mad_occupancy_rooms,mad_occupancy_allocations,mad_occupancy_maintenance TO "${role}";
+      GRANT SELECT ON guests,room_types,bookings,rooms,mad_booking_analytics,payments,kms_food_orders,kms_food_order_items,foss_service_requests,mad_occupancy_rooms,mad_occupancy_allocations,mad_occupancy_maintenance TO "${role}";
     `);
     provider = await seedLocalAuth(database, secret, role);
     owner.username = role;

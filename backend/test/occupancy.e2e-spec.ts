@@ -80,7 +80,7 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
   }, 60000);
 
   beforeEach(async () => {
-    await database.query('TRUNCATE hw_occupancy_rooms, hw_occupancy_allocations, hw_occupancy_maintenance');
+    await database.query('TRUNCATE rooms, hw_occupancy_rooms, hw_occupancy_allocations, hw_occupancy_maintenance');
   });
 
   afterAll(async () => {
@@ -325,5 +325,19 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
     } finally {
       await database.query(`GRANT SELECT ON mad_occupancy_rooms TO "${role}"`);
     }
+  });
+  it('uses room creation as a transparent fallback without requiring availability inserts', async () => {
+    const id = randomUUID();
+    await database.query("INSERT INTO rooms(room_number,created_at) VALUES ($1,'2026-09-26T18:30:00Z')", [id]);
+    await database.query('INSERT INTO hw_occupancy_rooms(room_id,active_from) VALUES ($1,NULL)', [id]);
+    await stay(id, '2026-09-27', '2026-09-29');
+    const result: unknown = await runtime.query(`SELECT * FROM public.rooms`);
+    expect(result).toHaveLength(1);
+    const service = new OccupancyAnalyticsService(runtime);
+    const calendar = await service.calendar({ from: '2026-09-26', to: '2026-09-28' });
+    expect(calendar.roomsUsingCreationDate).toBe(1);
+    expect(calendar.dates.map(day => day.eligibleRooms)).toEqual([0, 1, 1]);
+    expect(calendar.dates.map(day => day.rate)).toEqual([null, 1, 1]);
+    expect(await database.query('SELECT active_from FROM hw_occupancy_rooms')).toEqual([{ active_from: null }]);
   });
 });

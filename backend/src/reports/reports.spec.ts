@@ -143,7 +143,10 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
         { summary } as unknown as FoodAnalyticsService,
         { summary } as unknown as ServiceRequestAnalyticsService,
         { calendar } as unknown as OccupancyAnalyticsService,
-        { alerts } as unknown as LowBookingAlertsService
+        { alerts } as unknown as LowBookingAlertsService,
+        {
+          details: jest.fn().mockResolvedValue({ averageLengthOfStay: null, recentBookings: [] })
+        } as unknown as import('../analytics/booking-details.service').BookingDetailsService
       )
     };
   }

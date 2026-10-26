@@ -2,35 +2,54 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 vi.mock('@/components/LowDemandAlerts', () => ({ default: () => null }));
+vi.mock('@/components/OccupancyCalendar', () => ({ default: () => null }));
 import { overview } from './analytics-fixture';
 import { loadAnalytics, money, overviewSchema, percentage } from '@/lib/analytics';
 afterEach(() => vi.unstubAllGlobals());
 const response = (data: unknown) => new Response(JSON.stringify(data));
 describe('DDP-015 booking and revenue analytics', () => {
-  it('TC-MAD-015-AC1: loads both metrics from one client and offers bar/line charts and a table', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(response(overview()));
+  it('loads live summary cards and recent bookings without the superseded controls', async () => {
+    const data = overview();
+    data.recentBookings = [
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        guestName: 'A. Perera',
+        roomType: 'Suite',
+        checkIn: '2026-10-12',
+        checkOut: '2026-10-14',
+        amountMinor: 4200000,
+        source: 'WEBSITE',
+        status: 'CONFIRMED'
+      }
+    ];
+    const fetchMock = vi.fn().mockResolvedValue(response(data));
     vi.stubGlobal('fetch', fetchMock);
     render(<AnalyticsDashboard />);
     expect(await screen.findByText('LKR 200.01')).toBeVisible();
-    expect(screen.getByText('+100.01% vs last week')).toBeVisible();
-    expect(screen.getByRole('img', { name: 'Bar chart of daily bookings' })).toBeVisible();
-    fireEvent.click(screen.getByLabelText('Chart display options'));
-    fireEvent.click(screen.getByRole('button', { name: 'Line chart' }));
-    expect(screen.getByRole('img', { name: 'Line chart of daily bookings' })).toBeVisible();
-    fireEvent.click(screen.getByText('Reporting details and revenue export'));
-    expect(screen.getByRole('table', { name: 'Daily booking data - week' })).toBeVisible();
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/analytics?period=week',
-      expect.objectContaining({
-        credentials: 'same-origin',
-        cache: 'no-store'
-      })
-    );
+    expect(screen.getByText('50.0%')).toBeVisible();
+    expect(screen.getByText('2.4 nights')).toBeVisible();
+    expect(screen.getByText('A. Perera')).toBeVisible();
+    expect(screen.getByRole('img', { name: /Bar chart of daily bookings/ })).toBeVisible();
+    expect(screen.queryByText('Reporting details and revenue export')).not.toBeInTheDocument();
+    expect(screen.queryByText('Line chart')).not.toBeInTheDocument();
     fetchMock.mockResolvedValue(response(overview('day', 8)));
     fireEvent.click(screen.getByRole('button', { name: 'Day' }));
-    expect(await screen.findByText('Total bookings (day)')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Day' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText('+100.01% vs last day')).toBeVisible();
+    await waitFor(() => expect(screen.getByText('+100.01% vs last day')).toBeVisible());
+  });
+  it('keeps a 31-day month readable and compacts large revenue totals', async () => {
+    const data = overview('month', 31);
+    data.bookings.trend = Array.from({ length: 31 }, (_, i) => ({
+      ...data.bookings.trend[0],
+      date: '2026-10-' + String(i + 1).padStart(2, '0'),
+      count: 1
+    }));
+    data.revenue.currentMinor = 138700000;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(data)));
+    render(<AnalyticsDashboard />);
+    fireEvent.click(screen.getByRole('button', { name: 'Month' }));
+    expect(await screen.findByText('LKR 1.39M')).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Daily bookings chart' })).toBeVisible();
+    expect(document.querySelector('.booking-bars-month')).toHaveStyle({ minWidth: '360px' });
   });
   it('TC-MAD-015-AC2/AC3: shows zero totals, N/A and the empty state without treating them as unavailable', async () => {
     const data = overview('week', 0);

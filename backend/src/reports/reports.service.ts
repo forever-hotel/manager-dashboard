@@ -1,5 +1,6 @@
 import { Injectable, ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
 import { BookingAnalyticsService } from '../analytics/booking-analytics.service';
+import { BookingDetailsService } from '../analytics/booking-details.service';
 import { RevenueAnalyticsService } from '../analytics/revenue-analytics.service';
 import { WorkerPerformanceService } from '../analytics/worker-performance.service';
 import { FoodAnalyticsService } from '../analytics/food-analytics.service';
@@ -18,7 +19,8 @@ export class ReportsService {
     private readonly food: FoodAnalyticsService,
     private readonly requests: ServiceRequestAnalyticsService,
     private readonly occupancy: OccupancyAnalyticsService,
-    private readonly alerts: LowBookingAlertsService
+    private readonly alerts: LowBookingAlertsService,
+    private readonly bookingDetails: BookingDetailsService
   ) {}
   async download(type: ReportType, query: ReportQuery) {
     if (this.active >= 2) throw new ServiceUnavailableException('Exports are busy. Retry shortly.');
@@ -26,9 +28,11 @@ export class ReportsService {
     try {
       let data: Record<string, unknown>;
       switch (type) {
-        case 'bookings':
-          data = await this.bookings.summary(query.period);
+        case 'bookings': {
+          const summary = await this.bookings.summary(query.period);
+          data = { ...summary, ...(await this.bookingDetails.details(summary.start, summary.end)) };
           break;
+        }
         case 'revenue':
           data = await this.revenue.summary(query.period);
           break;

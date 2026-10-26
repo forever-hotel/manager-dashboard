@@ -2,18 +2,27 @@
 import ReportDownload from './ReportDownload';
 import { PageHeader, SummaryCard, DataPanel, UnavailableRow } from './DashboardVisuals';
 import LowDemandAlerts from './LowDemandAlerts';
-import { DataTable } from './AnalyticsControls';
-import { useEffect, useState, type ReactNode } from 'react';
+import OccupancyCalendar from './OccupancyCalendar';
+import { statusColor } from '@/lib/status-color';
+import { hotelMonth } from '@/lib/occupancy';
+import { useEffect, useState } from 'react';
 import { AnalyticsError, loadAnalytics, money, percentage, type Overview, type Period } from '@/lib/analytics';
-
+const shortDate = (date: string) =>
+  new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(date));
+const label = (value: string) =>
+  value
+    .toLowerCase()
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+const revenueValue = (minor: number) =>
+  minor >= 10000000
+    ? 'LKR ' +
+      new Intl.NumberFormat('en-GB', { notation: 'compact', maximumFractionDigits: 2 })
+        .format(minor / 100)
+        .replace(/[kmbt]$/i, suffix => suffix.toUpperCase())
+    : money(minor);
 type State = { period: Period; data?: Overview; error?: number };
-const button = 'font-medium text-xs text-ink px-3 py-1 rounded focus-visible:outline-2 focus-visible:outline-offset-2';
-const localDate = (value: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Colombo',
-    dateStyle: 'medium'
-  }).format(new Date(value));
-export default function AnalyticsDashboard({ children }: { children?: ReactNode }) {
+export default function AnalyticsDashboard() {
   const [period, setPeriod] = useState<Period>('week');
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<State>({ period: 'week' });
@@ -49,18 +58,33 @@ export default function AnalyticsDashboard({ children }: { children?: ReactNode 
     setAttempt(value => value + 1);
   };
   return (
-    <main className="dashboard-page">
+    <main className="dashboard-page analytics-page">
       <PageHeader title="Analytics" period={period} onPeriodChange={choose} />
       <p className="section-eyebrow">Booking &amp; revenue</p>
-      <div className="summary-grid">
+      <div className="summary-grid analytics-summary">
         <SummaryCard label={`Total bookings (${period})`} value={data ? String(data.bookings.total) : '\u2014'} />
         <SummaryCard
           label={`Revenue (${period})`}
-          value={data ? money(data.revenue.currentMinor) : '\u2014'}
+          title={data ? money(data.revenue.currentMinor) : undefined}
+          value={data ? revenueValue(data.revenue.currentMinor) : '\u2014'}
           note={data ? `${percentage(data.revenue.percentageChange)} vs last ${period}` : undefined}
         />
-        <SummaryCard label="Occupancy rate" value={'\u2014'} note="Period summary unavailable" />
-        <SummaryCard label="Avg length of stay" value={'\u2014'} note="Summary unavailable" />
+        <SummaryCard
+          label="Occupancy rate"
+          title={
+            data
+              ? `Occupied room nights / eligible room nights. ${data.occupancy.roomsUsingCreationDate} rooms use creation date where no availability schedule is recorded.`
+              : undefined
+          }
+          value={data?.occupancy.rate == null ? '\u2014' : (data.occupancy.rate * 100).toFixed(1) + '%'}
+          note={data && data.occupancy.eligibleRoomNights === 0 ? 'No eligible room nights' : undefined}
+        />
+        <SummaryCard
+          label="Avg length of stay"
+          title="Average nights for confirmed, checked-in and checked-out bookings checking in during the selected period."
+          value={data?.averageLengthOfStay == null ? '\u2014' : data.averageLengthOfStay.toFixed(1) + ' nights'}
+          note={data && data.averageLengthOfStay === null ? 'No eligible stays in this period' : undefined}
+        />
       </div>
       {error && (
         <div role="alert" className="page-note">
@@ -72,7 +96,7 @@ export default function AnalyticsDashboard({ children }: { children?: ReactNode 
           {error === 403 && <a href="/change-password">Change password</a>}
         </div>
       )}
-      <LowDemandAlerts compact />
+      <LowDemandAlerts />
       <div className="design-chart-row">
         {data ? (
           <BookingTrend data={data} />
@@ -81,97 +105,82 @@ export default function AnalyticsDashboard({ children }: { children?: ReactNode 
             <p className="unavailable-row">{error ? 'Booking chart unavailable.' : 'Loading booking chart...'}</p>
           </DataPanel>
         )}
-        {children}
+        <OccupancyCalendar initialMonth={hotelMonth()} />
       </div>
       <DataPanel
         title="Recent bookings"
         actions={<ReportDownload type="bookings" filters={{ period }} formats={['pdf']} />}
       >
         <div className="overflow-x-auto">
-          <table className="dashboard-table">
+          <table className="dashboard-table recent-bookings-table">
+            <caption className="sr-only">Recent bookings for the selected {period}</caption>
             <thead>
               <tr>
                 {['Booking ID', 'Guest', 'Room type', 'Check-in', 'Check-out', 'Amount (LKR)', 'Source', 'Status'].map(
-                  label => (
-                    <th key={label} scope="col">
-                      {label}
+                  text => (
+                    <th key={text} scope="col">
+                      {text}
                     </th>
                   )
                 )}
               </tr>
             </thead>
             <tbody>
-              <UnavailableRow
-                columns={8}
-                message="Recent booking details are not provided by the current reporting API."
-              />
+              {data?.recentBookings.map(booking => (
+                <tr key={booking.id}>
+                  <td title={booking.id}>
+                    <span className="booking-id">{booking.id}</span>
+                  </td>
+                  <td>{booking.guestName ?? 'Unregistered guest'}</td>
+                  <td>{booking.roomType}</td>
+                  <td title={booking.checkIn}>{shortDate(booking.checkIn)}</td>
+                  <td title={booking.checkOut}>{shortDate(booking.checkOut)}</td>
+                  <td>{money(booking.amountMinor).replace('LKR ', '')}</td>
+                  <td>{label(booking.source)}</td>
+                  <td>
+                    <span className={'status-badge ' + statusColor(booking.status)}>{label(booking.status)}</span>
+                  </td>
+                </tr>
+              ))}
+              {!data?.recentBookings.length && (
+                <UnavailableRow
+                  columns={8}
+                  message={
+                    error
+                      ? 'Recent bookings could not be loaded.'
+                      : data
+                        ? 'No bookings check in during this period.'
+                        : 'Loading recent bookings...'
+                  }
+                />
+              )}
             </tbody>
           </table>
         </div>
       </DataPanel>
-      {data && (
-        <details className="advanced-controls">
-          <summary>Reporting details and revenue export</summary>
-          <p>
-            Bookings are counted by check-in date. Revenue is completed payments only; refunded, pending and failed rows
-            are excluded. Whole calendar periods are compared in Asia/Colombo.
-          </p>
-          <p>
-            {localDate(data.bookings.start)} to {localDate(data.bookings.end)} (exclusive end). Reporting timestamp:{' '}
-            {data.bookings.asOf}.
-          </p>
-          <p>Previous-period revenue: {money(data.revenue.previousMinor)}.</p>
-          <DataTable
-            caption={`Daily booking data - ${period}`}
-            headings={['Date', 'Bookings']}
-            rows={data.bookings.trend.map(row => [row.date, row.count])}
-          />
-          <ReportDownload type="revenue" filters={{ period }} />
-        </details>
-      )}
     </main>
   );
 }
 function BookingTrend({ data }: { data: Overview }) {
-  const [view, setView] = useState<'bar' | 'line'>('bar');
   const trend = data.bookings.trend;
   const max = Math.max(1, ...trend.map(row => row.count));
-  const slot = 640 / Math.max(1, trend.length);
-  const x = (index: number) => 10 + (index + 0.5) * slot;
-  const y = (count: number) => 170 - (count / max) * 140;
+  const monthly = data.bookings.period === 'month';
   return (
     <DataPanel
       title="Bookings per day"
-      actions={
-        <>
-          <ReportDownload type="bookings" filters={{ period: data.bookings.period }} formats={['csv']} />
-          <details className="chart-options">
-            <summary aria-label="Chart display options">&middot;&middot;&middot;</summary>
-            <div>
-              {(['bar', 'line'] as const).map(value => (
-                <button
-                  type="button"
-                  className={button}
-                  key={value}
-                  aria-pressed={view === value}
-                  onClick={() => setView(value)}
-                >
-                  {value === 'bar' ? 'Bar chart' : 'Line chart'}
-                </button>
-              ))}
-            </div>
-          </details>
-        </>
-      }
+      actions={<ReportDownload type="bookings" filters={{ period: data.bookings.period }} formats={['csv']} />}
     >
-      {view === 'bar' ? (
+      <div className="booking-chart-scroll" tabIndex={0} role="region" aria-label="Daily bookings chart">
         <div
-          className="booking-bars"
+          className={'booking-bars' + (monthly ? ' booking-bars-month' : '')}
           role="img"
-          aria-label="Bar chart of daily bookings"
-          style={{ gridTemplateColumns: `repeat(${Math.max(1, trend.length)}, minmax(0, 1fr))` }}
+          aria-label={`Bar chart of daily bookings: ${trend.map(row => row.date + ': ' + row.count).join(', ')}`}
+          style={{
+            gridTemplateColumns: `repeat(${Math.max(1, trend.length)}, minmax(0,1fr))`,
+            minWidth: monthly ? 360 : undefined
+          }}
         >
-          {trend.map(row => (
+          {trend.map((row, index) => (
             <div className="booking-bar-column" key={row.date} title={`${row.date}: ${row.count} bookings`}>
               <div className="booking-bar-track">
                 <span
@@ -181,48 +190,28 @@ function BookingTrend({ data }: { data: Overview }) {
                   }}
                 />
               </div>
-              <span className="booking-bar-day">
-                {data.bookings.period === 'week'
-                  ? new Date(row.date).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })
-                  : row.date.slice(8)}
+              <span
+                className="booking-bar-day"
+                style={
+                  monthly &&
+                  index !== 0 &&
+                  index !== trend.length - 1 &&
+                  !((index + 1) % 5 === 0 && index < trend.length - 3)
+                    ? { visibility: 'hidden' }
+                    : undefined
+                }
+              >
+                {monthly
+                  ? String(Number(row.date.slice(8)))
+                  : data.bookings.period === 'week'
+                    ? new Date(row.date).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })
+                    : shortDate(row.date)}
               </span>
-              <span>{row.count}</span>
+              <span className={monthly ? 'sr-only' : undefined}>{row.count}</span>
             </div>
           ))}
         </div>
-      ) : (
-        <svg
-          role="img"
-          aria-labelledby="chart-title"
-          aria-describedby="chart-description"
-          viewBox="0 0 660 220"
-          className="booking-chart"
-        >
-          <title id="chart-title">Line chart of daily bookings</title>
-          <desc id="chart-description">
-            Daily counts for the selected {data.bookings.period}; exact values are displayed below each bar.
-          </desc>
-          <polyline
-            points={trend.map((row, index) => `${x(index)},${y(row.count)}`).join(' ')}
-            fill="none"
-            stroke="var(--color-brand)"
-            strokeWidth="2"
-          />
-          {trend.map((row, index) => (
-            <g key={row.date}>
-              <circle cx={x(index)} cy={y(row.count)} r="3" fill="var(--color-brand)" />
-              <text x={x(index)} y="190" textAnchor="middle" fontSize="10">
-                {data.bookings.period === 'week'
-                  ? new Date(row.date).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })
-                  : row.date.slice(8)}
-              </text>
-              <text x={x(index)} y="208" textAnchor="middle" fontSize="10">
-                {row.count}
-              </text>
-            </g>
-          ))}
-        </svg>
-      )}
+      </div>
       {data.bookings.total === 0 && (
         <p role="status" className="sr-only">
           No eligible bookings for this period.

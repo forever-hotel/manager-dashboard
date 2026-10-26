@@ -10,6 +10,7 @@ interface OccupancyRow {
   occupied_rooms: string;
   source_updated_at: Date | null;
   queried_at: Date;
+  fallback_rooms?: string;
 }
 
 @Injectable()
@@ -58,6 +59,8 @@ export class OccupancyAnalyticsService {
         maxRangeDays: MAX_OCCUPANCY_DAYS,
         includedStatuses: [...INCLUDED_BOOKING_STATUSES],
         denominator: 'active_rooms_excluding_maintenance',
+        inventoryBasis: 'availability_schedule_or_room_creation_date',
+        roomsUsingCreationDate: Number(rows[0].fallback_rooms ?? 0),
         dates,
         freshness: {
           queriedAt: rows[0].queried_at.toISOString(),

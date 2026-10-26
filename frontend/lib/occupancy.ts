@@ -53,6 +53,8 @@ export const occupancySchema = z.object({
   maxRangeDays: z.literal(366),
   includedStatuses: z.array(z.enum(['CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'])),
   denominator: z.literal('active_rooms_excluding_maintenance'),
+  inventoryBasis: z.literal('availability_schedule_or_room_creation_date').optional(),
+  roomsUsingCreationDate: z.number().int().nonnegative().safe().optional(),
   dates: z.array(occupancyDaySchema).max(31),
   freshness: z.object({
     queriedAt: z.iso.datetime(),

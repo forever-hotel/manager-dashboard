@@ -1,6 +1,9 @@
 import type { Overview, Period } from '@/lib/analytics';
 export function overview(period: Period = 'week', total = 4): Overview {
   return {
+    averageLengthOfStay: total ? 2.4 : null,
+    occupancy: { rate: 0.5, occupiedRoomNights: 14, eligibleRoomNights: 28, roomsUsingCreationDate: 0 },
+    recentBookings: [],
     bookings: {
       period,
       timezone: 'Asia/Colombo',

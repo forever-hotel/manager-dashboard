@@ -189,19 +189,6 @@
   white-space: nowrap;
 }
 
-.calendar-day {
-  display: block;
-  min-height: 5.5rem;
-  padding: 0.5rem;
-  font-size: 12px;
-  text-align: center;
-}
-
-.calendar-day[aria-pressed='true'] {
-  outline: 2px solid var(--color-brand);
-  outline-offset: 2px;
-}
-
 /* Keyboard focus must remain visible on every native control and scroll region. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--color-brand);
@@ -625,9 +612,6 @@
   height: 224px;
   margin: 0;
 }
-.design-chart-row svg {
-  height: 160px;
-}
 .demand-strip {
   display: flex;
   align-items: center;
@@ -849,12 +833,6 @@
   }
 }
 
-.booking-chart {
-  display: block;
-  width: 100%;
-  height: 160px;
-  padding-inline: 16px;
-}
 .chart-options,
 .heatmap-options {
   position: relative;
@@ -1159,4 +1137,40 @@
   display: block;
   margin-top: 3px;
   color: var(--color-muted);
+}
+
+.analytics-page .summary-value {
+  font-size: clamp(22px, 2vw, 30px);
+  overflow-wrap: anywhere;
+}
+.analytics-summary .summary-card {
+  min-width: 0;
+}
+.booking-chart-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.booking-bars-month {
+  gap: 3px;
+  padding-inline: 16px;
+}
+.booking-bars-month .booking-bar-column {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.recent-bookings-table {
+  min-width: 850px;
+}
+.booking-id {
+  display: block;
+  max-width: 115px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (min-width: 768px) and (max-width: 1199px) {
+  .analytics-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

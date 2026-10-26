@@ -28,15 +28,17 @@ export function SummaryCard({
   label,
   value,
   tone = 'brand',
-  note
+  note,
+  title
 }: {
   label: string;
   value: string;
   tone?: 'brand' | 'success' | 'danger' | 'warning';
   note?: string;
+  title?: string;
 }) {
   return (
-    <div className="summary-card" title={note}>
+    <div className="summary-card" title={title ?? note}>
       <div className="summary-label">{label}</div>
       <div className={'summary-value summary-' + tone}>{value}</div>
       {note && <div className="summary-note">{note}</div>}

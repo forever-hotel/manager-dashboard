@@ -78,7 +78,8 @@ describe('DDP-011 low-booking alerts', () => {
       occupancy,
       { alerts } as unknown as LowBookingAlertsService,
       {} as RevenueAnalyticsService,
-      () => new Date()
+      () => new Date(),
+      {} as import('./booking-details.service').BookingDetailsService
     );
     expect(() => controller.lowBookingAlerts({ threshold: '0.9' })).toThrow();
     expect(alerts).not.toHaveBeenCalled();

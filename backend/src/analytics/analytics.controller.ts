@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { LowBookingAlertsService } from './low-booking-alerts.service';
+import { BookingDetailsService } from './booking-details.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RevenueAnalyticsService } from './revenue-analytics.service';
 import { BOOKING_CLOCK, BookingAnalyticsService } from './booking-analytics.service';
@@ -15,7 +16,8 @@ export class AnalyticsController {
     private readonly occupancy: OccupancyAnalyticsService,
     private readonly lowBooking: LowBookingAlertsService,
     private readonly revenue: RevenueAnalyticsService,
-    @Inject(BOOKING_CLOCK) private readonly now: () => Date
+    @Inject(BOOKING_CLOCK) private readonly now: () => Date,
+    private readonly details: BookingDetailsService
   ) {}
 
   @Get('revenue')
@@ -30,7 +32,33 @@ export class AnalyticsController {
       this.bookings.summary(query.period, asOf),
       this.revenue.summary(query.period, asOf)
     ]);
-    return { bookings, revenue };
+    const localDate = (iso: string) =>
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Colombo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(new Date(iso));
+    const [details, calendar] = await Promise.all([
+      this.details.details(bookings.start, bookings.end),
+      this.occupancy.calendar({
+        from: localDate(bookings.start),
+        to: localDate(new Date(Date.parse(bookings.end) - 86400000).toISOString())
+      })
+    ]);
+    const occupiedRoomNights = calendar.dates.reduce((sum, day) => sum + day.occupiedRooms, 0);
+    const eligibleRoomNights = calendar.dates.reduce((sum, day) => sum + day.eligibleRooms, 0);
+    return {
+      bookings,
+      revenue,
+      ...details,
+      occupancy: {
+        rate: eligibleRoomNights ? occupiedRoomNights / eligibleRoomNights : null,
+        occupiedRoomNights,
+        eligibleRoomNights,
+        roomsUsingCreationDate: calendar.roomsUsingCreationDate
+      }
+    };
   }
 
   @Get('bookings')

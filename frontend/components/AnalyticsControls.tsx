@@ -1,6 +1,5 @@
 'use client';
 import { type Period } from '@/lib/analytics';
-import HeaderNotifications from './HeaderNotifications';
 export const analyticsButton = 'font-normal text-xs text-ink px-3 py-1 rounded';
 export function PeriodButtons({ period, onChange }: { period: Period; onChange: (period: Period) => void }) {
   return (
@@ -35,15 +34,6 @@ export function AnalyticsFailure({ error, retry }: { error?: number; retry: () =
     <p role="status" className="font-normal text-xs text-muted my-3">
       Loading analytics...
     </p>
-  );
-}
-export function MetricCard({ label, value, note }: { label: string; value: string; note?: string }) {
-  return (
-    <div className="border border-border rounded-lg p-4 bg-surface">
-      <div className="font-normal text-xs text-muted mb-2">{label}</div>
-      <div className="font-medium text-[24px] text-brand mb-1">{value}</div>
-      {note && <div className="font-normal text-xs text-muted">{note}</div>}
-    </div>
   );
 }
 export function DataTable({
@@ -83,8 +73,4 @@ export function DataTable({
       {rows.length === 0 && <p className="text-xs text-muted">No records for this period.</p>}
     </div>
   );
-}
-
-export function AnalyticsClock() {
-  return <HeaderNotifications />;
 }

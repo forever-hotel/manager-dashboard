@@ -51,7 +51,39 @@ export const revenueSchema = z
       : data.percentageChange !== null && data.percentageUnavailableReason === null
   );
 export const overviewSchema = z
-  .object({ bookings: bookingSchema, revenue: revenueSchema })
+  .object({
+    bookings: bookingSchema,
+    revenue: revenueSchema,
+    averageLengthOfStay: z.number().positive().finite().nullable(),
+    occupancy: z
+      .object({
+        rate: z.number().min(0).max(1).nullable(),
+        occupiedRoomNights: z.number().int().nonnegative().safe(),
+        eligibleRoomNights: z.number().int().nonnegative().safe(),
+        roomsUsingCreationDate: z.number().int().nonnegative().safe()
+      })
+      .refine(
+        value =>
+          value.occupiedRoomNights <= value.eligibleRoomNights &&
+          (value.eligibleRoomNights === 0
+            ? value.rate === null
+            : value.rate !== null && Math.abs(value.rate - value.occupiedRoomNights / value.eligibleRoomNights) < 1e-9)
+      ),
+    recentBookings: z
+      .array(
+        z.object({
+          id: z.uuid(),
+          guestName: z.string().nullable(),
+          roomType: z.string(),
+          checkIn: z.iso.date(),
+          checkOut: z.iso.date(),
+          amountMinor: z.number().int().nonnegative().safe(),
+          source: z.string(),
+          status: z.string()
+        })
+      )
+      .max(5)
+  })
   .refine(
     ({ bookings, revenue }) =>
       bookings.period === revenue.period &&

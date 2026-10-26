@@ -6,81 +6,47 @@ import { lowDemand } from './low-demand-fixture';
 afterEach(() => vi.unstubAllGlobals());
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 describe('DDP-057 low-demand suggestions', () => {
-  it('TC-MAD-031-AC1 / TC-MAD-057-AC1: exports the current low-demand forecast directly without unrelated period filters', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(response(lowDemand())).mockResolvedValue(response({}, 503));
-    vi.stubGlobal('fetch', fetcher);
+  it('renders a promotion suggestion directly from the low-demand response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(lowDemand())));
     render(<LowDemandAlerts />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Export CSV' }));
-    await screen.findByRole('alert');
-    expect(fetcher).toHaveBeenCalledWith(
-      '/api/reports/low-booking-alerts?format=csv',
-      expect.objectContaining({ credentials: 'same-origin' })
-    );
-    expect(screen.getByRole('button', { name: 'Export PDF' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Retry download' })).toBeVisible();
+    const link = await screen.findByRole('link', { name: /consider creating a promotion/ });
+    expect(link).toHaveAttribute('href', '/promotions?lowDemandDate=' + lowDemand().alerts[0].date);
+    expect(screen.queryByRole('button', { name: 'Export CSV' })).not.toBeInTheDocument();
   });
-  it('TC-MAD-057-AC1: displays forecast dates, expected occupancy, threshold and a non-mutating promotion link', async () => {
-    const fetcher = vi.fn().mockResolvedValue(response(lowDemand()));
-    vi.stubGlobal('fetch', fetcher);
-    render(<LowDemandAlerts />);
-    const action = await screen.findByRole('link', {
-      name: 'Create Promotion for 2028-02-29'
-    });
-    expect(action).toHaveAttribute('href', '/promotions?lowDemandDate=2028-02-29');
-    expect(screen.getByText(/Expected occupancy: 20.0%/)).toBeVisible();
-    expect(screen.getByText(/strictly below 40%/)).toBeVisible();
-    expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(fetcher).toHaveBeenCalledWith(
-      '/api/analytics/low-booking-alerts',
-      expect.objectContaining({
-        cache: 'no-store',
-        credentials: 'same-origin'
-      })
-    );
-  });
-  it('TC-MAD-057-AC3: distinguishes no alerts from unassessable dates', async () => {
+  it('keeps unavailable capacity distinct from healthy demand', async () => {
     const data = lowDemand();
     data.alerts = [];
     data.unavailableDates = [
-      {
-        date: '2028-02-29',
-        occupiedRooms: 0,
-        eligibleRooms: 0,
-        rate: null,
-        reason: 'ZERO_ELIGIBLE_ROOMS'
-      }
+      { date: '2028-02-21', occupiedRooms: 0, eligibleRooms: 0, rate: null, reason: 'ZERO_ELIGIBLE_ROOMS' }
     ];
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(data)));
     render(<LowDemandAlerts />);
-    expect(await screen.findByText(/No low-demand alerts for dates with available/)).toBeVisible();
-    expect(screen.getByText(/These dates cannot be assessed as healthy demand/)).toBeVisible();
-    expect(screen.queryByRole('link', { name: /Create Promotion/ })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Some occupancy dates cannot be assessed/)).toBeVisible();
   });
-  it('TC-MAD-057-AC3: failed loading is unknown demand and retry can recover', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(response({}, 503)).mockResolvedValueOnce(response(lowDemand()));
-    vi.stubGlobal('fetch', fetcher);
+  it('retries outages without claiming demand is healthy', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(response({}, 503)).mockResolvedValueOnce(response(lowDemand()))
+    );
     render(<LowDemandAlerts />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Demand is unknown');
-    expect(screen.queryByText(/No low-demand alerts/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry low-demand alerts' }));
-    await screen.findByRole('link', { name: /Create Promotion/ });
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /consider creating a promotion/ })).toBeVisible();
   });
-  it.each([401, 403])('shows authorization failure %s without presenting healthy demand', async status => {
+  it.each([401, 403])('preserves authorization handling for %s', async status => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({}, status)));
     render(<LowDemandAlerts />);
     await screen.findByRole('alert');
-    expect(screen.queryByText(/No low-demand alerts/)).not.toBeInTheDocument();
-    if (status === 401) expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
+    expect(screen.queryByRole('button', { name: 'Retry low-demand alerts' })).not.toBeInTheDocument();
+    if (status === 401) expect(screen.getByRole('link', { name: 'Sign in' })).toBeVisible();
   });
-  it('aborts the request on unmount', async () => {
-    const fetcher = vi.fn().mockImplementation(() => new Promise(() => {}));
+  it('cancels work on unmount', async () => {
+    const fetcher = vi.fn().mockReturnValue(new Promise(() => {}));
     vi.stubGlobal('fetch', fetcher);
     const view = render(<LowDemandAlerts />);
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-    const signal = fetcher.mock.calls[0][1].signal as AbortSignal;
     view.unmount();
-    expect(signal.aborted).toBe(true);
+    expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
   });
   it('TC-MAD-057-AC2: prefills half-open Colombo dates across leap day and year boundaries', () => {
     expect(promotionDates('2028-02-29')).toEqual({

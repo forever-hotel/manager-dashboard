@@ -41,6 +41,16 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     await database.initialize();
     await database.query(readFileSync('test/fixtures/booking-reporting.sql', 'utf8'));
     await migrate(database, role);
+    await database.query(`
+      CREATE TABLE rooms(room_number text PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now());
+      CREATE TABLE guests(guest_id uuid PRIMARY KEY,full_name text);
+      CREATE TABLE room_types(room_type_id uuid PRIMARY KEY,type_name text);
+      CREATE TABLE bookings(booking_id uuid PRIMARY KEY,guest_id uuid,room_type_id uuid,check_in_date date,check_out_date date,total_amount integer,source text,status text,created_at timestamptz DEFAULT now());
+      CREATE TABLE mad_occupancy_rooms(room_id text,active_from date,active_to date,updated_at timestamptz DEFAULT now());
+      CREATE TABLE mad_occupancy_allocations(room_id text,check_in_date date,check_out_date date,status text,updated_at timestamptz DEFAULT now());
+      CREATE TABLE mad_occupancy_maintenance(room_id text,start_date date,end_date date,updated_at timestamptz DEFAULT now());
+      GRANT SELECT ON rooms,guests,room_types,bookings,mad_occupancy_rooms,mad_occupancy_allocations,mad_occupancy_maintenance TO "${role}";
+    `);
     await database.query(`CREATE TABLE payments(payment_id uuid PRIMARY KEY,booking_id uuid NOT NULL,
       amount integer NOT NULL CHECK(amount>0),payment_status text NOT NULL,paid_at timestamptz);
       GRANT SELECT ON payments TO "${role}"`);
@@ -81,7 +91,9 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
 
   beforeEach(async () => {
     clock = new Date('2026-09-27T04:00:00Z');
-    await database.query('TRUNCATE hw_booking_snapshots, payments');
+    await database.query(
+      'TRUNCATE hw_booking_snapshots, payments,bookings,guests,room_types,rooms,mad_occupancy_rooms,mad_occupancy_allocations,mad_occupancy_maintenance'
+    );
   });
 
   afterAll(async () => {
@@ -372,5 +384,27 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     } finally {
       await database.query(`GRANT SELECT ON payments TO "${role}"`);
     }
+  });
+  it('overview reads recent shared-schema booking rows and excludes cancellations from stay averages', async () => {
+    const guest = randomUUID(),
+      type = randomUUID();
+    await database.query("INSERT INTO guests VALUES ($1,'Analytics guest')", [guest]);
+    await database.query("INSERT INTO room_types VALUES ($1,'Analytics suite')", [type]);
+    await database.query(
+      `INSERT INTO bookings(booking_id,guest_id,room_type_id,check_in_date,check_out_date,total_amount,source,status) VALUES ($1,$3,$4,'2026-09-20','2026-09-22',4200000,'WEBSITE','CONFIRMED'),($2,$3,$4,'2026-09-21','2026-09-29',8000000,'WALK_IN','CANCELLED')`,
+      [randomUUID(), randomUUID(), guest, type]
+    );
+    const response = await analytics('overview', 'month').expect(200);
+    const body = response.body as {
+      averageLengthOfStay: number;
+      recentBookings: { guestName: string; roomType: string; status: string }[];
+    };
+    expect(body.averageLengthOfStay).toBe(2);
+    expect(body.recentBookings).toHaveLength(2);
+    expect(body.recentBookings[0]).toMatchObject({
+      guestName: 'Analytics guest',
+      roomType: 'Analytics suite',
+      status: 'CANCELLED'
+    });
   });
 });

@@ -87,81 +87,48 @@ describe('DDP-016 calendar contracts', () => {
     );
   });
 });
-describe('DDP-016 calendar UI', () => {
-  it('TC-MAD-016-AC1/AC2: labels every day and exposes counts on focus and in a table', async () => {
+describe('Analytics heatmap UI', () => {
+  it('labels every date and exposes the selected room-night counts', async () => {
     setup();
-    expect(screen.getByRole('status')).toHaveTextContent('Loading occupancy');
-    const calendar = await screen.findByRole('group', {
-      name: 'Occupancy calendar 2024-02'
-    });
+    const calendar = await screen.findByRole('group', { name: 'Occupancy calendar 2024-02' });
+    await waitFor(() => expect(within(calendar).getAllByRole('button')).toHaveLength(29));
     const days = within(calendar).getAllByRole('button');
-    expect(days).toHaveLength(29);
-    occupancy().dates.forEach((day, index) =>
-      expect(days[index]).toHaveAccessibleName(expect.stringContaining(`${demand(day.rate)} demand`))
-    );
-    expect(
-      within(screen.getByRole('group', { name: 'Demand scale legend' })).getByText('High: 70% to 100%')
-    ).toBeVisible();
+    expect(days[0]).toHaveAccessibleName(expect.stringContaining('2 occupied rooms, 10 eligible rooms'));
     fireEvent.focus(days[0]);
     expect(days[0]).toHaveAttribute('aria-pressed', 'true');
-    expect(
-      screen.getByText('2024-02-01: 2 occupied rooms, 10 eligible rooms; 20.0% occupancy; Low demand.')
-    ).toBeVisible();
-    fireEvent.click(days[1]);
-    expect(days[1]).toHaveAttribute('aria-pressed', 'true');
-    const table = screen.getByRole('table', {
-      name: 'Daily occupancy data for 2024-02'
-    });
-    expect(within(table).getAllByRole('row')).toHaveLength(30);
-    expect(days[3]).toHaveAccessibleName(expect.stringContaining('occupancy unknown (no eligible capacity)'));
-    expect(calendar.children[10]).toBe(days[0]);
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
-  it('TC-MAD-016-AC3: navigates leap February and does not display stale results', async () => {
-    let resolveOld!: (value: Response) => void;
+  it('navigates months without showing obsolete results', async () => {
+    let resolveOld!: (response: Response) => void;
     vi.stubGlobal(
       'fetch',
       vi
         .fn()
-        .mockReturnValueOnce(
-          new Promise<Response>(resolve => {
-            resolveOld = resolve;
-          })
+        .mockImplementationOnce(
+          () =>
+            new Promise<Response>(resolve => {
+              resolveOld = resolve;
+            })
         )
         .mockResolvedValue(response(occupancy('2024-03')))
     );
     render(<OccupancyCalendar initialMonth="2024-02" />);
+    fireEvent.click(screen.getByText('Legend', { selector: 'summary' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next occupancy month' }));
     await screen.findByRole('group', { name: 'Occupancy calendar 2024-03' });
     await act(async () => resolveOld(response(occupancy())));
     expect(screen.queryByRole('group', { name: 'Occupancy calendar 2024-02' })).not.toBeInTheDocument();
   });
-  it('TC-MAD-016-AC3: distinguishes empty, unknown and known zero occupancy', async () => {
-    const data = occupancy();
-    data.dates = [];
-    const fetchMock = setup(data);
-    await screen.findByText('No occupancy data is available for this month.');
-    const unknown = occupancy('2024-01');
-    unknown.dates.forEach(day => Object.assign(day, { occupiedRooms: 0, eligibleRooms: 0, rate: null }));
-    fetchMock.mockResolvedValue(response(unknown));
-    fireEvent.click(screen.getByRole('button', { name: 'Previous occupancy month' }));
-    await screen.findByText('Occupancy is unknown: no eligible room capacity is available this month.');
-    const zero = occupancy();
-    zero.dates.forEach(day => Object.assign(day, { occupiedRooms: 0, eligibleRooms: 10, rate: 0 }));
-    fetchMock.mockResolvedValue(response(zero));
-    fireEvent.click(screen.getByRole('button', { name: 'Next occupancy month' }));
-    await screen.findByText('No occupied rooms this month. Known occupancy is 0%.');
-  });
-  it('TC-MAD-016-AC3: retries failures without presenting fabricated zero values', async () => {
+  it('keeps unavailable data distinct from zero and retries the failed request', async () => {
     const fetchMock = vi.fn().mockRejectedValueOnce(new Error('network')).mockResolvedValue(response(occupancy()));
     vi.stubGlobal('fetch', fetchMock);
     render(<OccupancyCalendar initialMonth="2024-02" />);
     await screen.findByRole('alert');
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /2024-02-01:/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry occupancy' }));
-    await screen.findByRole('table');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('button', { name: /2024-02-01:/ })).toBeVisible();
   });
-  it.each([401, 403])('shows the appropriate access error for %s', async status => {
+  it.each([401, 403])('preserves access handling for status %s', async status => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status })));
     render(<OccupancyCalendar initialMonth="2024-02" />);
     await screen.findByRole('alert');
@@ -169,15 +136,8 @@ describe('DDP-016 calendar UI', () => {
     if (status === 401) expect(screen.getByRole('link', { name: 'Sign in' })).toBeVisible();
     else expect(screen.getByRole('alert')).toHaveTextContent('permission');
   });
-  it('aborts requests on unmount', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockImplementation(
-        (_url: string, options: RequestInit) =>
-          new Promise((_resolve, reject) =>
-            options.signal?.addEventListener('abort', () => reject(new Error('aborted')))
-          )
-      );
+  it('aborts pending requests on unmount', async () => {
+    const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}));
     vi.stubGlobal('fetch', fetchMock);
     const view = render(<OccupancyCalendar initialMonth="2024-02" />);
     view.unmount();

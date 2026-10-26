@@ -68,6 +68,7 @@ export async function migrate(database: DataSource, role: string) {
     }
     for (const table of [
       'bookings',
+      'guests',
       'payments',
       'rooms',
       'room_types',

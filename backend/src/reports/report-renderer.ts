@@ -8,6 +8,7 @@ function units(path: string, value: unknown) {
   if (value === null) return 'unavailable';
   if (/Minor$/.test(path)) return 'LKR cents';
   if (/percentageChange$/.test(path)) return 'percent';
+  if (/averageLengthOfStay$/.test(path)) return 'nights';
   if (/(rate|threshold)$/.test(path)) return 'ratio (0-1)';
   if (/(Minutes|averageMinutes)$/.test(path)) return 'minutes';
   if (typeof value === 'number') return /(Count|count|total|quantity|Rooms)$/.test(path) ? 'count' : 'number';
