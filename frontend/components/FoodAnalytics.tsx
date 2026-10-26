@@ -27,16 +27,16 @@ export default function FoodAnalytics() {
       <p className="section-eyebrow">Food order analytics</p>
       <div className="summary-grid analytics-summary">
         <SummaryCard
-          label={'Orders (' + period + ')'}
-          value={data ? String(data.total) : '\u2014'}
-          title="Non-cancelled orders placed during the selected period."
-        />
-        <SummaryCard
           label="Pending in kitchen"
           value={
             kitchen ? String(kitchen.counts.PLACED + kitchen.counts.IN_PREPARATION + kitchen.counts.READY) : '\u2014'
           }
           title="Live active orders across all dates, independent of the selected reporting period."
+        />
+        <SummaryCard
+          label={'Orders (' + period + ')'}
+          value={data ? String(data.total) : '\u2014'}
+          title="Non-cancelled orders placed during the selected period."
         />
         <SummaryCard
           label="Avg delivery time"
