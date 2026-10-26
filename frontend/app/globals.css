@@ -1174,3 +1174,44 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.analytics-period-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  font-size: 12px;
+}
+.analytics-period-navigation input {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: white;
+}
+.analytics-period-navigation .button {
+  min-height: 32px;
+  font-size: 12px;
+}
+.period-range {
+  margin-left: auto;
+  color: var(--color-muted);
+}
+.booking-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 12px;
+}
+.booking-pagination > span {
+  margin-right: auto;
+  color: var(--color-muted);
+}
+.booking-pagination .button {
+  min-height: 30px;
+  font-size: 12px;
+}

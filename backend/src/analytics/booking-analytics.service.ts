@@ -25,13 +25,13 @@ export class BookingAnalyticsService {
     @Inject(BOOKING_CLOCK) private readonly now: () => Date
   ) {}
 
-  async summary(period: BookingPeriod, asOf?: string) {
+  async summary(period: BookingPeriod, asOf?: string, date?: string) {
     try {
       asOf ??= this.now().toISOString();
       const rows = await this.database.query<BookingBucketRow[]>(BOOKINGS_SQL, [
         period,
         BOOKING_TIMEZONE,
-        asOf,
+        date ? `${date}T12:00:00.000Z` : asOf,
         INCLUDED_BOOKING_STATUSES
       ]);
       if (!rows.length) throw new Error('Missing calendar buckets');

@@ -124,4 +124,22 @@ describe('DDP-015 booking and revenue analytics', () => {
     unmount();
     expect(signal?.aborted).toBe(true);
   });
+  it('loads the selected historical month and navigates booking pages', async () => {
+    const first = overview('month');
+    first.bookingList = { total: 9, page: 1, pageSize: 5 };
+    const second = { ...first, bookingList: { total: 9, page: 2, pageSize: 5 } };
+    const fetcher = vi
+      .fn()
+      .mockImplementation((url: string) => Promise.resolve(response(url.includes('page=2') ? second : first)));
+    vi.stubGlobal('fetch', fetcher);
+    render(<AnalyticsDashboard />);
+    fireEvent.click(screen.getByRole('button', { name: 'Month' }));
+    fireEvent.change(screen.getByLabelText('Select analytics month'), { target: { value: '2026-09' } });
+    expect(await screen.findByText('Monthly bookings')).toBeVisible();
+    await waitFor(() =>
+      expect(fetcher).toHaveBeenCalledWith(expect.stringContaining('date=2026-09-01'), expect.anything())
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Next bookings' }));
+    await waitFor(() => expect(fetcher).toHaveBeenCalledWith(expect.stringContaining('page=2'), expect.anything()));
+  });
 });

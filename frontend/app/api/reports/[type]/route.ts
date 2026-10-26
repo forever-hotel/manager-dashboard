@@ -48,7 +48,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ typ
     }
     const format = query.get('format')!;
     const filename = reportFilename(type as ReportType, format, upstream.headers.get('content-disposition'));
-    const bytes = await readReport(upstream, format);
+    const bytes = await readReport(upstream, format, type);
     return new NextResponse(bytes, {
       headers: {
         'Content-Type': format === 'pdf' ? 'application/pdf' : 'text/csv; charset=utf-8',

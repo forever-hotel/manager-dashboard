@@ -2,6 +2,17 @@ import { z } from 'zod';
 
 export const periodSchema = z.enum(['day', 'week', 'month']);
 export type Period = z.infer<typeof periodSchema>;
+export const analyticsQuerySchema = z
+  .object({
+    period: periodSchema,
+    date: z.iso
+      .date()
+      .refine(value => !value.startsWith('0000'))
+      .optional(),
+    page: z.coerce.number().int().min(1).max(1000000).optional(),
+    pageSize: z.coerce.number().int().min(1).max(50).optional()
+  })
+  .strict();
 export const bookingSchema = z
   .object({
     period: periodSchema,
@@ -55,6 +66,11 @@ export const overviewSchema = z
     bookings: bookingSchema,
     revenue: revenueSchema,
     averageLengthOfStay: z.number().positive().finite().nullable(),
+    bookingList: z.object({
+      total: z.number().int().nonnegative().safe(),
+      page: z.number().int().positive(),
+      pageSize: z.number().int().min(1).max(50)
+    }),
     occupancy: z
       .object({
         rate: z.number().min(0).max(1).nullable(),
@@ -82,7 +98,7 @@ export const overviewSchema = z
           status: z.string()
         })
       )
-      .max(5)
+      .max(50)
   })
   .refine(
     ({ bookings, revenue }) =>
@@ -92,8 +108,17 @@ export const overviewSchema = z
       bookings.asOf === revenue.asOf
   );
 export type Overview = z.infer<typeof overviewSchema>;
-export async function loadAnalytics(period: Period, signal: AbortSignal): Promise<Overview> {
-  const response = await fetch('/api/analytics?period=' + period, {
+export async function loadAnalytics(
+  period: Period,
+  signal: AbortSignal,
+  filters: { date?: string; page?: number } = {}
+): Promise<Overview> {
+  const query = new URLSearchParams({
+    period,
+    ...(filters.date ? { date: filters.date } : {}),
+    ...(filters.page ? { page: String(filters.page) } : {})
+  });
+  const response = await fetch('/api/analytics?' + query, {
     signal,
     cache: 'no-store',
     credentials: 'same-origin'

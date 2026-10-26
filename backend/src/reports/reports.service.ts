@@ -9,6 +9,7 @@ import { OccupancyAnalyticsService } from '../analytics/occupancy-analytics.serv
 import { LowBookingAlertsService } from '../analytics/low-booking-alerts.service';
 import { ReportQuery, ReportType } from './report-query';
 import { flattenReport, renderCsv, renderPdf } from './report-renderer';
+import { bookingReportPdf, bookingTrendCsv, type BookingReport } from './booking-report';
 @Injectable()
 export class ReportsService {
   private active = 0;
@@ -27,14 +28,28 @@ export class ReportsService {
     this.active++;
     try {
       let data: Record<string, unknown>;
+      let bookingReport: BookingReport | undefined;
       switch (type) {
         case 'bookings': {
-          const summary = await this.bookings.summary(query.period);
-          data = { ...summary, ...(await this.bookingDetails.details(summary.start, summary.end)) };
+          const summary = query.date
+            ? await this.bookings.summary(query.period, undefined, query.date)
+            : await this.bookings.summary(query.period);
+          const details = await this.bookingDetails.details(
+            summary.start,
+            summary.end,
+            1,
+            query.format === 'pdf' ? 500 : 1
+          );
+          if (query.format === 'pdf' && details.bookingList.total > 500)
+            throw new UnprocessableEntityException('Select a shorter period: at most 500 booking records per report.');
+          bookingReport = { ...summary, ...details };
+          data = bookingReport;
           break;
         }
         case 'revenue':
-          data = await this.revenue.summary(query.period);
+          data = query.date
+            ? await this.revenue.summary(query.period, undefined, query.date)
+            : await this.revenue.summary(query.period);
           break;
         case 'staff':
         case 'worker-performance': {
@@ -69,12 +84,19 @@ export class ReportsService {
               ? {}
               : {
                   period: query.period,
+                  ...(query.date ? { date: query.date } : {}),
                   ...(query.workerId ? { workerId: query.workerId } : {})
                 }
       });
       const title = type.replaceAll('-', ' ') + ' report';
       const period = `${String(data.start ?? data.from)} to ${String(data.end ?? data.to)} (${data.rangeEndInclusive ? 'inclusive dates' : 'exclusive end'})`;
-      const buffer = query.format === 'csv' ? renderCsv(rows) : await renderPdf(title, period, rows);
+      const buffer = bookingReport
+        ? query.format === 'csv'
+          ? bookingTrendCsv(bookingReport)
+          : await bookingReportPdf(bookingReport)
+        : query.format === 'csv'
+          ? renderCsv(rows)
+          : await renderPdf(title, period, rows);
       const date =
         typeof data.from === 'string'
           ? data.from

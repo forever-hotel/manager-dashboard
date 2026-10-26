@@ -23,7 +23,11 @@ export default function LowDemandAlerts() {
     };
   }, [attempt]);
   return (
-    <div className="demand-strip" role={error ? 'alert' : 'status'}>
+    <div
+      className="demand-strip"
+      role={error ? 'alert' : 'status'}
+      title="Forecast for the next 14 days, independent of the selected reporting period."
+    >
       {error ? (
         <>
           {error === 401

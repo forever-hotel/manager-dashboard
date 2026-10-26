@@ -67,7 +67,7 @@ export default function ReportDownload({
       });
       if (!response.ok) throw new Error(exportError(response.status));
       const filename = reportFilename(type, format, response.headers.get('content-disposition'));
-      const bytes = await readReport(response, format);
+      const bytes = await readReport(response, format, type);
       if (controller.signal.aborted) return;
       const blob = new Blob([bytes], {
         type: format === 'pdf' ? 'application/pdf' : 'text/csv; charset=utf-8'

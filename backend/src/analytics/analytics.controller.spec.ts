@@ -36,7 +36,7 @@ describe('Analytics overview metrics', () => {
     });
     expect(result.averageLengthOfStay).toBe(2.5);
     expect(calendar).toHaveBeenCalledWith({ from: '2026-10-01', to: '2026-10-31' });
-    expect(details).toHaveBeenCalledWith(start, end);
+    expect(details).toHaveBeenCalledWith(start, end, 1, 5);
   });
   it('keeps zero capacity unknown rather than claiming zero-percent occupancy', async () => {
     calendar.mockResolvedValue({ dates: [{ occupiedRooms: 0, eligibleRooms: 0 }], roomsUsingCreationDate: 0 });

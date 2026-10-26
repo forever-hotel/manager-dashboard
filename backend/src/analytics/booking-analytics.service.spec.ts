@@ -88,4 +88,14 @@ describe('DDP-009 booking summaries', () => {
   it('defaults an omitted period to day', () => {
     expect(new BookingQueryDto().period).toBe('day');
   });
+  it('selects historical boundaries without backdating the reporting timestamp', async () => {
+    const result = await service.summary('month', undefined, '2026-08-01');
+    expect(query).toHaveBeenCalledWith(expect.any(String), [
+      'month',
+      'Asia/Colombo',
+      '2026-08-01T12:00:00.000Z',
+      ['CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT']
+    ]);
+    expect(result.asOf).toBe(clock.toISOString());
+  });
 });

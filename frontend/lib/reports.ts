@@ -25,6 +25,7 @@ export type ReportFilters = {
   workerId?: string;
   from?: string;
   to?: string;
+  date?: string;
 };
 export const MAX_DOWNLOAD_BYTES = 8 * 1024 * 1024;
 export function reportQuery(type: string, raw: URLSearchParams) {
@@ -37,6 +38,7 @@ export function reportQuery(type: string, raw: URLSearchParams) {
         ? {}
         : {
             period: z.enum(['day', 'week', 'month']).default('day'),
+            ...(['bookings', 'revenue'].includes(type) ? { date: calendarDate.optional() } : {}),
             ...(['staff', 'worker-performance'].includes(type) ? { workerId: z.uuid().optional() } : {})
           };
   if ([...raw.keys()].some(k => raw.getAll(k).length !== 1)) throw new Error('Repeated filters');
@@ -56,7 +58,7 @@ export function reportFilename(type: ReportType, format: string, disposition: st
     throw new Error('Invalid filename');
   return match[1];
 }
-export async function readReport(response: Response, format: string) {
+export async function readReport(response: Response, format: string, type?: string) {
   if (
     (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase() !==
     (format === 'pdf' ? 'application/pdf' : 'text/csv')
@@ -99,7 +101,14 @@ export async function readReport(response: Response, format: string) {
       throw new Error('Invalid PDF');
   } else {
     const content = text.decode(bytes);
-    if (!content.startsWith('"Field","Value","Unit"\r\n') || !content.endsWith('\r\n')) throw new Error('Invalid CSV');
+    if (
+      !(
+        content.startsWith('"Field","Value","Unit"\r\n') ||
+        (type === 'bookings' && content.startsWith('"Date","Bookings"\r\n'))
+      ) ||
+      !content.endsWith('\r\n')
+    )
+      throw new Error('Invalid CSV');
   }
   return bytes;
 }

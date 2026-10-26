@@ -145,7 +145,11 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
         { calendar } as unknown as OccupancyAnalyticsService,
         { alerts } as unknown as LowBookingAlertsService,
         {
-          details: jest.fn().mockResolvedValue({ averageLengthOfStay: null, recentBookings: [] })
+          details: jest.fn().mockResolvedValue({
+            averageLengthOfStay: null,
+            recentBookings: [],
+            bookingList: { total: 0, page: 1, pageSize: 500 }
+          })
         } as unknown as import('../analytics/booking-details.service').BookingDetailsService
       )
     };
@@ -160,7 +164,7 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
         to: '2026-10-20'
       });
       expect(result.contentType).toContain('text/csv');
-      expect(result.buffer.toString()).toContain('Field');
+      expect(result.buffer.toString()).toContain(type === 'bookings' ? 'Date' : 'Field');
     }
     expect(summary).toHaveBeenCalledWith('week');
     expect(summary).toHaveBeenCalledWith({ period: 'week', workerId: undefined }, 201);
@@ -184,11 +188,25 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
     const a = service.download('bookings', { format: 'csv', period: 'day' });
     const b = service.download('revenue', { format: 'csv', period: 'day' });
     await expect(service.download('bookings', { format: 'csv', period: 'day' })).rejects.toMatchObject({ status: 503 });
-    finish({ start: '2026-10-20', end: '2026-10-21', total: 0 });
+    finish({
+      start: '2026-10-20',
+      end: '2026-10-21',
+      total: 0,
+      trend: [],
+      period: 'day',
+      asOf: '2026-10-26T12:00:00Z'
+    });
     await Promise.all([a, b]);
     summary.mockRejectedValueOnce(new Error('source'));
     await expect(service.download('bookings', { format: 'csv', period: 'day' })).rejects.toThrow('source');
-    summary.mockResolvedValue({ start: '2026-10-20', end: '2026-10-21' });
+    summary.mockResolvedValue({
+      start: '2026-10-20',
+      end: '2026-10-21',
+      total: 0,
+      trend: [],
+      period: 'day',
+      asOf: '2026-10-26T12:00:00Z'
+    });
     expect((await service.download('bookings', { format: 'pdf', period: 'day' })).contentType).toBe('application/pdf');
   });
 });

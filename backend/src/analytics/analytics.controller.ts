@@ -4,7 +4,7 @@ import { BookingDetailsService } from './booking-details.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RevenueAnalyticsService } from './revenue-analytics.service';
 import { BOOKING_CLOCK, BookingAnalyticsService } from './booking-analytics.service';
-import { BookingQueryDto } from './booking-query.dto';
+import { BookingQueryDto, BookingOverviewQueryDto } from './booking-query.dto';
 import { OccupancyAnalyticsService } from './occupancy-analytics.service';
 import { OccupancyQueryDto } from './occupancy-query.dto';
 
@@ -22,15 +22,15 @@ export class AnalyticsController {
 
   @Get('revenue')
   revenueSummary(@Query() query: BookingQueryDto) {
-    return this.revenue.summary(query.period);
+    return this.revenue.summary(query.period, undefined, query.date);
   }
 
   @Get('overview')
-  async overview(@Query() query: BookingQueryDto) {
+  async overview(@Query() query: BookingOverviewQueryDto) {
     const asOf = this.now().toISOString();
     const [bookings, revenue] = await Promise.all([
-      this.bookings.summary(query.period, asOf),
-      this.revenue.summary(query.period, asOf)
+      this.bookings.summary(query.period, asOf, query.date),
+      this.revenue.summary(query.period, asOf, query.date)
     ]);
     const localDate = (iso: string) =>
       new Intl.DateTimeFormat('en-CA', {
@@ -40,7 +40,7 @@ export class AnalyticsController {
         day: '2-digit'
       }).format(new Date(iso));
     const [details, calendar] = await Promise.all([
-      this.details.details(bookings.start, bookings.end),
+      this.details.details(bookings.start, bookings.end, query.page ?? 1, query.pageSize ?? 5),
       this.occupancy.calendar({
         from: localDate(bookings.start),
         to: localDate(new Date(Date.parse(bookings.end) - 86400000).toISOString())
@@ -63,7 +63,7 @@ export class AnalyticsController {
 
   @Get('bookings')
   bookingsSummary(@Query() query: BookingQueryDto) {
-    return this.bookings.summary(query.period);
+    return this.bookings.summary(query.period, undefined, query.date);
   }
 
   @Get('occupancy')

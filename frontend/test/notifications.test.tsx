@@ -55,6 +55,20 @@ function mount() {
   );
 }
 describe('DDP-043 shared persistent notification presentation', () => {
+  it('returns to the previous page from Notifications', () => {
+    const previous = Object.getOwnPropertyDescriptor(window.history, 'length');
+    Object.defineProperty(window.history, 'length', { configurable: true, value: 2 });
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    try {
+      mount();
+      fireEvent.click(screen.getByRole('button', { name: 'Back to previous page' }));
+      expect(back).toHaveBeenCalledOnce();
+    } finally {
+      back.mockRestore();
+      if (previous) Object.defineProperty(window.history, 'length', previous);
+      else Reflect.deleteProperty(window.history, 'length');
+    }
+  });
   it.each([409, 503, 401, 403])('handles read failure %s without reporting a resolved issue', async status => {
     const original = fetchMock.getMockImplementation() as (url: string, options?: RequestInit) => Promise<Response>;
     fetchMock.mockImplementation((url: string, options?: RequestInit) =>

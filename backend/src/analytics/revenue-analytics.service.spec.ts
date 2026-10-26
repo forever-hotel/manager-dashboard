@@ -74,4 +74,10 @@ describe('DDP-056 revenue contract', () => {
       percentageUnavailableReason: null
     });
   });
+  it('uses the same selected historical period while retaining query freshness', async () => {
+    const { query, service } = setup();
+    const result = await service.summary('month', undefined, '2026-08-01');
+    expect(query).toHaveBeenCalledWith(expect.any(String), ['month', 'Asia/Colombo', '2026-08-01T12:00:00.000Z']);
+    expect(result.asOf).toBe(now().toISOString());
+  });
 });

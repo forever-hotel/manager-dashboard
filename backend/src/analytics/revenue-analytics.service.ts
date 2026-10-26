@@ -28,7 +28,7 @@ export class RevenueAnalyticsService {
     private readonly database: DataSource,
     @Inject(BOOKING_CLOCK) private readonly now: () => Date
   ) {}
-  async summary(period: BookingPeriod, asOf?: string) {
+  async summary(period: BookingPeriod, asOf?: string, date?: string) {
     try {
       asOf ??= this.now().toISOString();
       const rows = await this.database.query<
@@ -41,7 +41,7 @@ export class RevenueAnalyticsService {
           percentage: string | null;
           invalid: string;
         }[]
-      >(REVENUE_SQL, [period, BOOKING_TIMEZONE, asOf]);
+      >(REVENUE_SQL, [period, BOOKING_TIMEZONE, date ? `${date}T12:00:00.000Z` : asOf]);
       const row = rows[0];
       if (rows.length !== 1 || !row || row.invalid !== '0' || !/^\d+$/.test(row.current) || !/^\d+$/.test(row.previous))
         throw new Error('Invalid payment data');

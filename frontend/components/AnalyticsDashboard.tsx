@@ -4,7 +4,7 @@ import { PageHeader, SummaryCard, DataPanel, UnavailableRow } from './DashboardV
 import LowDemandAlerts from './LowDemandAlerts';
 import OccupancyCalendar from './OccupancyCalendar';
 import { statusColor } from '@/lib/status-color';
-import { hotelMonth } from '@/lib/occupancy';
+import { hotelDate, shiftAnalyticsDate } from '@/lib/analytics-period';
 import { useEffect, useState } from 'react';
 import { AnalyticsError, loadAnalytics, money, percentage, type Overview, type Period } from '@/lib/analytics';
 const shortDate = (date: string) =>
@@ -21,22 +21,26 @@ const revenueValue = (minor: number) =>
         .format(minor / 100)
         .replace(/[kmbt]$/i, suffix => suffix.toUpperCase())
     : money(minor);
-type State = { period: Period; data?: Overview; error?: number };
+type State = { date: string; page: number; period: Period; data?: Overview; error?: number };
 export default function AnalyticsDashboard() {
   const [period, setPeriod] = useState<Period>('week');
+  const [date, setDate] = useState(() => hotelDate());
+  const [page, setPage] = useState(1);
   const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<State>({ period: 'week' });
+  const [state, setState] = useState<State>({ period: 'week', date: hotelDate(), page: 1 });
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    loadAnalytics(period, controller.signal)
+    loadAnalytics(period, controller.signal, { date, page })
       .then(data => {
-        if (active) setState({ period, data });
+        if (active) setState({ period, date, page, data });
       })
       .catch(error => {
         if (active)
           setState({
             period,
+            date,
+            page,
             error: error instanceof AnalyticsError ? error.status : 503
           });
       });
@@ -44,22 +48,68 @@ export default function AnalyticsDashboard() {
       active = false;
       controller.abort();
     };
-  }, [period, attempt]);
-  const data = state.period === period ? state.data : undefined;
-  const error = state.period === period ? state.error : undefined;
+  }, [period, date, page, attempt]);
+  const data = state.period === period && state.date === date && state.page === page ? state.data : undefined;
+  const error = state.period === period && state.date === date && state.page === page ? state.error : undefined;
   const choose = (next: Period) => {
     if (next !== period) {
-      setState({ period: next });
+      setState({ period: next, date, page: 1 });
+      setPage(1);
       setPeriod(next);
     }
   };
   const retry = () => {
-    setState({ period });
+    setState({ period, date, page });
     setAttempt(value => value + 1);
   };
+  const changeDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
+    setDate(value);
+    setPage(1);
+  };
+  const previous = shiftAnalyticsDate(date, period, -1),
+    next = shiftAnalyticsDate(date, period, 1);
   return (
     <main className="dashboard-page analytics-page">
       <PageHeader title="Analytics" period={period} onPeriodChange={choose} />
+      <div className="analytics-period-navigation" aria-label="Analytics dates">
+        <button
+          type="button"
+          className="button button-secondary"
+          disabled={!previous}
+          onClick={() => previous && changeDate(previous)}
+        >
+          Previous {period}
+        </button>
+        <label className="sr-only" htmlFor="analytics-date">
+          Select analytics {period === 'month' ? 'month' : 'date'}
+        </label>
+        <input
+          id="analytics-date"
+          type={period === 'month' ? 'month' : 'date'}
+          min={period === 'month' ? '0001-01' : '0001-01-01'}
+          max={period === 'month' ? '9999-12' : '9999-12-31'}
+          value={period === 'month' ? date.slice(0, 7) : date}
+          onChange={event => changeDate(period === 'month' ? event.target.value + '-01' : event.target.value)}
+        />
+        <button
+          type="button"
+          className="button button-secondary"
+          disabled={!next}
+          onClick={() => next && changeDate(next)}
+        >
+          Next {period}
+        </button>
+        <button type="button" className="button button-ghost" onClick={() => changeDate(hotelDate())}>
+          Current {period}
+        </button>
+        {data && (
+          <span className="period-range">
+            {shortDate(data.bookings.trend[0]?.date ?? date)} &ndash;{' '}
+            {shortDate(data.bookings.trend.at(-1)?.date ?? date)}
+          </span>
+        )}
+      </div>
       <p className="section-eyebrow">Booking &amp; revenue</p>
       <div className="summary-grid analytics-summary">
         <SummaryCard label={`Total bookings (${period})`} value={data ? String(data.bookings.total) : '\u2014'} />
@@ -99,17 +149,23 @@ export default function AnalyticsDashboard() {
       <LowDemandAlerts />
       <div className="design-chart-row">
         {data ? (
-          <BookingTrend data={data} />
+          <BookingTrend data={data} date={date} />
         ) : (
-          <DataPanel title="Bookings per day">
+          <DataPanel
+            title={period === 'day' ? 'Daily bookings' : period === 'week' ? 'Weekly bookings' : 'Monthly bookings'}
+          >
             <p className="unavailable-row">{error ? 'Booking chart unavailable.' : 'Loading booking chart...'}</p>
           </DataPanel>
         )}
-        <OccupancyCalendar initialMonth={hotelMonth()} />
+        <OccupancyCalendar
+          key={date.slice(0, 7)}
+          initialMonth={date.slice(0, 7)}
+          onMonthChange={month => changeDate(month + '-01')}
+        />
       </div>
       <DataPanel
         title="Recent bookings"
-        actions={<ReportDownload type="bookings" filters={{ period }} formats={['pdf']} />}
+        actions={<ReportDownload type="bookings" filters={{ period, date }} formats={['pdf']} />}
       >
         <div className="overflow-x-auto">
           <table className="dashboard-table recent-bookings-table">
@@ -157,18 +213,44 @@ export default function AnalyticsDashboard() {
             </tbody>
           </table>
         </div>
+        {data && (
+          <div className="booking-pagination">
+            <span>
+              {data.bookingList.total ? (page - 1) * data.bookingList.pageSize + 1 : 0}&ndash;
+              {Math.min(page * data.bookingList.pageSize, data.bookingList.total)} of {data.bookingList.total} bookings
+              (all statuses)
+            </span>
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={page === 1}
+              onClick={() => setPage(p => p - 1)}
+            >
+              Previous bookings
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={page * data.bookingList.pageSize >= data.bookingList.total}
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next bookings
+            </button>
+          </div>
+        )}
       </DataPanel>
     </main>
   );
 }
-function BookingTrend({ data }: { data: Overview }) {
+function BookingTrend({ data, date }: { data: Overview; date: string }) {
+  const period = data.bookings.period;
   const trend = data.bookings.trend;
   const max = Math.max(1, ...trend.map(row => row.count));
   const monthly = data.bookings.period === 'month';
   return (
     <DataPanel
-      title="Bookings per day"
-      actions={<ReportDownload type="bookings" filters={{ period: data.bookings.period }} formats={['csv']} />}
+      title={period === 'day' ? 'Daily bookings' : period === 'week' ? 'Weekly bookings' : 'Monthly bookings'}
+      actions={<ReportDownload type="bookings" filters={{ period: data.bookings.period, date }} formats={['csv']} />}
     >
       <div className="booking-chart-scroll" tabIndex={0} role="region" aria-label="Daily bookings chart">
         <div

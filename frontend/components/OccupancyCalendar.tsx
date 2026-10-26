@@ -10,7 +10,13 @@ function describe(day: OccupancyDay) {
 }
 type State = { month: string; data?: Occupancy; error?: number };
 
-export default function OccupancyCalendar({ initialMonth }: { initialMonth: string }) {
+export default function OccupancyCalendar({
+  initialMonth,
+  onMonthChange
+}: {
+  initialMonth: string;
+  onMonthChange?: (month: string) => void;
+}) {
   const [month, setMonth] = useState(initialMonth);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<State>({ month: initialMonth });
@@ -40,6 +46,10 @@ export default function OccupancyCalendar({ initialMonth }: { initialMonth: stri
   const next = shiftMonth(month, 1);
   const navigate = (value: string | null) => {
     if (value) {
+      if (onMonthChange) {
+        onMonthChange(value);
+        return;
+      }
       setSelected(undefined);
       setState({ month: value });
       setMonth(value);

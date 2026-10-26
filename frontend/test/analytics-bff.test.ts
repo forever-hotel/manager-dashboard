@@ -43,4 +43,25 @@ describe('DDP-015 protected analytics BFF', () => {
       expect((await GET(req())).status).toBe(503);
     }
   });
+  it('forwards validated historical dates and pagination and rejects malformed filters', async () => {
+    const data = overview();
+    data.bookingList = { total: 9, page: 2, pageSize: 5 };
+    vi.mocked(backend).mockResolvedValue({ status: 200, data });
+    expect((await GET(req('period=month&date=2026-09-01&page=2'))).status).toBe(503);
+    data.bookings.period = 'month';
+    data.revenue.period = 'month';
+    expect((await GET(req('period=month&date=2026-09-01&page=2'))).status).toBe(200);
+    expect(backend).toHaveBeenCalledWith(
+      '/mad/analytics/overview?period=month&date=2026-09-01&page=2',
+      'GET',
+      'private-token'
+    );
+    for (const query of [
+      'period=week&date=2026-02-30',
+      'period=week&page=0',
+      'period=week&pageSize=51',
+      'period=week&date=2026-09-01&date=2026-08-01'
+    ])
+      expect((await GET(req(query))).status).toBe(400);
+  });
 });

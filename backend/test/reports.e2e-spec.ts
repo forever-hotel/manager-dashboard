@@ -140,7 +140,7 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
     );
     const booking = await get('bookings').expect(200);
     expect(booking.text).toContain('"total","1","count"');
-    expect(booking.text).toContain('bookings_checking_in');
+    expect(booking.text).toContain('Date');
     expect(booking.headers['content-type']).toContain('text/csv');
     expect(booking.headers['content-disposition']).toContain('attachment; filename="bookings-');
     expect(booking.headers['cache-control']).toBe('no-store');

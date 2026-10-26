@@ -19,6 +19,7 @@ export interface ReportQuery {
   workerId?: string;
   from?: string;
   to?: string;
+  date?: string;
 }
 export function parseReportQuery(type: string, raw: Record<string, unknown>): ReportQuery {
   const fail = () => {
@@ -27,6 +28,7 @@ export function parseReportQuery(type: string, raw: Record<string, unknown>): Re
   if (!REPORT_TYPES.includes(type as ReportType)) return fail();
   const allowed = [
     'format',
+    ...(['bookings', 'revenue'].includes(type) ? ['date'] : []),
     ...(type === 'occupancy' ? ['from', 'to'] : type === 'low-booking-alerts' ? [] : ['period']),
     ...(['staff', 'worker-performance'].includes(type) ? ['workerId'] : [])
   ];
@@ -35,6 +37,7 @@ export function parseReportQuery(type: string, raw: Record<string, unknown>): Re
   const period = raw.period ?? 'day';
   if (!['day', 'week', 'month'].includes(period as string)) return fail();
   if (raw.workerId !== undefined && (typeof raw.workerId !== 'string' || !isUUID(raw.workerId))) return fail();
+  if (raw.date !== undefined && !isCalendarDate(raw.date)) return fail();
   if (
     type === 'occupancy' &&
     (!isCalendarDate(raw.from) ||
@@ -48,6 +51,7 @@ export function parseReportQuery(type: string, raw: Record<string, unknown>): Re
     period: period as BookingPeriod,
     workerId: raw.workerId,
     from: raw.from as string | undefined,
-    to: raw.to as string | undefined
+    to: raw.to as string | undefined,
+    date: raw.date
   };
 }

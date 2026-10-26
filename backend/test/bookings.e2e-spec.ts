@@ -407,4 +407,33 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       status: 'CANCELLED'
     });
   });
+  it('supports a historical calendar month with fresh reporting timestamps', async () => {
+    await seed('2026-08-15');
+    await seed('2026-09-27');
+    const response = await get('?period=month&date=2026-08-01').expect(200);
+    const body = response.body as Summary;
+    expect(body.total).toBe(1);
+    expect(body.start).toBe('2026-07-31T18:30:00.000Z');
+    expect(body.end).toBe('2026-08-31T18:30:00.000Z');
+    expect(body.asOf).toBe(clock.toISOString());
+  });
+  it('paginates booking records instead of silently stopping at five', async () => {
+    const type = randomUUID();
+    await database.query("INSERT INTO room_types VALUES ($1,'Suite')", [type]);
+    for (let i = 0; i < 7; i++)
+      await database.query(
+        "INSERT INTO bookings(booking_id,room_type_id,check_in_date,check_out_date,total_amount,source,status) VALUES ($1,$2,'2026-09-27','2026-09-29',4200000,'WEBSITE','PENDING')",
+        [randomUUID(), type]
+      );
+    const response = await request(app.getHttpServer())
+      .get('/mad/analytics/overview?period=month&date=2026-09-01&page=2')
+      .set('Authorization', 'Bearer ' + provider.issue('manager'))
+      .expect(200);
+    const body = response.body as {
+      bookingList: { total: number; page: number; pageSize: number };
+      recentBookings: unknown[];
+    };
+    expect(body.bookingList).toEqual({ total: 7, page: 2, pageSize: 5 });
+    expect(body.recentBookings).toHaveLength(2);
+  });
 });

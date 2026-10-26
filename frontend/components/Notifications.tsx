@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { replaceLocation } from '@/lib/navigation';
 import { notificationsSchema, type NotificationItem } from '@/lib/notifications';
 import { useOperationsSnapshot } from './useOperationsSnapshot';
 function useNotificationsState() {
@@ -110,7 +111,17 @@ export default function NotificationsPanel({ initialPage = 1 }: { initialPage?: 
   const data = state.snapshot;
   return (
     <main className="dashboard-page">
-      <h1 className="mb-6 font-medium text-[22px] text-brand">Notifications</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={() => (window.history.length > 1 ? window.history.back() : replaceLocation('/analytics'))}
+          aria-label="Back to previous page"
+        >
+          &larr; Back
+        </button>
+        <h1 className="font-medium text-[22px] text-brand">Notifications</h1>
+      </div>
       <p className="text-[13px] mb-4">Reading an alert does not resolve its underlying issue.</p>
       {state.message && (
         <p role="status" className="text-[13px] mb-3">
