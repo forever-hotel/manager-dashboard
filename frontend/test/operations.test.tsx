@@ -16,11 +16,19 @@ beforeEach(() => {
     async (url: string) =>
       new Response(
         JSON.stringify(
-          url.includes('food-orders')
-            ? foodFixture()
-            : url.includes('service-requests')
-              ? serviceFixture()
-              : workerFixture()
+          url.startsWith('/api/service-requests?')
+            ? {
+                requests: [],
+                total: 0,
+                page: 1,
+                pageSize: 20,
+                view: new URL(url, 'http://localhost').searchParams.get('view')
+              }
+            : url.includes('food-orders')
+              ? foodFixture()
+              : url.includes('service-requests')
+                ? serviceFixture()
+                : workerFixture()
         )
       )
   );
@@ -61,13 +69,57 @@ describe('DDP-032 operations views', () => {
       )
     );
   });
-  it('AC1/AC2: distinguishes no completed average from a zero count and labels all-date backlog', async () => {
+  it('defaults to all period requests and toggles active requests with one button', async () => {
     render(<OperationsAnalytics type="service-requests" />);
-    await screen.findByText('4', { exact: true });
-    fireEvent.click(screen.getByText('Detailed analytics and exports', { selector: 'summary' }));
-    expect(screen.getByText('4', { exact: true })).toBeVisible();
-    expect(screen.getByRole('table', { name: 'Requests by current status' })).toHaveTextContent('IN PROGRESS');
-    expect(screen.getByText(/Backlog includes open requests across all dates/)).toBeVisible();
+    expect(await screen.findByText('No service requests in this period.')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Request history' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Refresh requests' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Active requests' }));
+    expect(await screen.findByText('No active service requests in this period.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'All requests' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'All requests' }));
+    expect(await screen.findByText('No service requests in this period.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Month' }));
+    fireEvent.change(screen.getByLabelText('Select service analytics month'), { target: { value: '2026-09' } });
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/service-requests?period=month&date=2026-09-01&view=all&page=1&pageSize=20',
+        expect.anything()
+      )
+    );
+  });
+  it('renders request rows, assignees and paginated history', async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (!url.startsWith('/api/service-requests?')) return new Response(JSON.stringify(serviceFixture()));
+      const query = new URL(url, 'http://localhost').searchParams;
+      const page = Number(query.get('page'));
+      const size = page === 1 ? 20 : 1;
+      return new Response(
+        JSON.stringify({
+          view: query.get('view'),
+          total: 21,
+          page,
+          pageSize: 20,
+          requests: Array.from({ length: size }, (_, index) => ({
+            id: `67f4568c-89ab-4c12-b321-${String(index + page * 20).padStart(12, '0')}`,
+            roomNumber: String(204 + index),
+            category: 'ROOM_CLEANING',
+            status: query.get('view') === 'all' ? 'COMPLETED' : 'ASSIGNED',
+            submittedAt: '2026-10-20T00:00:00Z',
+            assignee: index === 0 ? 'Worker One' : null
+          }))
+        })
+      );
+    });
+    render(<OperationsAnalytics type="service-requests" />);
+    expect(await screen.findByText('Worker One')).toBeVisible();
+    expect(screen.getAllByText('Unassigned')).toHaveLength(19);
+    fireEvent.click(screen.getByRole('button', { name: 'Next requests' }));
+    expect(await screen.findByText('21 requests · Page 2 of 2')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Next requests' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Active requests' }));
+    expect(await screen.findByText('21 requests · Page 1 of 2')).toBeVisible();
+    expect(screen.getAllByText('Assigned')).toHaveLength(20);
   });
   it('AC3: ignores stale period responses and supports retry', async () => {
     let finish!: (r: Response) => void;

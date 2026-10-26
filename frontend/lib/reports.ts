@@ -38,7 +38,9 @@ export function reportQuery(type: string, raw: URLSearchParams) {
         ? {}
         : {
             period: z.enum(['day', 'week', 'month']).default('day'),
-            ...(['bookings', 'revenue', 'food-orders'].includes(type) ? { date: calendarDate.optional() } : {}),
+            ...(['bookings', 'revenue', 'food-orders', 'service-requests'].includes(type)
+              ? { date: calendarDate.optional() }
+              : {}),
             ...(['staff', 'worker-performance'].includes(type) ? { workerId: z.uuid().optional() } : {})
           };
   if ([...raw.keys()].some(k => raw.getAll(k).length !== 1)) throw new Error('Repeated filters');

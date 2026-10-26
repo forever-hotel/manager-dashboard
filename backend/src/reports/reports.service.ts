@@ -63,7 +63,9 @@ export class ReportsService {
           data = query.date ? await this.food.summary(query.period, query.date) : await this.food.summary(query.period);
           break;
         case 'service-requests':
-          data = await this.requests.summary(query.period);
+          data = query.date
+            ? await this.requests.summary(query.period, query.date)
+            : await this.requests.summary(query.period);
           break;
         case 'occupancy':
           data = await this.occupancy.calendar({

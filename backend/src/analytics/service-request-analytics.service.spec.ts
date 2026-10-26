@@ -43,7 +43,12 @@ describe('DDP-024 service-request analytics', () => {
       dataQuality: { status: 'OK' },
       freshness: { sourceLatestUpdatedAt: null }
     });
-    expect(query).toHaveBeenCalledWith(SERVICE_REQUESTS_SQL, ['day', 'Asia/Colombo', now.toISOString()]);
+    expect(query).toHaveBeenCalledWith(SERVICE_REQUESTS_SQL, [
+      'day',
+      'Asia/Colombo',
+      now.toISOString(),
+      now.toISOString()
+    ]);
     expect(result.byStatus).toHaveLength(4);
   });
   it('rounds valid minutes and reports corrupt records independently of backlog', async () => {

@@ -18,7 +18,7 @@ export default function ReportsIndex() {
         ? {}
         : {
             period,
-            ...(['bookings', 'revenue', 'food-orders'].includes(type) && date ? { date } : {}),
+            ...(['bookings', 'revenue', 'food-orders', 'service-requests'].includes(type) && date ? { date } : {}),
             ...(['worker-performance', 'staff'].includes(type) && workerId.trim() ? { workerId: workerId.trim() } : {})
           };
   let valid = true;
@@ -67,7 +67,7 @@ export default function ReportsIndex() {
               </select>
             </label>
           ) : null}
-          {['bookings', 'revenue', 'food-orders'].includes(type) && (
+          {['bookings', 'revenue', 'food-orders', 'service-requests'].includes(type) && (
             <label>
               Period date (optional)
               <input type="date" value={date} onChange={event => setDate(event.target.value)} className={control} />

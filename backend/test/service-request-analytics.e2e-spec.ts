@@ -40,8 +40,10 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
     await database.query(readSchemaSection('auth'));
     // Deliberately allow timestamp inconsistencies to exercise corrupt legacy data.
     await database.query(`CREATE TYPE service_request_status AS ENUM ('SUBMITTED','ASSIGNED','IN_PROGRESS','COMPLETED');
-      CREATE TABLE foss_service_requests(request_id uuid PRIMARY KEY,status service_request_status NOT NULL,submitted_at timestamptz NOT NULL,completed_at timestamptz,updated_at timestamptz NOT NULL);
-      GRANT SELECT(request_id,status,submitted_at,completed_at,updated_at) ON foss_service_requests TO "${role}";
+      CREATE TABLE foss_service_requests(request_id uuid PRIMARY KEY,status service_request_status NOT NULL,submitted_at timestamptz NOT NULL,completed_at timestamptz,updated_at timestamptz NOT NULL,room_number varchar(10) DEFAULT '204',category text DEFAULT 'ROOM_CLEANING');
+      CREATE TABLE wkms_tasks(service_request_id uuid UNIQUE,assigned_worker_id uuid);
+      GRANT SELECT ON wkms_tasks TO "${role}";
+      GRANT SELECT(request_id,status,submitted_at,completed_at,updated_at,room_number,category) ON foss_service_requests TO "${role}";
       GRANT SELECT ON mad_revoked_sessions TO "${role}"`);
     provider = await seedLocalAuth(database, secret, role);
     owner.username = role;
@@ -76,7 +78,7 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
   }, 60000);
   beforeEach(async () => {
     clock = new Date('2026-10-19T06:00:00Z');
-    await database.query('TRUNCATE foss_service_requests');
+    await database.query('TRUNCATE wkms_tasks,foss_service_requests');
   });
   afterAll(async () => {
     await app?.close();
@@ -93,13 +95,47 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
     return req;
   }
   async function add(status: string, submitted: string, completed: string | null = null) {
-    await database.query('INSERT INTO foss_service_requests VALUES ($1,$2,$3,$4,$3)', [
-      randomUUID(),
-      status,
-      submitted,
-      completed
-    ]);
+    await database.query(
+      'INSERT INTO foss_service_requests(request_id,status,submitted_at,completed_at,updated_at) VALUES ($1,$2,$3,$4,$3)',
+      [randomUUID(), status, submitted, completed]
+    );
   }
+  it('scopes both active and all requests to the selected period', async () => {
+    await add('ASSIGNED', '2026-09-01T08:00:00+05:30');
+    await add('COMPLETED', '2026-09-02T08:00:00+05:30', '2026-09-02T09:00:00+05:30');
+    await add('SUBMITTED', '2026-10-19T08:00:00+05:30');
+    await database.query(
+      "INSERT INTO wkms_tasks(service_request_id,assigned_worker_id) SELECT request_id,$1 FROM foss_service_requests WHERE status='ASSIGNED'",
+      [provider.ids.get('worker')]
+    );
+    const active = await request(app.getHttpServer())
+      .get('/mad/analytics/service-requests/list?view=active&period=month&date=2026-09-01')
+      .set('Authorization', 'Bearer ' + provider.issue('manager'))
+      .expect(200);
+    expect(active.body).toMatchObject({ total: 1, view: 'active' });
+    const activeBody = active.body as Awaited<ReturnType<ServiceRequestAnalyticsService['list']>>;
+    expect(activeBody.requests.find(item => item.status === 'ASSIGNED')?.assignee).toBe('Fixture Staff');
+    const history = await request(app.getHttpServer())
+      .get('/mad/analytics/service-requests/list?view=all&period=month&date=2026-09-01&pageSize=1')
+      .set('Authorization', 'Bearer ' + provider.issue('manager'))
+      .expect(200);
+    expect(history.body).toMatchObject({ total: 2, pageSize: 1, view: 'all' });
+    const historyBody = history.body as Awaited<ReturnType<ServiceRequestAnalyticsService['list']>>;
+    expect(historyBody.requests).toHaveLength(1);
+    expect(historyBody.requests[0]).toMatchObject({
+      roomNumber: '204',
+      category: 'ROOM_CLEANING',
+      status: 'COMPLETED',
+      assignee: null
+    });
+    const summary = await get('period=month&date=2026-09-01').expect(200);
+    expect(summary.body).toMatchObject({ total: 2, backlog: { count: 2 } });
+    await request(app.getHttpServer())
+      .get('/mad/analytics/service-requests/list?page=0')
+      .set('Authorization', 'Bearer ' + provider.issue('manager'))
+      .expect(400);
+    await request(app.getHttpServer()).get('/mad/analytics/service-requests/list').expect(401);
+  });
   it('TC-MAD-024-AC1: distinguishes submitted cohort, completion cohort and all-date backlog', async () => {
     for (const state of ['SUBMITTED', 'ASSIGNED', 'IN_PROGRESS']) await add(state, '2026-10-19T08:00:00+05:30');
     await add('COMPLETED', '2026-10-19T08:00:00+05:30', '2026-10-19T09:00:00+05:30');
@@ -199,7 +235,7 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
       });
     } finally {
       await database.query(
-        `GRANT SELECT(request_id,status,submitted_at,completed_at,updated_at) ON foss_service_requests TO "${role}"`
+        `GRANT SELECT(request_id,status,submitted_at,completed_at,updated_at,room_number,category) ON foss_service_requests TO "${role}"`
       );
     }
   });
