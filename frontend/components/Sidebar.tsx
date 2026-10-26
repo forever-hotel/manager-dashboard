@@ -30,11 +30,7 @@ const groups: {
     items: [
       { name: 'Promotions', href: '/promotions' },
       { name: 'Staff accounts', href: '/staff' },
-      { name: 'Worker performance', href: '/worker-performance' },
-      { name: 'Notifications', href: '/notifications' },
-      { name: 'Tasks', href: '/tasks' },
-      { name: 'Reports', href: '/reports' },
-      { name: 'Settings', href: '/settings' }
+      { name: 'Worker performance', href: '/worker-performance' }
     ]
   }
 ];
@@ -43,6 +39,7 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
   const pathname = usePathname();
   const notifications = useNotifications();
   const [pending, setPending] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [error, setError] = useState('');
   const locked = useRef(false);
   async function logout() {
@@ -69,94 +66,79 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
   return (
     <aside
       id="dashboard-navigation"
-      className={`${open ? 'flex' : 'hidden'} dashboard-sidebar fixed bottom-0 left-0 top-16 z-40 w-[min(280px,85vw)] shrink-0 flex-col justify-between overflow-y-auto overscroll-contain border-r border-brand bg-sidebar text-sidebar-foreground shadow-xl md:top-0 md:flex md:h-screen md:w-[220px] md:shadow-none`}
+      className={`${open ? 'flex' : 'hidden'} dashboard-sidebar`}
+      onKeyDown={event => {
+        if (event.key === 'Escape' && accountOpen) {
+          setAccountOpen(false);
+          event.currentTarget.querySelector<HTMLButtonElement>('.account-trigger')?.focus();
+        }
+      }}
     >
-      <div>
-        {/* Logo */}
-        <div className="hidden px-5 pt-6 pb-6 border-b border-brand md:block">
-          <div className="font-medium text-[13px] text-sidebar-foreground">Forever Hotel</div>
-          <div className="font-normal text-xs text-sidebar-muted">Manager Dashboard</div>
-        </div>
-
-        {/* Navigation */}
-        <nav aria-label="Dashboard" className="px-3 pt-5 space-y-6">
-          {groups.map(group => (
-            <div key={group.label}>
-              <div className="font-medium text-xs underline text-sidebar-foreground px-2 mb-2">{group.label}</div>
-              <div className="space-y-1">
-                {group.items.map(item => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      prefetch={false}
-                      onClick={close}
-                      aria-current={isActive ? 'page' : undefined}
-                      aria-label={
-                        item.href === '/notifications' && notifications
-                          ? 'Notifications ' + (notifications.snapshot?.total ?? '?')
-                          : undefined
-                      }
-                      className={`flex items-center justify-between w-full min-h-10 rounded-md border-l-2 px-2 transition-colors ${
-                        isActive ? 'bg-brand border-accent' : 'border-transparent hover:bg-brand'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-accent' : 'bg-sidebar-muted'}`} />
-                        <span
-                          className={`text-[13px] text-sidebar-foreground ${isActive ? 'font-medium' : 'font-normal'}`}
-                        >
-                          {item.name}
-                        </span>
-                      </div>
-                      {((item.href === '/notifications' && notifications) ||
-                        ('badge' in item && item.badge != null)) && (
-                        <span
-                          className={`text-xs text-sidebar-foreground rounded-full w-5 h-5 flex items-center justify-center ${
-                            isActive ? 'font-medium bg-brand-hover border border-brand' : 'font-normal bg-brand'
-                          }`}
-                        >
-                          {item.href === '/notifications' && notifications
-                            ? (notifications.snapshot?.total ?? '?')
-                            : item.badge}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
+      <div className="sidebar-brand">
+        <div>Forever Hotel</div>
+        <span>Manager Dashboard</span>
       </div>
-
-      {/* User footer */}
-      <div>
-        <div className="flex items-center gap-2 px-5 py-4 border-t border-brand">
-          <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center">
-            <span className="font-medium text-xs text-sidebar-foreground">{username.slice(0, 2).toUpperCase()}</span>
+      <nav aria-label="Dashboard" className="sidebar-groups">
+        {groups.map(group => (
+          <div key={group.label} className="sidebar-group">
+            <div className="sidebar-group-label">{group.label}</div>
+            {group.items.map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch={false}
+                onClick={close}
+                aria-current={pathname === item.href ? 'page' : undefined}
+                className="sidebar-link"
+              >
+                <span className="sidebar-dot" />
+                <span>{item.name}</span>
+                {item.href === '/complaints' && !!notifications?.snapshot?.counts.complaints && (
+                  <span className="complaint-count">{notifications.snapshot.counts.complaints}</span>
+                )}
+              </Link>
+            ))}
           </div>
-          <div className="leading-tight">
-            <div className="text-xs text-sidebar-foreground">{username}</div>
-            <div className="text-xs text-sidebar-muted">Manager</div>
-          </div>
-        </div>
-        <div className="px-5 pb-4">
-          <button
-            type="button"
-            onClick={() => void logout()}
-            disabled={pending}
-            className="w-full border border-brand rounded-md py-2 text-[13px] text-sidebar-foreground hover:bg-brand disabled:opacity-50 button button-ghost"
-          >
-            {pending ? 'Signing out...' : 'Logout'}
-          </button>
-          {error && (
-            <p role="alert" className="text-xs text-danger-light mt-2">
-              {error}
-            </p>
-          )}
-        </div>
+        ))}
+      </nav>
+      <div className="sidebar-account">
+        {accountOpen && (
+          <nav className="account-menu" aria-label="Account tools">
+            <Link href="/notifications" prefetch={false} onClick={close}>
+              Notifications
+            </Link>
+            <Link href="/tasks" prefetch={false} onClick={close}>
+              Task queue
+            </Link>
+            <Link href="/reports" prefetch={false} onClick={close}>
+              Reports
+            </Link>
+            <Link href="/settings" prefetch={false} onClick={close}>
+              Settings
+            </Link>
+            <button type="button" disabled={pending} onClick={() => void logout()}>
+              {pending ? 'Signing out...' : 'Logout'}
+            </button>
+          </nav>
+        )}
+        <button
+          type="button"
+          className="account-trigger"
+          aria-label="Open account menu"
+          aria-expanded={accountOpen}
+          onClick={() => setAccountOpen(value => !value)}
+        >
+          <span className="account-avatar">{username.slice(0, 2).toUpperCase()}</span>
+          <span className="account-copy">
+            <span>{username}</span>
+            <small>Manager</small>
+          </span>
+        </button>
+        {error && (
+          <p role="alert" className="sidebar-error">
+            {error}
+          </p>
+        )}
       </div>
     </aside>
   );

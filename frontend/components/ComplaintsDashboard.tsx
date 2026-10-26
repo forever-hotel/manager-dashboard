@@ -1,4 +1,5 @@
 'use client';
+import HeaderNotifications from '@/components/HeaderNotifications';
 import { statusColor } from '@/lib/status-color';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -204,9 +205,9 @@ export default function ComplaintsDashboard({
     }
   }
   return (
-    <main className="flex-1 min-w-0 px-8 py-6">
+    <main className="dashboard-page">
       {/* Top bar */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-topbar">
         <h1 className="font-medium text-[22px] text-brand">Complaints</h1>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 bg-brand-light rounded-md p-1">
@@ -232,113 +233,50 @@ export default function ComplaintsDashboard({
               Month
             </button>
           </div>
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <HeaderNotifications />
         </div>
       </div>
 
       {/* Stats */}
       <section className="mb-6">
-        <h2 className="underline mb-3 font-medium text-base text-ink">Complaint register</h2>
-        <div className="grid grid-cols-4 gap-4">
-          <div className="border border-border rounded-lg p-4 bg-surface">
+        <h2 className="section-eyebrow">Complaint register</h2>
+        <div className="summary-grid">
+          <div className="summary-card">
             <div className="font-normal text-xs text-muted mb-2">Open complaints</div>
-            <div className="font-medium text-[24px] text-brand">{counts?.open ?? 'Unavailable'}</div>
+            <div className="font-medium text-[30px] text-danger">{counts?.open ?? '\u2014'}</div>
           </div>
-          <div className="border border-border rounded-lg p-4 bg-surface">
+          <div className="summary-card">
             <div className="font-normal text-xs text-muted mb-2">Under review</div>
-            <div className="font-medium text-[24px] text-brand">{counts?.review ?? 'Unavailable'}</div>
+            <div className="font-medium text-[30px] text-accent">{counts?.review ?? '\u2014'}</div>
           </div>
-          <div className="border border-border rounded-lg p-4 bg-surface">
+          <div className="summary-card">
             <div className="font-normal text-xs text-muted mb-2">Resolved (month)</div>
-            <div className="font-medium text-[24px] text-brand">Unavailable</div>
+            <div
+              className="font-medium text-[30px] text-brand"
+              title="This metric is not provided by the reporting API"
+            >
+              &mdash;
+            </div>
           </div>
-          <div className="border border-border rounded-lg p-4 bg-surface">
+          <div className="summary-card">
             <div className="font-normal text-xs text-muted mb-2">Avg resolution</div>
-            <div className="font-medium text-[24px] text-brand">Unavailable</div>
+            <div
+              className="font-medium text-[30px] text-brand"
+              title="This metric is not provided by the reporting API"
+            >
+              &mdash;
+            </div>
           </div>
         </div>
       </section>
 
-      <form
-        onSubmit={e => {
-          e.preventDefault();
-          const parsed = complaintQuerySchema.safeParse(
-            Object.fromEntries(Object.entries(draft).filter(([, value]) => value.trim()))
-          );
-          if (!parsed.success) {
-            setError('Enter a valid worker UUID and a category of at most 100 characters.');
-            return;
-          }
-          setError('');
-          setLoading(true);
-          setCounts(undefined);
-          setPage(1);
-          setFilters({
-            status: parsed.data.status ?? '',
-            category: parsed.data.category ?? '',
-            workerId: parsed.data.workerId ?? ''
-          });
-        }}
-        className="grid grid-cols-3 gap-4 mb-4"
-      >
-        <label className="font-normal text-xs text-muted">
-          Status
-          <select
-            className={control}
-            value={draft.status}
-            onChange={e => setDraft({ ...draft, status: e.target.value })}
-          >
-            <option value="">All statuses</option>
-            {Object.entries(statusLabel).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="font-normal text-xs text-muted">
-          Category (exact match)
-          <input
-            className={control}
-            maxLength={100}
-            value={draft.category}
-            onChange={e => setDraft({ ...draft, category: e.target.value })}
-          />
-        </label>
-        <label className="font-normal text-xs text-muted">
-          Worker ID
-          <input
-            className={control}
-            value={draft.workerId}
-            onChange={e => setDraft({ ...draft, workerId: e.target.value })}
-          />
-        </label>
-        <button type="submit" disabled={saving} className={button + ' button button-secondary'}>
-          Search complaints
-        </button>
-        <button
-          type="button"
-          disabled={saving || loading}
-          onClick={reloadList}
-          id="complaint-refresh"
-          className={button + ' button button-secondary'}
-        >
-          Refresh register
-        </button>
-      </form>
-      <p className="font-normal text-xs text-muted mb-3">
-        All dates; times shown in Asia/Colombo. Room, severity, monthly resolutions and average resolution time are not
-        provided by this API.
-      </p>
       {error && (
         <p role="alert" className="text-[13px] text-danger mb-3">
           {error}
         </p>
       )}
       {/* Table */}
-      <section className="mb-10">
+      <section className="register-section mb-10">
         <h2 className="mb-3 font-medium text-base text-ink">Complaint register</h2>
         <div
           className="border border-border rounded-lg overflow-x-auto bg-surface"
@@ -346,7 +284,7 @@ export default function ComplaintsDashboard({
           role="region"
           aria-label="Complaint register data"
         >
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse dashboard-table">
             <caption className="sr-only">Complaints matching current filters</caption>
             <thead>
               <tr className="border-b border-border bg-surface-alt">
@@ -552,6 +490,83 @@ export default function ComplaintsDashboard({
           )}
         </section>
       )}
+      <details className="advanced-controls">
+        <summary>Filter and refresh complaints</summary>
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            const parsed = complaintQuerySchema.safeParse(
+              Object.fromEntries(Object.entries(draft).filter(([, value]) => value.trim()))
+            );
+            if (!parsed.success) {
+              setError('Enter a valid worker UUID and a category of at most 100 characters.');
+              return;
+            }
+            setError('');
+            setLoading(true);
+            setCounts(undefined);
+            setPage(1);
+            setFilters({
+              status: parsed.data.status ?? '',
+              category: parsed.data.category ?? '',
+              workerId: parsed.data.workerId ?? ''
+            });
+          }}
+          className="grid grid-cols-3 gap-4 mb-4"
+        >
+          <label className="font-normal text-xs text-muted">
+            Status
+            <select
+              className={control}
+              value={draft.status}
+              onChange={e => setDraft({ ...draft, status: e.target.value })}
+            >
+              <option value="">All statuses</option>
+              {Object.entries(statusLabel).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="font-normal text-xs text-muted">
+            Category (exact match)
+            <input
+              className={control}
+              maxLength={100}
+              value={draft.category}
+              onChange={e => setDraft({ ...draft, category: e.target.value })}
+            />
+          </label>
+          <label className="font-normal text-xs text-muted">
+            Worker ID
+            <input
+              className={control}
+              value={draft.workerId}
+              onChange={e => setDraft({ ...draft, workerId: e.target.value })}
+            />
+          </label>
+          <button type="submit" disabled={saving} className={button + ' button button-secondary'}>
+            Search complaints
+          </button>
+          <button
+            type="button"
+            disabled={saving || loading}
+            onClick={reloadList}
+            id="complaint-refresh"
+            className={button + ' button button-secondary'}
+          >
+            Refresh register
+          </button>
+        </form>
+      </details>
+      <details className="advanced-controls">
+        <summary>Complaint data availability</summary>
+        <p className="font-normal text-xs text-muted mb-3">
+          All dates; times shown in Asia/Colombo. Room, severity, monthly resolutions and average resolution time are
+          not provided by this API.
+        </p>
+      </details>
     </main>
   );
 }

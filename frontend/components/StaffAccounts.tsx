@@ -1,4 +1,5 @@
 'use client';
+import HeaderNotifications from '@/components/HeaderNotifications';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { statusColor } from '@/lib/status-color';
 import { Staff, staffDetail, staffInput, staffLabels, staffPage, staffRoles } from '@/lib/staff';
@@ -149,7 +150,7 @@ export default function StaffAccounts() {
     });
     if (!parsed.success) {
       setMessage(
-        'Check name, vocation, email, role, age (1?120), phone (7?15 digits, optional +) and NIC (12 digits or 9 digits followed by V/X).'
+        'Check name, vocation, email, role, age (1-120), phone (7-15 digits, optional +) and NIC (12 digits or 9 digits followed by V/X).'
       );
       return;
     }
@@ -229,9 +230,9 @@ export default function StaffAccounts() {
     }
   }
   return (
-    <main className="flex-1 min-w-0 px-8 py-6">
+    <main className="dashboard-page">
       {/* Top bar */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-topbar">
         <h1 className="font-medium text-[22px] text-brand">Staff accounts</h1>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 bg-brand-light rounded-md p-1">
@@ -260,9 +261,7 @@ export default function StaffAccounts() {
               Month
             </button>
           </div>
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <HeaderNotifications />
         </div>
       </div>
 
@@ -271,9 +270,8 @@ export default function StaffAccounts() {
           {message}
         </p>
       )}
-      <section className="mb-8">
-        <h2 className="underline mb-3 font-medium text-base text-ink">Staff account management</h2>
-        <form onSubmit={save} className="border border-border rounded-lg p-5">
+      <section className="staff-create-form">
+        <form onSubmit={save} className="staff-fields">
           <h3 className="font-medium text-[13px] text-ink mb-4">
             {editing ? 'Edit staff account' : 'Create staff account'}
           </h3>
@@ -294,7 +292,7 @@ export default function StaffAccounts() {
           )}
           <div className="grid grid-cols-3 gap-4 mb-4">
             {(['name', 'role', 'vocation', 'email', 'phone', 'nic', 'age'] as const).map(key => (
-              <div key={key}>
+              <div key={key} className={key === 'age' ? 'staff-field-age' : undefined}>
                 <label htmlFor={'staff-' + key} className="font-normal text-xs text-muted block mb-1">
                   {
                     {
@@ -327,6 +325,16 @@ export default function StaffAccounts() {
                     ref={key === 'name' ? nameRef : undefined}
                     id={'staff-' + key}
                     required
+                    placeholder={
+                      {
+                        name: 'Full name',
+                        vocation: 'Vocation',
+                        email: 'Email',
+                        phone: 'Phone',
+                        nic: 'NIC',
+                        age: 'Age'
+                      }[key]
+                    }
                     disabled={busy}
                     type={key === 'age' ? 'number' : key === 'email' ? 'email' : 'text'}
                     min={key === 'age' ? 1 : undefined}
@@ -339,7 +347,7 @@ export default function StaffAccounts() {
               </div>
             ))}
           </div>
-          <div className="bg-surface-alt rounded-md px-3 py-3 mb-5">
+          <div className="staff-delivery-note">
             <span className="font-normal text-xs text-ink">
               Username and temporary password are generated and emailed when delivery is enabled. Passwords are never
               displayed here.
@@ -350,7 +358,7 @@ export default function StaffAccounts() {
               disabled={busy}
               className="font-normal text-[13px] text-ink bg-brand-light rounded-md px-4 py-2 button button-primary"
             >
-              {busy ? 'Saving?' : editing ? 'Save changes' : 'Create account'}
+              {busy ? 'Saving...' : editing ? 'Save changes' : 'Create account'}
             </button>
             <button
               type="button"
@@ -405,8 +413,8 @@ export default function StaffAccounts() {
           </button>
         </section>
       )}
-      <section className="mb-10">
-        <div className="flex items-center justify-between mb-3">
+      <section className="register-section staff-register">
+        <div className="staff-register-heading">
           <h2 className="font-medium text-base text-ink">All staff accounts</h2>
           <button
             type="button"
@@ -417,6 +425,130 @@ export default function StaffAccounts() {
             + Add new
           </button>
         </div>
+
+        {loading && (
+          <p role="status" className="text-[13px]">
+            Loading staff...
+          </p>
+        )}
+        {listError && (
+          <p role="status" className="text-[13px]">
+            {listError} Use Refresh directory to retry.
+          </p>
+        )}
+        <div
+          className="border border-border rounded-lg overflow-x-auto bg-surface"
+          tabIndex={0}
+          role="region"
+          aria-label="Staff directory data"
+        >
+          <table className="w-full text-left border-collapse dashboard-table">
+            <caption className="sr-only">Staff accounts matching current filters</caption>
+            <thead>
+              <tr className="border-b border-border bg-surface-alt">
+                {['Name', 'Role', 'Email', 'Status', 'Last login', 'Actions'].map(h => (
+                  <th key={h} scope="col" className="font-medium text-xs text-ink px-3 py-3">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((s, i) => (
+                <tr key={s.staffId} className={i < rows.length - 1 ? 'border-b border-border' : ''}>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-brand-light flex items-center justify-center">
+                        <span className="font-medium text-xs text-ink">
+                          {s.name
+                            .split(/\s+/)
+                            .map(n => n[0])
+                            .slice(0, 2)
+                            .join('')}
+                        </span>
+                      </div>
+                      <span className="font-normal text-xs text-ink">{s.name}</span>
+                    </div>
+                  </td>
+                  <td className="text-xs text-ink px-3 py-3">{staffLabels[s.role]}</td>
+                  <td className="text-xs text-ink px-3 py-3">{s.email}</td>
+                  <td className="px-3 py-3">
+                    <span className={'status-badge ' + statusColor(s.isActive ? 'ACTIVE' : 'INACTIVE')}>
+                      {s.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="text-xs text-ink px-3 py-3" title="Last login is not recorded by this API">
+                    &mdash;
+                  </td>
+
+                  <td className="px-3 py-3">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void select(s)}
+                      className="font-normal text-xs text-ink underline button button-ghost"
+                    >
+                      Edit
+                    </button>
+                    {s.isActive && (
+                      <>
+                        {' \u00b7 '}
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setConfirm({ staff: s, action: 'reset' })}
+                          className="font-normal text-xs text-ink underline button button-ghost"
+                        >
+                          Reset pwd
+                        </button>
+                        {' \u00b7 '}
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setConfirm({ staff: s, action: 'deactivate' })}
+                          className="font-normal text-xs text-ink underline button button-danger"
+                        >
+                          Deactivate
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {!loading && !listError && rows.length === 0 && (
+          <p className="text-[13px] my-3">No staff match these filters.</p>
+        )}
+        <div className="font-normal text-[13px] text-ink mt-3">
+          Page {page} &middot; {total} accounts{' '}
+          <button
+            type="button"
+            disabled={page === 1 || loading}
+            onClick={() => {
+              setPage(p => p - 1);
+              setLoading(true);
+            }}
+            className="underline button button-ghost"
+          >
+            Previous
+          </button>{' '}
+          <button
+            type="button"
+            disabled={page * 20 >= total || loading}
+            onClick={() => {
+              setPage(p => p + 1);
+              setLoading(true);
+            }}
+            className="underline button button-ghost"
+          >
+            Next
+          </button>
+        </div>
+      </section>
+      <details className="advanced-controls">
+        <summary>Staff filters and refresh</summary>
         <div className="flex gap-4 mb-3 font-normal text-[13px] text-ink">
           <label>
             Search
@@ -470,136 +602,26 @@ export default function StaffAccounts() {
             Refresh directory
           </button>
         </div>
-        {loading && (
-          <p role="status" className="text-[13px]">
-            Loading staff?
-          </p>
-        )}
-        {listError && (
-          <p role="status" className="text-[13px]">
-            {listError} Use Refresh directory to retry.
-          </p>
-        )}
-        <div
-          className="border border-border rounded-lg overflow-x-auto bg-surface"
-          tabIndex={0}
-          role="region"
-          aria-label="Staff directory data"
-        >
-          <table className="w-full text-left border-collapse">
-            <caption className="sr-only">Staff accounts matching current filters</caption>
-            <thead>
-              <tr className="border-b border-border bg-surface-alt">
-                {['Name', 'Role', 'Email', 'Status', 'Last login', 'Delivery', 'Actions'].map(h => (
-                  <th key={h} scope="col" className="font-medium text-xs text-ink px-3 py-3">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((s, i) => (
-                <tr key={s.staffId} className={i < rows.length - 1 ? 'border-b border-border' : ''}>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-brand-light flex items-center justify-center">
-                        <span className="font-medium text-xs text-ink">
-                          {s.name
-                            .split(/\s+/)
-                            .map(n => n[0])
-                            .slice(0, 2)
-                            .join('')}
-                        </span>
-                      </div>
-                      <span className="font-normal text-xs text-ink">{s.name}</span>
-                    </div>
-                  </td>
-                  <td className="text-xs text-ink px-3 py-3">{staffLabels[s.role]}</td>
-                  <td className="text-xs text-ink px-3 py-3">{s.email}</td>
-                  <td className="px-3 py-3">
-                    <span className={'status-badge ' + statusColor(s.isActive ? 'ACTIVE' : 'INACTIVE')}>
-                      {s.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="text-xs text-ink px-3 py-3">Not recorded</td>
-                  <td className="text-xs text-ink px-3 py-3">
-                    {
-                      {
-                        pending: 'Queued for delivery',
-                        sent: 'Email accepted by provider',
-                        failed: 'Delivery failed; automatic retries are pending within the delivery window.',
-                        cancelled:
-                          'Delivery cancelled or expired; review the account before requesting a new password.',
-                        none: 'No delivery record'
-                      }[s.deliveryStatus]
-                    }
-                  </td>
-                  <td className="px-3 py-3">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void select(s)}
-                      className="font-normal text-xs text-ink underline button button-ghost"
-                    >
-                      Edit
-                    </button>
-                    {s.isActive && (
-                      <>
-                        {' ? '}
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => setConfirm({ staff: s, action: 'reset' })}
-                          className="font-normal text-xs text-ink underline button button-ghost"
-                        >
-                          Reset pwd
-                        </button>
-                        {' ? '}
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => setConfirm({ staff: s, action: 'deactivate' })}
-                          className="font-normal text-xs text-ink underline button button-danger"
-                        >
-                          Deactivate
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {!loading && !listError && rows.length === 0 && (
-          <p className="text-[13px] my-3">No staff match these filters.</p>
-        )}
-        <div className="font-normal text-[13px] text-ink mt-3">
-          Page {page} ? {total} accounts{' '}
-          <button
-            type="button"
-            disabled={page === 1 || loading}
-            onClick={() => {
-              setPage(p => p - 1);
-              setLoading(true);
-            }}
-            className="underline button button-ghost"
-          >
-            Previous
-          </button>{' '}
-          <button
-            type="button"
-            disabled={page * 20 >= total || loading}
-            onClick={() => {
-              setPage(p => p + 1);
-              setLoading(true);
-            }}
-            className="underline button button-ghost"
-          >
-            Next
-          </button>
-        </div>
-      </section>
+      </details>
+      <details className="advanced-controls">
+        <summary>Staff credential delivery status</summary>
+        <ul>
+          {rows.map(staff => (
+            <li key={staff.staffId}>
+              {staff.name}:{' '}
+              {
+                {
+                  pending: 'Queued for delivery',
+                  sent: 'Email accepted by provider',
+                  failed: 'Delivery failed; retries pending',
+                  cancelled: 'Delivery cancelled or expired',
+                  none: 'No delivery record'
+                }[staff.deliveryStatus]
+              }
+            </li>
+          ))}
+        </ul>
+      </details>
     </main>
   );
 }

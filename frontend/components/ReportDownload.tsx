@@ -11,11 +11,13 @@ import {
 export default function ReportDownload({
   type,
   filters = {},
-  disabled = false
+  disabled = false,
+  formats = ['pdf', 'csv']
 }: {
   type: ReportType;
   filters?: ReportFilters;
   disabled?: boolean;
+  formats?: readonly ('csv' | 'pdf')[];
 }) {
   const key =
     type +
@@ -105,7 +107,7 @@ export default function ReportDownload({
   return (
     <div className="mt-3" role="group" aria-label={type + ' report downloads'} aria-busy={!!active?.busy}>
       <div className="flex gap-3">
-        {(['pdf', 'csv'] as const).map(format => (
+        {formats.map(format => (
           <button
             key={format}
             type="button"

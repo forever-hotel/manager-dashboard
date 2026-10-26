@@ -12,11 +12,13 @@ describe('DDP-015 booking and revenue analytics', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<AnalyticsDashboard />);
     expect(await screen.findByText('LKR 200.01')).toBeVisible();
-    expect(screen.getByText('+100.01% vs previous week')).toBeVisible();
+    expect(screen.getByText('+100.01% vs last week')).toBeVisible();
     expect(screen.getByRole('img', { name: 'Bar chart of daily bookings' })).toBeVisible();
+    fireEvent.click(screen.getByLabelText('Chart display options'));
     fireEvent.click(screen.getByRole('button', { name: 'Line chart' }));
     expect(screen.getByRole('img', { name: 'Line chart of daily bookings' })).toBeVisible();
-    expect(screen.getByRole('table', { name: 'Daily booking data ? week' })).toBeVisible();
+    fireEvent.click(screen.getByText('Reporting details and revenue export'));
+    expect(screen.getByRole('table', { name: 'Daily booking data - week' })).toBeVisible();
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/analytics?period=week',
       expect.objectContaining({
@@ -28,7 +30,7 @@ describe('DDP-015 booking and revenue analytics', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Day' }));
     expect(await screen.findByText('Total bookings (day)')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Day' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText('+100.01% vs previous day')).toBeVisible();
+    expect(screen.getByText('+100.01% vs last day')).toBeVisible();
   });
   it('TC-MAD-015-AC2/AC3: shows zero totals, N/A and the empty state without treating them as unavailable', async () => {
     const data = overview('week', 0);
@@ -41,9 +43,9 @@ describe('DDP-015 booking and revenue analytics', () => {
     };
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(data)));
     render(<AnalyticsDashboard />);
-    expect(await screen.findByText('N/A vs previous week')).toBeVisible();
+    expect(await screen.findByText('N/A vs last week')).toBeVisible();
     expect(screen.getByRole('status')).toHaveTextContent('No eligible bookings');
-    expect(screen.getAllByText('LKR 0.00')).toHaveLength(2);
+    expect(screen.getByText('LKR 0.00')).toBeVisible();
     expect(screen.getByRole('table')).toBeVisible();
   });
   it('TC-MAD-015-AC3: retries failure and discards obsolete responses even when transport ignores cancellation', async () => {

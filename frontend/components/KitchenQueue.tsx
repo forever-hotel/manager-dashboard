@@ -10,7 +10,7 @@ import {
   kitchenSnapshotSchema
 } from '@/lib/kitchen';
 
-export default function KitchenQueue() {
+export default function KitchenQueue({ onSnapshot }: { onSnapshot?: (snapshot: KitchenSnapshot | null) => void } = {}) {
   const [snapshot, setSnapshot] = useState<KitchenSnapshot | null>(null);
   const [message, setMessage] = useState('Loading kitchen orders...');
   const [page, setPage] = useState(1);
@@ -159,72 +159,84 @@ export default function KitchenQueue() {
       socket?.disconnect();
     };
   }, [page, retry]);
+  useEffect(() => {
+    onSnapshot?.(snapshot);
+  }, [snapshot, onSnapshot]);
   const group = (status: KitchenStatus) => (
-    <div key={status} aria-label={kitchenLabels[status]}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-medium text-xs text-ink">{kitchenLabels[status]}</span>
-        <span className="font-medium text-xs text-ink bg-surface border border-border rounded-full w-5 h-5 flex items-center justify-center">
-          {snapshot ? snapshot.counts[status] : '—'}
+    <div className={status === 'DELIVERED' ? 'kitchen-delivered' : undefined} aria-label={kitchenLabels[status]}>
+      <div className="kitchen-column-heading">
+        <span>{{ PLACED: 'New', IN_PREPARATION: 'Preparing', READY: 'Ready', DELIVERED: 'Delivered' }[status]}</span>
+        <span
+          className={
+            'status-badge ' +
+            (status === 'PLACED'
+              ? 'bg-brand-light text-brand'
+              : status === 'IN_PREPARATION'
+                ? 'bg-warning-light text-warning'
+                : 'bg-success-light text-success')
+          }
+        >
+          {snapshot ? snapshot.counts[status] : '\u2014'}
         </span>
       </div>
-      <div className="space-y-2">
-        {snapshot?.orders
-          .filter(o => o.status === status)
-          .map(order => (
-            <div key={order.id} className="bg-surface rounded-md p-2.5 border border-border">
-              <div className="font-medium text-xs text-ink">Room {order.roomNumber}</div>
-              <div className="font-normal text-xs text-muted">
-                {order.mealPeriod} · {order.itemCount} items
-              </div>
-              <div className="font-normal text-xs text-muted">Order {order.id}</div>
-            </div>
-          ))}
-        {snapshot && !snapshot.orders.some(o => o.status === status) && (
-          <p className="font-normal text-xs text-muted">No orders on this page.</p>
-        )}
-      </div>
+      {snapshot?.orders
+        .filter(order => order.status === status)
+        .map(order => (
+          <div key={order.id} className="kitchen-order">
+            <div>Room {order.roomNumber}</div>
+            <small>
+              {order.mealPeriod} &middot; {order.itemCount} items &middot;{' '}
+              {new Date(order.placedAt).toLocaleTimeString('en-GB', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Colombo'
+              })}
+            </small>
+          </div>
+        ))}
+      {snapshot && !snapshot.orders.some(order => order.status === status) && <p className="page-note">No orders.</p>}
     </div>
   );
   return (
-    <section className="col-span-2 border border-border rounded-lg p-4 bg-surface">
-      <h2 className="mb-3 font-medium text-base text-ink">Kitchen queue (live)</h2>
-      {message && (
-        <div role="status" className="font-normal text-xs text-muted mb-3">
-          {message}{' '}
-          <button type="button" className="underline button button-ghost" onClick={() => setRetry(n => n + 1)}>
-            Retry
-          </button>
-        </div>
-      )}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-surface-alt rounded-md p-3">{group('PLACED')}</div>
-        <div className="bg-surface-alt rounded-md p-3">{group('IN_PREPARATION')}</div>
-        <div className="bg-surface-alt rounded-md p-3 space-y-3">
+    <section className="data-panel">
+      <div className="panel-heading">
+        <h2>Kitchen queue (live)</h2>
+        <details className="chart-options">
+          <summary aria-label="Kitchen connection and paging">&middot;&middot;&middot;</summary>
+          <div>
+            <p className="page-note" role="status">
+              {message}
+            </p>
+            <button type="button" onClick={() => setRetry(n => n + 1)}>
+              Retry
+            </button>
+            {snapshot && (
+              <>
+                <p>
+                  Page {page} of {Math.max(1, Math.ceil(snapshot.total / 100))}. Delivered: today.
+                </p>
+                <button type="button" disabled={page === 1} onClick={() => setPage(n => n - 1)}>
+                  Previous
+                </button>
+                <button type="button" disabled={page * 100 >= snapshot.total} onClick={() => setPage(n => n + 1)}>
+                  Next
+                </button>
+              </>
+            )}
+          </div>
+        </details>
+      </div>
+      <div className="kitchen-columns">
+        <div className="kitchen-column">{group('PLACED')}</div>
+        <div className="kitchen-column">{group('IN_PREPARATION')}</div>
+        <div className="kitchen-column kitchen-ready">
           {group('READY')}
-          {group('DELIVERED')}
+          <details className="kitchen-delivered" open={!!snapshot?.counts.DELIVERED}>
+            <summary>Delivered ({snapshot?.counts.DELIVERED ?? 0})</summary>
+            {group('DELIVERED')}
+          </details>
         </div>
       </div>
-      {snapshot && (
-        <div className="font-normal text-xs text-muted mt-3">
-          Delivered: today (Asia/Colombo). Page {page} of {Math.max(1, Math.ceil(snapshot.total / 100))}.{' '}
-          <button
-            type="button"
-            className="underline button button-ghost"
-            disabled={page === 1}
-            onClick={() => setPage(p => p - 1)}
-          >
-            Previous
-          </button>{' '}
-          <button
-            type="button"
-            className="underline button button-ghost"
-            disabled={page * 100 >= snapshot.total}
-            onClick={() => setPage(p => p + 1)}
-          >
-            Next
-          </button>
-        </div>
-      )}
     </section>
   );
 }

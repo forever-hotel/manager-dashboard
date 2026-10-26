@@ -83,7 +83,7 @@ export default function TaskQueue() {
         </div>
       )}
       <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Task queue data">
-        <table className="w-full text-left text-xs text-ink">
+        <table className="w-full text-left text-xs text-ink dashboard-table">
           <caption className="sr-only">Read-only tasks matching current filters</caption>
           <thead>
             <tr>

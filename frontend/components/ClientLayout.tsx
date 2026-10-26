@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { SessionBoundary } from './SessionBoundary';
 import { Session } from '@/lib/auth';
-import { NotificationsBanner } from './Notifications';
 export function ClientLayout({ children, session }: { children: React.ReactNode; session: Session }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -95,8 +94,7 @@ export function ClientLayout({ children, session }: { children: React.ReactNode;
       )}
       <div className="md:flex w-full min-h-screen bg-canvas text-ink">
         <Sidebar open={open} close={() => setOpen(false)} username={session.username} />
-        <div id="dashboard-content" inert={open} tabIndex={-1} className="flex-1 min-w-0 md:pl-[220px]">
-          <NotificationsBanner />
+        <div id="dashboard-content" inert={open} tabIndex={-1} className="dashboard-content flex-1 min-w-0">
           {children}
         </div>
       </div>

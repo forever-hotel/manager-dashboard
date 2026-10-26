@@ -1,4 +1,5 @@
 'use client';
+import HeaderNotifications from '@/components/HeaderNotifications';
 import { useEffect, useRef, useState } from 'react';
 import { statusColor } from '@/lib/status-color';
 import { promotionDates } from '@/lib/low-demand';
@@ -212,9 +213,9 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
       </p>
     ) : null;
   return (
-    <main className="flex-1 min-w-0 px-8 py-6">
+    <main className="dashboard-page">
       {/* Top bar */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-topbar">
         <h1 className="font-medium text-[22px] text-brand">Promotions</h1>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 bg-brand-light rounded-md p-1">
@@ -240,9 +241,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
               Month
             </button>
           </div>
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <HeaderNotifications />
         </div>
       </div>
 
@@ -256,14 +255,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
           {notice}
         </p>
       )}
-      <button
-        type="button"
-        disabled={busy || loading}
-        onClick={reload}
-        className="font-normal text-xs text-ink underline button button-ghost"
-      >
-        Refresh promotions
-      </button>
+
       {conflict && (
         <button
           type="button"
@@ -276,14 +268,14 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
       )}
       {/* Create promotion form */}
       <section className="mb-8">
-        <h2 className="underline mb-3 font-medium text-base text-ink">Promotion management</h2>
+        <h2 className="section-eyebrow">Promotion management</h2>
         <form
           noValidate
           onSubmit={event => {
             event.preventDefault();
             save('ACTIVE');
           }}
-          className="border border-border rounded-lg p-5"
+          className="promotion-create-form border border-border rounded-lg p-5 bg-surface"
         >
           <h3 className="font-medium text-[13px] text-ink mb-4">
             {editing ? 'Edit promotion' : 'Create new promotion'}
@@ -434,15 +426,11 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
             {fieldError('roomTypeIds')}
           </div>
 
-          <p className="font-normal text-xs text-muted mb-3">
-            Times use Asia/Colombo (+05:30), start inclusive and end exclusive. Fixed discounts use integer LKR cents
-            (100 cents = LKR 1). Select one or more room types.
-          </p>
           <div className="flex gap-3">
             <button
               type="submit"
               disabled={busy || !roomsReady || conflict}
-              className="font-normal text-[13px] text-ink bg-brand-light rounded-md px-4 py-2 button button-accent"
+              className="font-normal text-[13px] text-ink bg-brand-light rounded-md px-4 py-2 button button-primary"
             >
               {busy ? 'Saving...' : editing ? 'Save changes' : 'Save & activate'}
             </button>
@@ -457,7 +445,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                   setConflict(false);
                 } else save('INACTIVE');
               }}
-              className="font-normal text-[13px] text-ink border border-border rounded-md px-4 py-2 button button-primary"
+              className="font-normal text-[13px] text-ink border border-border rounded-md px-4 py-2 button button-secondary"
             >
               {editing ? 'Cancel edit' : 'Save as draft'}
             </button>
@@ -466,7 +454,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
       </section>
 
       {/* Promotions table */}
-      <section className="mb-10">
+      <section className="register-section mb-10">
         <h2 className="mb-3 font-medium text-base text-ink">Promotions</h2>
         <div
           className="border border-border rounded-lg overflow-x-auto bg-surface"
@@ -474,7 +462,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
           role="region"
           aria-label="Promotion register data"
         >
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse dashboard-table">
             <caption className="sr-only">Promotions matching current filters</caption>
             <thead>
               <tr className="border-b border-border bg-surface-alt">
@@ -585,6 +573,24 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
           </button>
         </div>
       </section>
+      <details className="advanced-controls">
+        <summary>Refresh promotions</summary>
+        <button
+          type="button"
+          disabled={busy || loading}
+          onClick={reload}
+          className="font-normal text-xs text-ink underline button button-ghost"
+        >
+          Refresh promotions
+        </button>
+      </details>
+      <details className="advanced-controls">
+        <summary>Promotion validation and units</summary>
+        <p className="font-normal text-xs text-muted mb-3">
+          Times use Asia/Colombo (+05:30), start inclusive and end exclusive. Fixed discounts use integer LKR cents (100
+          cents = LKR 1). Select one or more room types.
+        </p>
+      </details>
     </main>
   );
 }

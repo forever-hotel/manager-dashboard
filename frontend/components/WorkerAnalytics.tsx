@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { type Period } from '@/lib/analytics';
 import { workerSchema, sortWorkers, localBoundary, type SortKey } from '@/lib/operations-analytics';
 import { useAnalyticsSnapshot } from './useAnalyticsSnapshot';
-import { AnalyticsClock, PeriodButtons, AnalyticsFailure, MetricCard } from './AnalyticsControls';
+import { AnalyticsFailure } from './AnalyticsControls';
+import { PageHeader, SummaryCard, DataPanel, UnavailableRow } from './DashboardVisuals';
+import { statusColor } from '@/lib/status-color';
 import ReportDownload from './ReportDownload';
 import TaskQueue from './TaskQueue';
 export default function WorkerAnalytics() {
@@ -26,187 +28,183 @@ export default function WorkerAnalytics() {
     setPage(1);
   };
   return (
-    <main className="flex-1 min-w-0 px-8 py-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-medium text-[22px] text-brand">Worker performance</h1>
-        <div className="flex items-center gap-4">
-          <PeriodButtons period={period} onChange={choose} />
-          <AnalyticsClock />
-        </div>
+    <main className="dashboard-page">
+      <PageHeader title="Worker Performance" period={period} onPeriodChange={choose} />
+      <div className="summary-grid">
+        <SummaryCard label="Total Workers" value={data ? String(data.workers.length) : '\u2014'} />
+        <SummaryCard label="Active Today" value={'\u2014'} tone="success" note="Daily attendance unavailable" />
+        <SummaryCard label="Pending Tasks" value={'\u2014'} tone="warning" note="See task queue" />
+        <SummaryCard
+          label="Issues Reported"
+          value={data ? String(data.workers.reduce((sum, w) => sum + w.openComplaintCount, 0)) : '\u2014'}
+          tone="danger"
+          note="Currently open complaints"
+        />
       </div>
-      <form
-        className="flex gap-3 mb-4 text-xs"
-        onSubmit={e => {
-          e.preventDefault();
-          const value = draft.trim();
-          if (value && !z.uuid().safeParse(value).success) {
-            setFilterError('Enter a valid worker ID.');
-            return;
-          }
-          setFilterError('');
-          setWorkerId(value);
-          setPage(1);
-        }}
-      >
+      {!data && <AnalyticsFailure error={error} retry={retry} />}
+      <DataPanel title="Worker performance" className="worker-design-table">
+        <div className="overflow-x-auto">
+          <table className="dashboard-table">
+            <thead>
+              <tr>
+                {['Name', 'Role', 'Tasks Completed', 'Performance', 'Status'].map(label => (
+                  <th scope="col" key={label}>
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ordered.slice((page - 1) * 10, page * 10).map(w => (
+                <tr key={w.workerId}>
+                  <td>{w.fullName}</td>
+                  <td>
+                    {w.role
+                      .toLowerCase()
+                      .replaceAll('_', ' ')
+                      .replace(/\b\w/g, char => char.toUpperCase())}
+                  </td>
+                  <td>{w.completedTaskCount}</td>
+                  <td title="A performance-rating policy has not been agreed">&mdash;</td>
+                  <td>
+                    <span className={'status-badge ' + statusColor(w.isActive ? 'ACTIVE' : 'INACTIVE')}>
+                      {w.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {!ordered.length && (
+                <UnavailableRow
+                  columns={5}
+                  message={data ? 'No workers match these filters.' : 'Worker summary unavailable.'}
+                />
+              )}
+            </tbody>
+          </table>
+        </div>
+      </DataPanel>
+      <details className="advanced-controls">
+        <summary>Worker filters, detailed metrics, exports and task queue</summary>
+        <form
+          className="flex flex-wrap items-end gap-3 mb-4"
+          onSubmit={e => {
+            e.preventDefault();
+            const value = draft.trim();
+            if (value && !z.uuid().safeParse(value).success) {
+              setFilterError('Enter a valid worker ID.');
+              return;
+            }
+            setFilterError('');
+            setWorkerId(value);
+            setPage(1);
+          }}
+        >
+          <label>
+            Worker ID
+            <input
+              className="block border border-border rounded-md p-2"
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              aria-invalid={!!filterError}
+            />
+          </label>
+          <button type="submit" className="button button-secondary">
+            Apply worker filter
+          </button>
+        </form>
+        {filterError && <p role="alert">{filterError}</p>}
         <label>
-          Worker ID
-          <input
-            className="block border border-border rounded-md px-3 py-2"
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            aria-invalid={!!filterError}
-          />
+          Sort workers
+          <select
+            value={sort}
+            onChange={e => {
+              setSort(e.target.value as SortKey);
+              setPage(1);
+            }}
+          >
+            {[
+              ['fullName', 'Name'],
+              ['completedTaskCount', 'Completed tasks'],
+              ['averageCompletionMinutes', 'Average completion time'],
+              ['openComplaintCount', 'Open complaints']
+            ].map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
         </label>
-        <button type="submit" className="underline button button-primary">
-          Apply worker filter
+        <button
+          type="button"
+          className="button button-ghost"
+          aria-pressed={descending}
+          onClick={() => {
+            setDescending(v => !v);
+            setPage(1);
+          }}
+        >
+          {descending ? 'Descending' : 'Ascending'}
         </button>
-      </form>
-      {filterError && <p role="alert">{filterError}</p>}
-      {!data ? (
-        <AnalyticsFailure error={error} retry={retry} />
-      ) : (
-        <>
-          <p className="text-xs text-muted mb-3">
-            {localBoundary(data.start)} to {localBoundary(data.end)} (exclusive end). Asia/Colombo.
+        <ReportDownload type="worker-performance" filters={{ period, ...(workerId ? { workerId } : {}) }} />
+        <p className="page-note">
+          Exports include all matching workers; paging affects this table only. Performance ratings and attendance are
+          not supplied by the reporting API.
+        </p>
+        <table className="dashboard-table">
+          <thead>
+            <tr>
+              <th>Worker</th>
+              <th>Average elapsed minutes</th>
+              <th>Open complaints</th>
+              <th>Data quality</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.map(w => (
+              <tr key={w.workerId}>
+                <td>{w.fullName}</td>
+                <td>{w.averageCompletionMinutes ?? '\u2014'}</td>
+                <td>
+                  {w.openComplaintCount}
+                  {w.openComplaintCount > 0 && (
+                    <>
+                      <a className="block" href={'/complaints?workerId=' + w.workerId + '&status=SUBMITTED'}>
+                        Submitted complaints
+                      </a>
+                      <a className="block" href={'/complaints?workerId=' + w.workerId + '&status=UNDER_REVIEW'}>
+                        Under review
+                      </a>
+                    </>
+                  )}
+                </td>
+                <td>
+                  {w.dataQuality.status}; excluded: {w.excludedDurationCount}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="page-note">
+          Page {page} of {Math.max(1, Math.ceil(ordered.length / 10))}.
+        </p>
+        <button disabled={page === 1} onClick={() => setPage(n => n - 1)} className="button button-secondary">
+          Previous workers
+        </button>
+        <button
+          disabled={page * 10 >= ordered.length}
+          onClick={() => setPage(n => n + 1)}
+          className="button button-secondary"
+        >
+          Next workers
+        </button>
+        {data && (
+          <p className="page-note">
+            {localBoundary(data.start)} to {localBoundary(data.end)}. Durations include waiting time. Retrieved:{' '}
+            {data.freshness.queriedAt}.
           </p>
-          <section className="mb-6">
-            <h2 className="underline mb-3 font-medium text-base text-ink">Worker performance</h2>
-            <div className="grid grid-cols-4 gap-4">
-              <MetricCard
-                label="Tasks completed"
-                value={String(data.workers.reduce((n, w) => n + w.completedTaskCount, 0))}
-              />
-              <MetricCard label="Workers reporting" value={String(data.workers.length)} />
-              <MetricCard
-                label="Open complaints"
-                value={String(data.workers.reduce((n, w) => n + w.openComplaintCount, 0))}
-              />
-              <MetricCard label="Active workers" value={String(data.workers.filter(w => w.isActive).length)} />
-            </div>
-            <p className="text-xs text-muted mt-3">
-              Durations start at submission and use valid completed tasks in the period. Open complaints include
-              currently open records across all dates. Inactive and historical assignees remain visible.
-            </p>
-            <ReportDownload type="worker-performance" filters={{ period, ...(workerId ? { workerId } : {}) }} />
-            <p className="text-xs">Exports include all matching workers. Sorting and paging affect this table only.</p>
-          </section>
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <section className="border border-border rounded-lg p-4 bg-surface">
-              <h2 className="mb-3 font-medium text-base text-ink">Per-worker summary</h2>
-              <label className="text-xs">
-                Sort workers
-                <select
-                  className="block border border-border rounded-md p-2"
-                  value={sort}
-                  onChange={e => {
-                    setSort(e.target.value as SortKey);
-                    setPage(1);
-                  }}
-                >
-                  {[
-                    ['fullName', 'Name'],
-                    ['completedTaskCount', 'Completed tasks'],
-                    ['averageCompletionMinutes', 'Average completion time'],
-                    ['openComplaintCount', 'Open complaints']
-                  ].map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                className="text-xs underline my-2 button button-ghost"
-                aria-pressed={descending}
-                onClick={() => {
-                  setDescending(v => !v);
-                  setPage(1);
-                }}
-              >
-                {descending ? 'Descending' : 'Ascending'}
-              </button>
-              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Worker performance data">
-                <table className="w-full text-left border-collapse text-xs">
-                  <caption className="sr-only">Worker performance in minutes, current filters</caption>
-                  <thead>
-                    <tr>
-                      {['Worker', 'Completed tasks', 'Average minutes', 'Open complaints'].map(h => (
-                        <th key={h} scope="col" className="font-medium text-xs text-ink py-2">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ordered.slice((page - 1) * 10, page * 10).map(w => (
-                      <tr key={w.workerId} className="border-b border-border">
-                        <td className="py-2">
-                          {w.fullName}
-                          <p>
-                            {w.isActive ? 'Active' : 'Inactive'}; {w.role}; {w.dataQuality.status}
-                          </p>
-                        </td>
-                        <td>{w.completedTaskCount}</td>
-                        <td>
-                          {w.averageCompletionMinutes === null ? 'N/A' : w.averageCompletionMinutes + ' min'}
-                          <p>Excluded: {w.excludedDurationCount}</p>
-                        </td>
-                        <td>
-                          {w.openComplaintCount}
-                          {w.openComplaintCount > 0 && (
-                            <p>
-                              <a
-                                className="underline"
-                                href={'/complaints?workerId=' + w.workerId + '&status=SUBMITTED'}
-                              >
-                                Submitted complaints
-                              </a>
-                              {' / '}
-                              <a
-                                className="underline"
-                                href={'/complaints?workerId=' + w.workerId + '&status=UNDER_REVIEW'}
-                              >
-                                Under review
-                              </a>
-                            </p>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {ordered.length === 0 && <p className="text-xs">No workers match these filters.</p>}
-              <div className="text-xs mt-3">
-                Page {page} of {Math.max(1, Math.ceil(ordered.length / 10))}.{' '}
-                <button
-                  type="button"
-                  disabled={page === 1}
-                  onClick={() => setPage(p => p - 1)}
-                  className="underline button button-ghost"
-                >
-                  Previous workers
-                </button>{' '}
-                <button
-                  type="button"
-                  disabled={page * 10 >= ordered.length}
-                  onClick={() => setPage(p => p + 1)}
-                  className="underline button button-ghost"
-                >
-                  Next workers
-                </button>
-              </div>
-            </section>
-            <section className="col-span-2">
-              <TaskQueue />
-            </section>
-          </div>
-          <p className="text-xs text-muted">
-            Retrieved: {data.freshness.queriedAt}. Data quality covers all tasks assigned to each worker.
-          </p>
-        </>
-      )}
+        )}
+        <TaskQueue />
+      </details>
     </main>
   );
 }

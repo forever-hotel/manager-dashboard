@@ -1,9 +1,10 @@
 'use client';
 import { type Period } from '@/lib/analytics';
+import HeaderNotifications from './HeaderNotifications';
 export const analyticsButton = 'font-normal text-xs text-ink px-3 py-1 rounded';
 export function PeriodButtons({ period, onChange }: { period: Period; onChange: (period: Period) => void }) {
   return (
-    <div role="group" aria-label="Reporting period" className="flex items-center gap-1 bg-brand-light rounded-md p-1">
+    <div role="group" aria-label="Reporting period" className="period-switch">
       {(['day', 'week', 'month'] as const).map(p => (
         <button
           type="button"
@@ -56,7 +57,7 @@ export function DataTable({
 }) {
   return (
     <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={caption}>
-      <table className="w-full text-left border-collapse">
+      <table className="w-full text-left border-collapse dashboard-table">
         <caption className="font-medium text-[13px] text-ink mb-3 text-left">{caption}</caption>
         <thead>
           <tr className="border-b border-border">
@@ -85,9 +86,5 @@ export function DataTable({
 }
 
 export function AnalyticsClock() {
-  return (
-    <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
+  return <HeaderNotifications />;
 }

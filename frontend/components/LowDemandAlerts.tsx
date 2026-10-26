@@ -4,7 +4,7 @@ import { AnalyticsError } from '@/lib/analytics';
 import { loadLowDemand, type LowDemand } from '@/lib/low-demand';
 import ReportDownload from './ReportDownload';
 
-export default function LowDemandAlerts() {
+export default function LowDemandAlerts({ compact = false }: { compact?: boolean } = {}) {
   const [data, setData] = useState<LowDemand>();
   const [error, setError] = useState<number>();
   const [attempt, setAttempt] = useState(0);
@@ -23,6 +23,44 @@ export default function LowDemandAlerts() {
       controller.abort();
     };
   }, [attempt]);
+  if (compact)
+    return (
+      <div className="demand-strip" role="status">
+        {error ? (
+          <>
+            Low-demand information is unavailable.{' '}
+            <button
+              type="button"
+              onClick={() => {
+                setError(undefined);
+                setData(undefined);
+                setAttempt(n => n + 1);
+              }}
+            >
+              Retry
+            </button>
+          </>
+        ) : !data ? (
+          'Checking upcoming demand...'
+        ) : data.alerts.length ? (
+          <span>
+            Low demand detected on{' '}
+            {data.alerts
+              .slice(0, 3)
+              .map(day => day.date)
+              .join(' & ')}{' '}
+            &mdash;{' '}
+            <a href={'/promotions?lowDemandDate=' + data.alerts[0].date}>
+              consider creating a promotion to boost bookings.
+            </a>
+          </span>
+        ) : data.unavailableDates.length ? (
+          'Some occupancy dates cannot be assessed until room availability is complete.'
+        ) : (
+          'No low-demand dates detected for the available inventory.'
+        )}
+      </div>
+    );
   return (
     <section aria-labelledby="low-demand-title" className="mb-6 mt-6">
       <h2 id="low-demand-title" className="underline mb-3 font-medium text-base text-ink">

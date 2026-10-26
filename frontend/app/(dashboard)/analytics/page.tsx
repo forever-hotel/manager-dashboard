@@ -6,7 +6,7 @@ import { hotelMonth } from '@/lib/occupancy';
 export default function AnalyticsPage() {
   return (
     <AnalyticsDashboard>
-      <OccupancyCalendar initialMonth={hotelMonth()} />
+      <OccupancyCalendar initialMonth={hotelMonth()} compact />
     </AnalyticsDashboard>
   );
 }

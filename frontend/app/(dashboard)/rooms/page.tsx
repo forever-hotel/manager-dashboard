@@ -1,17 +1,14 @@
 'use client';
+import HeaderNotifications from '@/components/HeaderNotifications';
 import React from 'react';
 import { useOperationsSnapshot } from '@/components/useOperationsSnapshot';
 import { roomSnapshotSchema } from '@/lib/rooms';
 
-const topBarSvg = (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
+const topBarSvg = <HeaderNotifications />;
 
 function TopBar({ title }: { title: string }) {
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="page-topbar">
       <h1 className="font-medium text-[22px] text-brand">{title}</h1>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1 bg-brand-light rounded-md p-1">
@@ -62,45 +59,36 @@ export default function RoomsPage() {
   );
   const floors = [...new Set(snapshot?.rooms.map(r => r.floor) ?? [])].sort((a, b) => a - b);
   const count = (status: keyof typeof statusConfig) =>
-    snapshot ? snapshot.rooms.filter(r => r.status === status).length : '?';
+    snapshot ? snapshot.rooms.filter(r => r.status === status).length : '\u2014';
   return (
-    <main className="flex-1 min-w-0 px-8 py-6">
+    <main className="dashboard-page">
       <TopBar title="Room status" />
-      {message && (
-        <div role="status" className="font-normal text-xs text-muted mb-3">
-          {message}{' '}
-          <button type="button" className="underline button button-ghost" onClick={retry}>
-            Retry
-          </button>
-        </div>
-      )}
-      <p className="font-normal text-xs text-muted mb-3">Current snapshot ? Read only</p>
 
       {/* Summary cards */}
       <section className="mb-6">
-        <h2 className="underline mb-3 font-medium text-base text-ink">Real-time room status board</h2>
-        <div className="grid grid-cols-4 gap-4">
-          <div className="border border-border rounded-lg p-4 bg-surface">
+        <h2 className="section-eyebrow">Real-time room status board</h2>
+        <div className="summary-grid">
+          <div className="summary-card">
             <div className="font-normal text-xs text-muted mb-2">Vacant</div>
-            <div className="font-medium text-[24px]" style={{ color: 'var(--color-success)' }}>
+            <div className="font-medium text-[30px]" style={{ color: 'var(--color-success)' }}>
               {count('VACANT')}
             </div>
           </div>
-          <div className="border border-border rounded-lg p-4 bg-surface">
+          <div className="summary-card">
             <div className="font-normal text-xs text-muted mb-2">Occupied</div>
-            <div className="font-medium text-[24px]" style={{ color: 'var(--color-brand)' }}>
+            <div className="font-medium text-[30px]" style={{ color: 'var(--color-brand)' }}>
               {count('OCCUPIED')}
             </div>
           </div>
-          <div className="border border-border rounded-lg p-4 bg-surface">
+          <div className="summary-card">
             <div className="font-normal text-xs text-muted mb-2">Requires cleaning</div>
-            <div className="font-medium text-[24px]" style={{ color: 'var(--color-warning)' }}>
+            <div className="font-medium text-[30px]" style={{ color: 'var(--color-warning)' }}>
               {count('REQUIRES_CLEANING')}
             </div>
           </div>
-          <div className="border border-border rounded-lg p-4 bg-surface">
+          <div className="summary-card">
             <div className="font-normal text-xs text-muted mb-2">Maintenance</div>
-            <div className="font-medium text-[24px]" style={{ color: 'var(--color-danger)' }}>
+            <div className="font-medium text-[30px]" style={{ color: 'var(--color-danger)' }}>
               {count('UNDER_MAINTENANCE')}
             </div>
           </div>
@@ -108,8 +96,8 @@ export default function RoomsPage() {
       </section>
 
       {/* Floor plan */}
-      <section className="mb-10">
-        <div className="flex items-center justify-between mb-4">
+      <section className="room-panel">
+        <div className="room-panel-title">
           <h2 className="font-medium text-base text-ink">Floor plan — all rooms</h2>
           <div className="flex items-center gap-4">
             {(['Vacant', 'Occupied', 'Cleaning', 'Maintenance'] as const).map((label, i) => {
@@ -128,7 +116,7 @@ export default function RoomsPage() {
             })}
           </div>
         </div>
-        <div className="border border-border rounded-lg p-5 space-y-5 bg-surface">
+        <div className="space-y-4">
           {snapshot?.rooms.length === 0 && <p className="font-normal text-xs text-muted">No rooms available.</p>}
           {floors.map(floor => (
             <div key={floor}>
@@ -142,11 +130,11 @@ export default function RoomsPage() {
                       <div
                         key={room.id}
                         aria-label={`Room ${room.number}, ${room.label}, ${room.type}`}
-                        className="h-10 rounded flex items-center justify-center text-center"
-                        style={{ backgroundColor: cfg.bg }}
+                        className="room-cell h-10 rounded flex items-center justify-center text-center"
+                        style={{ backgroundColor: cfg.bg, color: cfg.text }}
                       >
                         <span className="font-medium text-xs leading-tight" style={{ color: cfg.text }}>
-                          {room.id}
+                          {room.number}
                           <br />
                           {cfg.label}
                         </span>
@@ -158,6 +146,15 @@ export default function RoomsPage() {
           ))}
         </div>
       </section>
+      <details className="advanced-controls">
+        <summary>Room connection details</summary>
+        <div role="status" className="font-normal text-xs text-muted mb-3">
+          {message}{' '}
+          <button type="button" className="underline button button-ghost" onClick={retry}>
+            Retry
+          </button>
+        </div>
+      </details>
     </main>
   );
 }

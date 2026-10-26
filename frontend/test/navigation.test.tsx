@@ -33,7 +33,10 @@ describe('Dashboard shell', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     expect(screen.getByRole('button', { name: 'Close navigation' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getAllByRole('link')).toHaveLength(13);
+    expect(screen.getByRole('navigation', { name: 'Dashboard' }).querySelectorAll('a')).toHaveLength(8);
+    fireEvent.click(screen.getByRole('button', { name: 'Open account menu' }));
+    for (const name of ['Notifications', 'Task queue', 'Reports', 'Settings'])
+      expect(screen.getByRole('link', { name })).toBeVisible();
     const rooms = screen.getByRole('link', { name: 'Room status' });
     expect(rooms).toHaveAttribute('aria-current', 'page');
     fireEvent.click(rooms);
@@ -44,6 +47,7 @@ describe('Dashboard shell', () => {
     vi.mocked(fetch).mockResolvedValue(new Response('{}'));
     render(<Sidebar open close={() => {}} username="actual-manager" />);
     expect(screen.getByText('actual-manager')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Open account menu' }));
     fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
     await vi.waitFor(() => expect(replaceLocation).toHaveBeenCalledWith('/login'));
     expect(fetch).toHaveBeenCalledWith('/api/auth/logout', expect.objectContaining({ method: 'POST', body: '{}' }));
@@ -71,7 +75,7 @@ describe('Dashboard shell', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     const toggle = screen.getByRole('button', { name: 'Close navigation' });
-    const logout = screen.getByRole('button', { name: 'Logout' });
+    const logout = screen.getByRole('button', { name: 'Open account menu' });
     toggle.focus();
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
     expect(logout).toHaveFocus();
@@ -84,6 +88,7 @@ describe('Dashboard shell', () => {
   it('keeps logout retryable when the server fails', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response('{}', { status: 503 }));
     render(<Sidebar open close={() => {}} username="manager" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open account menu' }));
     fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Please retry');
     expect(replaceLocation).not.toHaveBeenCalled();

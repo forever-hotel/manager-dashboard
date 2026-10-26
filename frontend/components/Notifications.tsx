@@ -109,7 +109,7 @@ export default function NotificationsPanel({ initialPage = 1 }: { initialPage?: 
   if (!state) return <p role="alert">Notifications are unavailable.</p>;
   const data = state.snapshot;
   return (
-    <main className="flex-1 min-w-0 px-8 py-6">
+    <main className="dashboard-page">
       <h1 className="mb-6 font-medium text-[22px] text-brand">Notifications</h1>
       <p className="text-[13px] mb-4">Reading an alert does not resolve its underlying issue.</p>
       {state.message && (
