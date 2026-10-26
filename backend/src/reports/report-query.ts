@@ -28,7 +28,7 @@ export function parseReportQuery(type: string, raw: Record<string, unknown>): Re
   if (!REPORT_TYPES.includes(type as ReportType)) return fail();
   const allowed = [
     'format',
-    ...(['bookings', 'revenue'].includes(type) ? ['date'] : []),
+    ...(['bookings', 'revenue', 'food-orders'].includes(type) ? ['date'] : []),
     ...(type === 'occupancy' ? ['from', 'to'] : type === 'low-booking-alerts' ? [] : ['period']),
     ...(['staff', 'worker-performance'].includes(type) ? ['workerId'] : [])
   ];

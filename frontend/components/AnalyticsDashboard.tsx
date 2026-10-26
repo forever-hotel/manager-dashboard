@@ -4,9 +4,18 @@ import { PageHeader, SummaryCard, DataPanel, UnavailableRow } from './DashboardV
 import LowDemandAlerts from './LowDemandAlerts';
 import OccupancyCalendar from './OccupancyCalendar';
 import { statusColor } from '@/lib/status-color';
-import { hotelDate, shiftAnalyticsDate } from '@/lib/analytics-period';
+import { hotelDate } from '@/lib/analytics-period';
+import AnalyticsPeriodNavigation from './AnalyticsPeriodNavigation';
 import { useEffect, useState } from 'react';
-import { AnalyticsError, loadAnalytics, money, percentage, type Overview, type Period } from '@/lib/analytics';
+import {
+  AnalyticsError,
+  loadAnalytics,
+  money,
+  compactMoney,
+  percentage,
+  type Overview,
+  type Period
+} from '@/lib/analytics';
 const shortDate = (date: string) =>
   new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(date));
 const label = (value: string) =>
@@ -14,13 +23,6 @@ const label = (value: string) =>
     .toLowerCase()
     .replaceAll('_', ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
-const revenueValue = (minor: number) =>
-  minor >= 10000000
-    ? 'LKR ' +
-      new Intl.NumberFormat('en-GB', { notation: 'compact', maximumFractionDigits: 2 })
-        .format(minor / 100)
-        .replace(/[kmbt]$/i, suffix => suffix.toUpperCase())
-    : money(minor);
 type State = { date: string; page: number; period: Period; data?: Overview; error?: number };
 export default function AnalyticsDashboard() {
   const [period, setPeriod] = useState<Period>('week');
@@ -67,56 +69,26 @@ export default function AnalyticsDashboard() {
     setDate(value);
     setPage(1);
   };
-  const previous = shiftAnalyticsDate(date, period, -1),
-    next = shiftAnalyticsDate(date, period, 1);
   return (
     <main className="dashboard-page analytics-page">
       <PageHeader title="Analytics" period={period} onPeriodChange={choose} />
-      <div className="analytics-period-navigation" aria-label="Analytics dates">
-        <button
-          type="button"
-          className="button button-secondary"
-          disabled={!previous}
-          onClick={() => previous && changeDate(previous)}
-        >
-          Previous {period}
-        </button>
-        <label className="sr-only" htmlFor="analytics-date">
-          Select analytics {period === 'month' ? 'month' : 'date'}
-        </label>
-        <input
-          id="analytics-date"
-          type={period === 'month' ? 'month' : 'date'}
-          min={period === 'month' ? '0001-01' : '0001-01-01'}
-          max={period === 'month' ? '9999-12' : '9999-12-31'}
-          value={period === 'month' ? date.slice(0, 7) : date}
-          onChange={event => changeDate(period === 'month' ? event.target.value + '-01' : event.target.value)}
-        />
-        <button
-          type="button"
-          className="button button-secondary"
-          disabled={!next}
-          onClick={() => next && changeDate(next)}
-        >
-          Next {period}
-        </button>
-        <button type="button" className="button button-ghost" onClick={() => changeDate(hotelDate())}>
-          Current {period}
-        </button>
-        {data && (
-          <span className="period-range">
-            {shortDate(data.bookings.trend[0]?.date ?? date)} &ndash;{' '}
-            {shortDate(data.bookings.trend.at(-1)?.date ?? date)}
-          </span>
-        )}
-      </div>
+      <AnalyticsPeriodNavigation
+        period={period}
+        date={date}
+        onChange={changeDate}
+        range={
+          data
+            ? { from: data.bookings.trend[0]?.date ?? date, to: data.bookings.trend.at(-1)?.date ?? date }
+            : undefined
+        }
+      />
       <p className="section-eyebrow">Booking &amp; revenue</p>
       <div className="summary-grid analytics-summary">
         <SummaryCard label={`Total bookings (${period})`} value={data ? String(data.bookings.total) : '\u2014'} />
         <SummaryCard
           label={`Revenue (${period})`}
           title={data ? money(data.revenue.currentMinor) : undefined}
-          value={data ? revenueValue(data.revenue.currentMinor) : '\u2014'}
+          value={data ? compactMoney(data.revenue.currentMinor) : '\u2014'}
           note={data ? `${percentage(data.revenue.percentageChange)} vs last ${period}` : undefined}
         />
         <SummaryCard

@@ -138,3 +138,11 @@ export function money(minor: number) {
 export function percentage(value: number | null) {
   return value === null ? 'N/A' : `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
 }
+
+export const compactMoney = (minor: number) =>
+  minor >= 10000000
+    ? 'LKR ' +
+      new Intl.NumberFormat('en-GB', { notation: 'compact', maximumFractionDigits: 2 })
+        .format(minor / 100)
+        .replace(/[kmbt]$/i, suffix => suffix.toUpperCase())
+    : money(minor);

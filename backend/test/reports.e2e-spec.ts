@@ -56,7 +56,7 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
     await database.query(`
       CREATE TABLE mad_booking_analytics(booking_id uuid,check_in_date date,status text,updated_at timestamptz DEFAULT now());
       CREATE TABLE payments(payment_id uuid PRIMARY KEY,payment_status text,amount bigint,paid_at timestamptz);
-      CREATE TABLE kms_food_orders(order_id uuid PRIMARY KEY,status text,placed_at timestamptz,updated_at timestamptz);
+      CREATE TABLE kms_food_orders(order_id uuid PRIMARY KEY,status text,placed_at timestamptz,updated_at timestamptz,total_amount integer NOT NULL DEFAULT 0,delivered_at timestamptz);
       CREATE TABLE kms_food_order_items(order_id uuid,menu_item_id uuid,name text,quantity integer,updated_at timestamptz);
       CREATE TABLE foss_service_requests(request_id uuid PRIMARY KEY,status text,submitted_at timestamptz,completed_at timestamptz,updated_at timestamptz);
       CREATE TABLE guests(guest_id uuid PRIMARY KEY,full_name text);
@@ -155,7 +155,10 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
       "INSERT INTO wkms_tasks(task_id,assigned_worker_id,status,submitted_at,completed_at) VALUES ($1,$2,'COMPLETED','2026-10-20T00:00:00Z','2026-10-20T01:00:00Z')",
       [randomUUID(), worker]
     );
-    await database.query("INSERT INTO kms_food_orders VALUES ($1,'PLACED','2026-10-20T00:00:00Z',now())", [order]);
+    await database.query(
+      "INSERT INTO kms_food_orders(order_id,status,placed_at,updated_at) VALUES ($1,'PLACED','2026-10-20T00:00:00Z',now())",
+      [order]
+    );
     await database.query('INSERT INTO kms_food_order_items VALUES ($1,$2,$3,2,now())', [
       order,
       randomUUID(),

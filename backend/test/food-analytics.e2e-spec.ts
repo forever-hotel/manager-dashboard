@@ -43,9 +43,9 @@ describe('DDP-023 food orders with disposable PostgreSQL', () => {
     // Minimal reporting fixture: shared PK/FK/unique/quantity contracts, no guest data.
     await database.query(`CREATE TYPE food_order_status AS ENUM ('PLACED','IN_PREPARATION','READY','DELIVERED','CANCELLED');
       CREATE TABLE kms_menu_items(menu_item_id uuid PRIMARY KEY,name text NOT NULL);
-      CREATE TABLE kms_food_orders(order_id uuid PRIMARY KEY,status food_order_status NOT NULL,placed_at timestamptz NOT NULL,updated_at timestamptz NOT NULL);
+      CREATE TABLE kms_food_orders(order_id uuid PRIMARY KEY,status food_order_status NOT NULL,placed_at timestamptz NOT NULL,updated_at timestamptz NOT NULL,total_amount integer NOT NULL DEFAULT 0,delivered_at timestamptz);
       CREATE TABLE kms_food_order_items(order_item_id uuid PRIMARY KEY,order_id uuid NOT NULL REFERENCES kms_food_orders(order_id),menu_item_id uuid NOT NULL REFERENCES kms_menu_items(menu_item_id),name varchar(255) NOT NULL,quantity integer NOT NULL CHECK(quantity>0),updated_at timestamptz NOT NULL,UNIQUE(order_id,menu_item_id));
-      GRANT SELECT(order_id,placed_at,status,updated_at) ON kms_food_orders TO "${role}";
+      GRANT SELECT(order_id,placed_at,status,updated_at,total_amount,delivered_at) ON kms_food_orders TO "${role}";
       GRANT SELECT(order_id,menu_item_id,name,quantity,updated_at) ON kms_food_order_items TO "${role}";
       GRANT SELECT ON mad_revoked_sessions TO "${role}"`);
     provider = await seedLocalAuth(database, secret, role);
@@ -103,7 +103,11 @@ describe('DDP-023 food orders with disposable PostgreSQL', () => {
   }
   async function order(at: string, status = 'PLACED', items: { id: string; name: string; quantity: number }[] = []) {
     const id = randomUUID();
-    await database.query('INSERT INTO kms_food_orders VALUES ($1,$2,$3,$3)', [id, status, at]);
+    await database.query('INSERT INTO kms_food_orders(order_id,status,placed_at,updated_at) VALUES ($1,$2,$3,$3)', [
+      id,
+      status,
+      at
+    ]);
     for (const item of items)
       await database.query('INSERT INTO kms_food_order_items VALUES ($1,$2,$3,$4,$5,$6)', [
         randomUUID(),
@@ -206,14 +210,48 @@ describe('DDP-023 food orders with disposable PostgreSQL', () => {
     expect(await database.query('SELECT order_id FROM kms_food_orders')).toEqual([{ order_id: id }]);
   });
   it('returns 503 instead of fabricated empty data when reporting access is denied', async () => {
-    await database.query(`REVOKE SELECT(order_id,placed_at,status,updated_at) ON kms_food_orders FROM "${role}"`);
+    await database.query(
+      `REVOKE SELECT(order_id,placed_at,status,updated_at,total_amount,delivered_at) ON kms_food_orders FROM "${role}"`
+    );
     try {
       expect((await get().expect(503)).body as unknown).toEqual({
         code: 'SERVICE_UNAVAILABLE',
         message: 'Service temporarily unavailable. Please retry.'
       });
     } finally {
-      await database.query(`GRANT SELECT(order_id,placed_at,status,updated_at) ON kms_food_orders TO "${role}"`);
+      await database.query(
+        `GRANT SELECT(order_id,placed_at,status,updated_at,total_amount,delivered_at) ON kms_food_orders TO "${role}"`
+      );
     }
+  });
+  it('recognizes delivered sales and duration by delivery date, including orders placed before the period', async () => {
+    const id = await order('2026-10-18T18:00:00Z', 'DELIVERED');
+    await database.query(
+      "UPDATE kms_food_orders SET total_amount=120000,delivered_at='2026-10-18T19:00:00Z' WHERE order_id=$1",
+      [id]
+    );
+    const body = (await get().expect(200)).body as Summary;
+    expect(body.total).toBe(0);
+    expect(body.delivery.averageMinutes).toBe(60);
+    expect(body.revenue.amountMinor).toBe(120000);
+    const older = (await get('period=month&date=2026-09-01').expect(200)).body as Summary;
+    expect(older.total).toBe(0);
+    expect(older.revenue.amountMinor).toBe(0);
+    expect(older.delivery.averageMinutes).toBeNull();
+  });
+  it('excludes negative durations without confusing delivered sales with payments', async () => {
+    const id = await order('2026-10-19T02:00:00Z', 'DELIVERED');
+    await database.query(
+      "UPDATE kms_food_orders SET total_amount=50000,delivered_at='2026-10-19T01:00:00Z' WHERE order_id=$1",
+      [id]
+    );
+    const body = (await get().expect(200)).body as Summary;
+    expect(body.delivery).toMatchObject({
+      deliveredCount: 1,
+      validDurationCount: 0,
+      excludedDurationCount: 1,
+      averageMinutes: null
+    });
+    expect(body.revenue.amountMinor).toBe(50000);
   });
 });

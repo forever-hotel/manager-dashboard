@@ -50,7 +50,7 @@ describe('DDP-041 kitchen snapshot', () => {
     try {
       const response = await module.get(KitchenService).snapshot(new KitchenQueryDto());
       expect(response.asOf).toBe(now.toISOString());
-      expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString()]);
+      expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString(), false]);
     } finally {
       await module.close();
     }
@@ -66,7 +66,7 @@ describe('DDP-041 kitchen snapshot', () => {
 
       expect(response.asOf).toBe(now.toISOString());
       expect(response.orders).toEqual([]);
-      expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString()]);
+      expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString(), false]);
     } finally {
       jest.useRealTimers();
     }
@@ -81,9 +81,9 @@ describe('DDP-041 kitchen snapshot', () => {
       pageSize: 20
     });
     expect(response).not.toHaveProperty('invalidSource');
-    expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString()]);
+    expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString(), false]);
     await service.snapshot({ status: 'READY', page: 2, pageSize: 5 });
-    expect(query).toHaveBeenLastCalledWith(expect.any(String), ['READY', 5, 5, now.toISOString()]);
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), ['READY', 5, 5, now.toISOString(), false]);
   });
   it.each(['PLACED', 'IN_PREPARATION', 'READY', 'DELIVERED'])(
     'preserves exact identity/revision and counts for %s',
@@ -163,6 +163,19 @@ describe('DDP-041 kitchen snapshot', () => {
     await expect(service.snapshot(new KitchenQueryDto())).rejects.toMatchObject({
       status: 503,
       message: 'Service Unavailable'
+    });
+  });
+  it('binds the active-only filter and rejects delivered rows returned for that cohort', async () => {
+    const { service, query } = setup();
+    await service.snapshot({ page: 1, pageSize: 100, activeOnly: 'true' });
+    expect(query).toHaveBeenCalledWith(expect.any(String), [null, 100, 0, now.toISOString(), true]);
+    const delivered = setup({
+      ...populated,
+      counts: { ...empty.counts, DELIVERED: 1 },
+      orders: [{ ...order, status: 'DELIVERED' }]
+    });
+    await expect(delivered.service.snapshot({ page: 1, pageSize: 100, activeOnly: 'true' })).rejects.toMatchObject({
+      status: 503
     });
   });
 });

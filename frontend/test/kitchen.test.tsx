@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { io } from 'socket.io-client';
 import KitchenQueue from '@/components/KitchenQueue';
-import { KitchenVersions, kitchenSnapshotSchema } from '@/lib/kitchen';
+import { kitchenSnapshotSchema } from '@/lib/kitchen';
 import { kitchenOrderId, kitchenSnapshot } from './kitchen-fixture';
 vi.mock('socket.io-client', () => ({ io: vi.fn() }));
 let handlers: Record<string, (value?: unknown) => void>;
@@ -40,17 +40,18 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe('DDP-026 live kitchen', () => {
-  it('TC-MAD-026-AC1: shows four mapped groups inside the existing three-column layout', async () => {
+  it('shows only the three active groups without obsolete queue controls', async () => {
     render(<KitchenQueue />);
     expect(await screen.findByText('Room 101')).toBeVisible();
-    for (const label of ['Pending', 'In Preparation', 'Ready for Delivery', 'Delivered'])
-      expect(screen.getByText(label)).toBeVisible();
-    expect(within(screen.getByLabelText('Pending')).getByText('1')).toBeVisible();
-    expect(screen.getByLabelText('Ready for Delivery').parentElement).toBe(
-      screen.getByLabelText('Delivered').parentElement
+    for (const label of ['New', 'Preparing', 'Ready']) expect(screen.getByText(label)).toBeVisible();
+    expect(screen.queryByText(/Delivered/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Kitchen connection and paging')).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/kitchen/orders?activeOnly=true&page=1&pageSize=100',
+      expect.anything()
     );
   });
-  it('TC-MAD-026-AC2: reconciles a status change exactly once and ignores duplicate/older versions', async () => {
+  it('TC-MAD-026-AC2: rereads authoritative snapshots on kitchen events', async () => {
     render(<KitchenQueue />);
     await screen.findByText('Room 101');
     await waitFor(() => expect(handlers['kitchen.order.changed']).toBeDefined());
@@ -65,7 +66,7 @@ describe('DDP-026 live kitchen', () => {
       handlers['kitchen.order.changed'](event);
       handlers['kitchen.order.changed']({ ...event, version: 2 });
     });
-    expect(fetchMock.mock.calls).toHaveLength(calls);
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(calls);
   });
   it('TC-MAD-026-AC3: marks disconnect stale, refreshes on reconnect and supports manual retry', async () => {
     render(<KitchenQueue />);
@@ -73,12 +74,17 @@ describe('DDP-026 live kitchen', () => {
     await waitFor(() => expect(handlers.disconnect).toBeDefined());
     act(() => handlers.disconnect());
     expect(screen.getByRole('status')).toHaveTextContent('stale');
-    data = kitchenSnapshot('DELIVERED');
+    data = {
+      ...kitchenSnapshot(),
+      orders: [],
+      counts: { PLACED: 0, IN_PREPARATION: 0, READY: 0, DELIVERED: 0 },
+      total: 0
+    };
     await act(async () => {
       handlers.connect();
       handlers['transport.status']({ healthy: true });
     });
-    await waitFor(() => expect(within(screen.getByLabelText('Delivered')).getByText('Room 101')).toBeVisible());
+    await waitFor(() => expect(screen.queryByText('Room 101')).not.toBeInTheDocument());
     act(() => handlers['transport.status']({ healthy: false }));
     expect(screen.getByRole('status')).toHaveTextContent('unavailable');
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -97,18 +103,13 @@ describe('DDP-026 live kitchen', () => {
     expect(screen.queryByText('Room 101')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('sign in');
   });
-  it('rejects duplicate snapshot rows and bounds deduplication state', () => {
+  it('rejects duplicate authoritative snapshot rows', () => {
     expect(
       kitchenSnapshotSchema.safeParse({
         ...data,
         orders: [...data.orders, ...data.orders]
       }).success
     ).toBe(false);
-    const versions = new KitchenVersions();
-    expect(versions.accept(event)).toBe(true);
-    expect(versions.accept(event)).toBe(false);
-    for (let i = 0; i < 2001; i++) versions.accept({ ...event, orderId: String(i) });
-    expect(versions.accept(event)).toBe(true);
   });
   it('stops automatically reconnecting after five attempts and leaves manual retry available', async () => {
     vi.useFakeTimers();

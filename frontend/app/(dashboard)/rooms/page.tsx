@@ -1,6 +1,5 @@
 'use client';
 import HeaderNotifications from '@/components/HeaderNotifications';
-import React from 'react';
 import { useOperationsSnapshot } from '@/components/useOperationsSnapshot';
 import { roomSnapshotSchema } from '@/lib/rooms';
 

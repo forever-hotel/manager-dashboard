@@ -28,24 +28,46 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 describe('DDP-032 operations views', () => {
-  it('AC1/AC2: displays zero food totals and equivalent hourly/daily tables', async () => {
+  it('shows empty food metrics and the live queue without obsolete reports', async () => {
     render(<OperationsAnalytics type="food-orders" />);
-    expect(
-      await screen.findByRole('table', {
-        name: 'Orders by placement hour (Asia/Colombo)'
-      })
-    ).toBeVisible();
-    expect(screen.getByText('No orders/requests created for this period.')).toBeVisible();
-    expect(screen.getByRole('table', { name: 'Daily demand' })).toBeVisible();
-    expect(screen.getByRole('group', { name: 'food-orders report downloads' })).toBeVisible();
+    expect(await screen.findByText('No items ordered in this period.')).toBeVisible();
+    expect(screen.getByText('LKR 0.00')).toBeVisible();
+    expect(screen.getByText('No deliveries in this period')).toBeVisible();
+    expect(screen.getByText('Live kitchen queue')).toBeVisible();
+    expect(screen.queryByText('Detailed analytics and exports')).not.toBeInTheDocument();
+    expect(screen.queryByText('Orders by placement hour')).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it('renders approved delivered-order metrics and historical month controls', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ...foodFixture(),
+          period: 'month',
+          delivery: { ...foodFixture().delivery, deliveredCount: 2, validDurationCount: 2, averageMinutes: 18.5 },
+          revenue: { ...foodFixture().revenue, orderCount: 2, amountMinor: 8400000 }
+        })
+      )
+    );
+    render(<OperationsAnalytics type="food-orders" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Month' }));
+    fireEvent.change(screen.getByLabelText('Select food analytics month'), { target: { value: '2026-09' } });
+    expect(await screen.findByText('18.5 min')).toBeVisible();
+    expect(screen.getByText('LKR 84,000.00')).toBeVisible();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/analytics/operations/food-orders?period=month&date=2026-09-01',
+        expect.anything()
+      )
+    );
   });
   it('AC1/AC2: distinguishes no completed average from a zero count and labels all-date backlog', async () => {
     render(<OperationsAnalytics type="service-requests" />);
-    expect(await screen.findByText('N/A', { exact: true })).toBeVisible();
+    await screen.findByText('4', { exact: true });
+    fireEvent.click(screen.getByText('Detailed analytics and exports', { selector: 'summary' }));
     expect(screen.getByText('4', { exact: true })).toBeVisible();
-    expect(screen.getByRole('table', { name: 'Requests created by current status' })).toHaveTextContent('IN PROGRESS');
-    expect(screen.getByText('Current unresolved requests across all dates')).toBeVisible();
+    expect(screen.getByRole('table', { name: 'Requests by current status' })).toHaveTextContent('IN PROGRESS');
+    expect(screen.getByText(/Backlog includes open requests across all dates/)).toBeVisible();
   });
   it('AC3: ignores stale period responses and supports retry', async () => {
     let finish!: (r: Response) => void;
@@ -67,7 +89,7 @@ describe('DDP-032 operations views', () => {
     render(<OperationsAnalytics type="food-orders" />);
     await screen.findByRole('alert');
     fireEvent.click(screen.getByRole('button', { name: 'Retry analytics' }));
-    expect(await screen.findByRole('table', { name: 'Daily demand' })).toBeVisible();
+    expect(await screen.findByText('No items ordered in this period.')).toBeVisible();
   });
 });
 describe('DDP-033 worker view', () => {

@@ -8,6 +8,6 @@ import { FoodAnalyticsService } from './food-analytics.service';
 export class FoodAnalyticsController {
   constructor(private readonly food: FoodAnalyticsService) {}
   @Get('food-orders') summary(@Query() query: BookingQueryDto) {
-    return this.food.summary(query.period);
+    return this.food.summary(query.period, query.date);
   }
 }

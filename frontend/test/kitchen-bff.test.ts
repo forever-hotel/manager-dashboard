@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/kitchen/orders/route';
-import { POST } from '@/app/api/kitchen/ticket/route';
+import { POST } from '@/app/api/realtime/ticket/route';
 import { backend } from '@/lib/backend';
 import { kitchenSnapshot } from './kitchen-fixture';
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
@@ -76,5 +76,13 @@ describe('DDP-026 protected kitchen routes', () => {
     expect((await POST(req())).status).toBe(503);
     vi.stubEnv('MAD_SOCKET_PUBLIC_URL', 'http://localhost:4000/path');
     expect((await POST(req())).status).toBe(503);
+  });
+  it('forwards the active-only cohort and rejects delivered rows in that response', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: kitchenSnapshot() });
+    expect((await GET(req('activeOnly=true'))).status).toBe(200);
+    expect(backend).toHaveBeenCalledWith('/mad/kitchen/orders?page=1&pageSize=100&activeOnly=true', 'GET', 'private');
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: kitchenSnapshot('DELIVERED') });
+    expect((await GET(req('activeOnly=true'))).status).toBe(503);
+    expect((await GET(req('activeOnly=invalid'))).status).toBe(400);
   });
 });

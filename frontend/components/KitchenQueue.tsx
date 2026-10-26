@@ -1,171 +1,22 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
-import {
-  KitchenSnapshot,
-  KitchenStatus,
-  KitchenVersions,
-  kitchenEventSchema,
-  kitchenLabels,
-  kitchenSnapshotSchema
-} from '@/lib/kitchen';
-
+import { kitchenSnapshotSchema, kitchenLabels, type KitchenSnapshot, type KitchenStatus } from '@/lib/kitchen';
+import { useOperationsSnapshot } from './useOperationsSnapshot';
 export default function KitchenQueue({ onSnapshot }: { onSnapshot?: (snapshot: KitchenSnapshot | null) => void } = {}) {
-  const [snapshot, setSnapshot] = useState<KitchenSnapshot | null>(null);
-  const [message, setMessage] = useState('Loading kitchen orders...');
   const [page, setPage] = useState(1);
-  const [retry, setRetry] = useState(0);
-  useEffect(() => {
-    let stopped = false,
-      socket: Socket | undefined,
-      timer: ReturnType<typeof setTimeout> | undefined,
-      attempt = 0,
-      loading = false,
-      dirty = false,
-      healthy = false,
-      exhausted = false,
-      authFailed = false;
-    const controller = new AbortController();
-    const versions = new KitchenVersions();
-    const failure = (status: number) => {
-      if (status === 401 || status === 403) {
-        authFailed = true;
-        clearTimeout(timer);
-        socket?.removeAllListeners();
-        socket?.disconnect();
-        setSnapshot(null);
-        setMessage(status === 401 ? 'Please sign in again.' : 'Manager access is required.');
-        return true;
-      }
-      return false;
-    };
-    async function refresh() {
-      if (stopped || authFailed) return;
-      if (loading) {
-        dirty = true;
-        return;
-      }
-      loading = true;
-      try {
-        const response = await fetch('/api/kitchen/orders?page=' + page + '&pageSize=100', {
-          cache: 'no-store',
-          credentials: 'same-origin',
-          signal: controller.signal
-        });
-        if (stopped || authFailed) return;
-        if (failure(response.status)) return;
-        if (!response.ok) throw new Error();
-        const data = kitchenSnapshotSchema.parse(await response.json());
-        if (stopped || authFailed) return;
-        setSnapshot(data);
-        setMessage(
-          healthy
-            ? ''
-            : exhausted
-              ? 'Live updates offline after five attempts. Retry to reconnect.'
-              : 'Live updates unavailable. Showing the last snapshot.'
-        );
-      } catch {
-        if (!stopped && !authFailed) setMessage('Kitchen data is stale or unavailable. Retry to refresh.');
-      } finally {
-        loading = false;
-        if (dirty && !stopped && !authFailed) {
-          dirty = false;
-          void refresh();
-        }
-      }
-    }
-    function schedule() {
-      if (stopped || authFailed || timer) return;
-      healthy = false;
-      setMessage('Kitchen data may be stale. Reconnecting...');
-      if (attempt >= 5) {
-        exhausted = true;
-        setMessage('Live updates offline after five attempts. Retry to reconnect.');
-        return;
-      }
-      timer = setTimeout(
-        () => {
-          timer = undefined;
-          void connect();
-        },
-        Math.min(1000 * 2 ** attempt, 16000)
-      );
-      attempt++;
-    }
-    async function connect() {
-      if (stopped || authFailed) return;
-      try {
-        socket?.removeAllListeners();
-        socket?.disconnect();
-        const response = await fetch('/api/kitchen/ticket', {
-          method: 'POST',
-          credentials: 'same-origin',
-          signal: controller.signal
-        });
-        if (stopped || authFailed || failure(response.status)) return;
-        if (!response.ok) throw new Error();
-        const data = (await response.json()) as {
-          ticket: string;
-          socketUrl: string;
-        };
-        if (stopped || authFailed) return;
-        socket = io(data.socketUrl, {
-          path: '/mad/socket.io',
-          transports: ['websocket'],
-          auth: { ticket: data.ticket },
-          reconnection: false,
-          timeout: 7000
-        });
-        socket.on('connect', () => {
-          attempt = 0;
-          exhausted = false;
-          void refresh();
-        });
-        socket.on('transport.status', (data: unknown) => {
-          const next = typeof data === 'object' && data !== null && (data as { healthy?: unknown }).healthy === true;
-          const changed = healthy !== next;
-          healthy = next;
-          if (!healthy) setMessage('Live updates unavailable. Showing the last snapshot.');
-          if (changed) void refresh();
-        });
-        socket.on('kitchen.order.changed', (raw: unknown) => {
-          const event = kitchenEventSchema.safeParse(raw);
-          if (!event.success) {
-            setMessage('Kitchen data may be stale. Refreshing...');
-            void refresh();
-            return;
-          }
-          if (versions.accept(event.data)) void refresh();
-        });
-        socket.on('disconnect', schedule);
-        socket.on('connect_error', schedule);
-      } catch {
-        if (!stopped) schedule();
-      }
-    }
-    void refresh();
-    void connect();
-    // Repairs missed invalidations and rolls the delivered-day window at midnight.
-    const reconciliation = setInterval(() => {
-      void refresh();
-    }, 30000);
-    return () => {
-      stopped = true;
-      controller.abort();
-      clearTimeout(timer);
-      clearInterval(reconciliation);
-      socket?.removeAllListeners();
-      socket?.disconnect();
-    };
-  }, [page, retry]);
+  const { snapshot, message, retry } = useOperationsSnapshot(
+    '/api/kitchen/orders?activeOnly=true&page=' + page + '&pageSize=100',
+    kitchenSnapshotSchema,
+    'transport.status',
+    'kitchen.order.changed'
+  );
   useEffect(() => {
     onSnapshot?.(snapshot);
   }, [snapshot, onSnapshot]);
-  const group = (status: KitchenStatus) => (
-    <div className={status === 'DELIVERED' ? 'kitchen-delivered' : undefined} aria-label={kitchenLabels[status]}>
+  const group = (status: Exclude<KitchenStatus, 'DELIVERED'>) => (
+    <div aria-label={kitchenLabels[status]}>
       <div className="kitchen-column-heading">
-        <span>{{ PLACED: 'New', IN_PREPARATION: 'Preparing', READY: 'Ready', DELIVERED: 'Delivered' }[status]}</span>
+        <span>{{ PLACED: 'New', IN_PREPARATION: 'Preparing', READY: 'Ready' }[status]}</span>
         <span
           className={
             'status-badge ' +
@@ -201,42 +52,45 @@ export default function KitchenQueue({ onSnapshot }: { onSnapshot?: (snapshot: K
     <section className="data-panel">
       <div className="panel-heading">
         <h2>Kitchen queue (live)</h2>
-        <details className="chart-options">
-          <summary aria-label="Kitchen connection and paging">&middot;&middot;&middot;</summary>
-          <div>
-            <p className="page-note" role="status">
-              {message}
-            </p>
-            <button type="button" onClick={() => setRetry(n => n + 1)}>
+      </div>
+      {message && (
+        <p className="page-note px-5" role="status">
+          {message}
+          {message !== 'Loading...' && (
+            <button type="button" className="button button-ghost" onClick={retry}>
               Retry
             </button>
-            {snapshot && (
-              <>
-                <p>
-                  Page {page} of {Math.max(1, Math.ceil(snapshot.total / 100))}. Delivered: today.
-                </p>
-                <button type="button" disabled={page === 1} onClick={() => setPage(n => n - 1)}>
-                  Previous
-                </button>
-                <button type="button" disabled={page * 100 >= snapshot.total} onClick={() => setPage(n => n + 1)}>
-                  Next
-                </button>
-              </>
-            )}
-          </div>
-        </details>
-      </div>
+          )}
+        </p>
+      )}
       <div className="kitchen-columns">
         <div className="kitchen-column">{group('PLACED')}</div>
         <div className="kitchen-column">{group('IN_PREPARATION')}</div>
-        <div className="kitchen-column kitchen-ready">
-          {group('READY')}
-          <details className="kitchen-delivered" open={!!snapshot?.counts.DELIVERED}>
-            <summary>Delivered ({snapshot?.counts.DELIVERED ?? 0})</summary>
-            {group('DELIVERED')}
-          </details>
-        </div>
+        <div className="kitchen-column kitchen-ready">{group('READY')}</div>
       </div>
+      {snapshot && (page > 1 || snapshot.total > 100) && (
+        <div className="booking-pagination">
+          <span>
+            Page {page} of {Math.max(1, Math.ceil(snapshot.total / 100))}
+          </span>
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={page === 1}
+            onClick={() => setPage(p => p - 1)}
+          >
+            Previous queue page
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={page * 100 >= snapshot.total}
+            onClick={() => setPage(p => p + 1)}
+          >
+            Next queue page
+          </button>
+        </div>
+      )}
     </section>
   );
 }

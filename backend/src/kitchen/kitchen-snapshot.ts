@@ -60,7 +60,8 @@ export function parseKitchenSnapshot(raw: unknown, query: KitchenQueryDto, asOf:
     const status = text(order.status, 20);
     if (
       !KITCHEN_STATUSES.includes(status as (typeof KITCHEN_STATUSES)[number]) ||
-      (query.status && status !== query.status)
+      (query.status && status !== query.status) ||
+      (query.activeOnly === 'true' && status === 'DELIVERED')
     )
       throw new Error('Invalid state');
     pageCounts[status] = (pageCounts[status] ?? 0) + 1;

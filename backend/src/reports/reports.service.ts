@@ -60,7 +60,7 @@ export class ReportsService {
           break;
         }
         case 'food-orders':
-          data = await this.food.summary(query.period);
+          data = query.date ? await this.food.summary(query.period, query.date) : await this.food.summary(query.period);
           break;
         case 'service-requests':
           data = await this.requests.summary(query.period);

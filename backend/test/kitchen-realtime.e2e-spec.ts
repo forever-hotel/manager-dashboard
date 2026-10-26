@@ -350,4 +350,14 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
       await connection.close();
     }
   }, 20000);
+  it('serves the active-only board without delivered orders occupying page slots', async () => {
+    await order('PLACED');
+    await order('READY');
+    await order('DELIVERED', '2026-10-19T02:00:00Z');
+    const body = (await get('activeOnly=true&pageSize=100').expect(200)).body as Summary;
+    expect(body.total).toBe(2);
+    expect(body.counts.DELIVERED).toBe(0);
+    expect(body.orders.every(o => o.status !== 'DELIVERED')).toBe(true);
+    await get('activeOnly=invalid').expect(400);
+  });
 });

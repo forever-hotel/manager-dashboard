@@ -16,6 +16,14 @@ export async function GET(request: NextRequest, context: { params: Promise<{ typ
   const parsed = z
     .object({
       period: z.enum(['day', 'week', 'month']).default('day'),
+      ...(type === 'food-orders'
+        ? {
+            date: z.iso
+              .date()
+              .refine(value => !value.startsWith('0000'))
+              .optional()
+          }
+        : {}),
       ...(type === 'worker-performance' ? { workerId: z.uuid().optional() } : {})
     })
     .strict()
