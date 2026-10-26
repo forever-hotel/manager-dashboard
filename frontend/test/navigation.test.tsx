@@ -94,41 +94,50 @@ describe('Dashboard shell', () => {
     expect(replaceLocation).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Logout' })).toBeEnabled();
   });
-  it('hides protected content while rechecking and on provider failure, then allows retry', async () => {
-    vi.mocked(fetch).mockResolvedValue(new Response('{}', { status: 503 }));
+  it('keeps the dashboard mounted without polling or tab-change validation', async () => {
+    vi.useFakeTimers();
     render(
       <SessionBoundary session={session}>
-        <p>Protected content</p>
+        <input aria-label="Unsaved draft" defaultValue="" />
       </SessionBoundary>
     );
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      value: 'hidden'
-    });
+    fireEvent.change(screen.getByLabelText('Unsaved draft'), { target: { value: 'Keep this draft' } });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
     fireEvent(document, new Event('visibilitychange'));
-    expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      value: 'visible'
-    });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
     fireEvent(document, new Event('visibilitychange'));
-    expect(await screen.findByRole('button', { name: 'Retry' })).toBeVisible();
-    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(session)));
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByText('Protected content')).toBeVisible();
+    fireEvent(window, Object.assign(new Event('pageshow'), { persisted: true }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(180000);
+    });
+    expect(screen.getByLabelText('Unsaved draft')).toHaveValue('Keep this draft');
+    expect(fetch).not.toHaveBeenCalled();
+    expect(replaceLocation).not.toHaveBeenCalled();
   });
-  it('checks an idle visible session periodically', async () => {
+  it('still redirects when the authenticated session expires', async () => {
     vi.useFakeTimers();
-    vi.mocked(fetch).mockImplementation(() => Promise.resolve(new Response(JSON.stringify(session))));
-    const view = render(
-      <SessionBoundary session={session}>
+    render(
+      <SessionBoundary session={{ ...session, expiresAt: Math.floor(Date.now() / 1000) + 5 }}>
         <p>Protected content</p>
       </SessionBoundary>
     );
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(60000);
+      await vi.advanceTimersByTimeAsync(6000);
     });
-    expect(fetch).toHaveBeenCalled();
+    expect(replaceLocation).toHaveBeenCalledWith(expect.stringMatching(/^\/login\?reason=expired&next=/));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it('cleans up the expiry timer when the layout unmounts', async () => {
+    vi.useFakeTimers();
+    const view = render(
+      <SessionBoundary session={{ ...session, expiresAt: Math.floor(Date.now() / 1000) + 5 }}>
+        <p>Protected content</p>
+      </SessionBoundary>
+    );
     view.unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+    expect(replaceLocation).not.toHaveBeenCalled();
   });
 });
