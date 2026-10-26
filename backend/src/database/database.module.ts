@@ -12,7 +12,9 @@ import { ConfigService } from '@nestjs/config';
         autoLoadEntities: true,
         synchronize: false,
         logging: config.get<string>('DB_LOGGING') === 'true',
-        retryAttempts: 0,
+        // Allow transient hosted-database connection failures during startup.
+        retryAttempts: 6,
+        retryDelay: 3000,
         extra: { connectionTimeoutMillis: 5000, statement_timeout: 5000 }
       })
     })

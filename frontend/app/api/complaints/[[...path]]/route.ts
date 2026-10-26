@@ -67,6 +67,14 @@ async function handle(request: NextRequest, context: Context) {
   const parsed = (
     request.method === 'PATCH' ? complaintSchema : detail ? complaintDetailSchema : complaintPageSchema
   ).safeParse(result.data);
+  if (
+    parsed.success &&
+    request.method === 'GET' &&
+    !detail &&
+    params.has('period') &&
+    !('summary' in parsed.data && parsed.data.summary)
+  )
+    return reply({ code: 'SERVICE_UNAVAILABLE' }, 503);
   return parsed.success ? reply(parsed.data, 200) : reply({ code: 'SERVICE_UNAVAILABLE' }, 503);
 }
 export const GET = handle;

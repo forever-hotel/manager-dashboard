@@ -14,6 +14,9 @@ import { ComplaintQueryDto, ComplaintStatus, ResolveComplaintDto } from './compl
 export const COMPLAINT_CLOCK = Symbol('COMPLAINT_CLOCK');
 export interface ComplaintRow {
   id: string;
+  roomNumber: string;
+  severity: string;
+  workerName: string | null;
   category: string;
   description: string;
   referencedWorkerId: string | null;
@@ -22,13 +25,18 @@ export interface ComplaintRow {
   resolvedAt: Date | null;
   version: number;
 }
-const fields = `c.complaint_id AS id,c.category,c.description,c.referenced_worker_id AS "referencedWorkerId",
+const fields = `c.complaint_id AS id,c.room_number AS "roomNumber",c.severity::text AS severity,
+  (SELECT full_name FROM public.staff_users w WHERE w.worker_id=c.referenced_worker_id) AS "workerName",
+  c.category,c.description,c.referenced_worker_id AS "referencedWorkerId",
   c.submitted_at AS "submittedAt",c.status,c.resolved_at AS "resolvedAt"`;
 const select = `SELECT ${fields},COALESCE(s.version,0) AS version FROM public.foss_complaints c
   LEFT JOIN public.mad_complaint_state s ON s.complaint_id=c.complaint_id`;
 export function complaintView(row: ComplaintRow) {
   return {
     id: row.id,
+    roomNumber: row.roomNumber,
+    severity: row.severity,
+    workerName: row.workerName,
     category: row.category,
     description: row.description,
     referencedWorkerId: row.referencedWorkerId,
@@ -61,10 +69,47 @@ export class ComplaintsService {
     }
   }
   list(query: ComplaintQueryDto) {
+    if (query.date && !query.period) throw new BadRequestException('A period is required with a date.');
     return this.guarded(() =>
       this.database.transaction('REPEATABLE READ', async manager => {
         const values: unknown[] = [],
           filters: string[] = [];
+        let summary: { open: number; review: number; resolved: number; averageMinutes: number | null } | undefined;
+        if (query.period) {
+          const anchor = query.date ? `${query.date}T12:00:00.000Z` : this.now().toISOString();
+          const [bounds] = await manager.query<{ start: Date; end: Date }[]>(
+            `SELECT local_start AT TIME ZONE 'Asia/Colombo' AS start,
+              (local_start + CASE $1 WHEN 'day' THEN interval '1 day' WHEN 'week' THEN interval '1 week' ELSE interval '1 month' END)
+                AT TIME ZONE 'Asia/Colombo' AS end
+             FROM (SELECT date_trunc($1,$2::timestamptz AT TIME ZONE 'Asia/Colombo') AS local_start) b`,
+            [query.period, anchor]
+          );
+          values.push(bounds.start, bounds.end);
+          filters.push('c.submitted_at >= $1 AND c.submitted_at < $2');
+          const [stats] = await manager.query<
+            { open: string; review: string; resolved: string; average: string | null }[]
+          >(
+            `SELECT count(*) FILTER(WHERE status='SUBMITTED' AND submitted_at >= $1 AND submitted_at < $2)::text AS open,
+              count(*) FILTER(WHERE status='UNDER_REVIEW' AND submitted_at >= $1 AND submitted_at < $2)::text AS review,
+              count(*) FILTER(WHERE status='RESOLVED' AND resolved_at >= $1 AND resolved_at < $2)::text AS resolved,
+              avg(extract(epoch FROM resolved_at-submitted_at)/60) FILTER(WHERE status='RESOLVED'
+                AND resolved_at >= $1 AND resolved_at < $2 AND resolved_at >= submitted_at)::text AS average
+             FROM public.foss_complaints`,
+            [bounds.start, bounds.end]
+          );
+          summary = {
+            open: Number(stats.open),
+            review: Number(stats.review),
+            resolved: Number(stats.resolved),
+            averageMinutes: stats.average === null ? null : Math.round(Number(stats.average) * 100) / 100
+          };
+          if (
+            [summary.open, summary.review, summary.resolved].some(value => !Number.isSafeInteger(value) || value < 0) ||
+            (summary.averageMinutes !== null &&
+              (!Number.isFinite(summary.averageMinutes) || summary.averageMinutes < 0))
+          )
+            throw new Error('Invalid complaint metrics');
+        }
         for (const [column, value] of [
           ['c.status', query.status],
           ['c.category', query.category],
@@ -90,7 +135,8 @@ export class ComplaintsService {
           items: rows.map(complaintView),
           total: Number(count.total),
           page: query.page,
-          pageSize: query.pageSize
+          pageSize: query.pageSize,
+          ...(summary ? { summary } : {})
         };
       })
     );

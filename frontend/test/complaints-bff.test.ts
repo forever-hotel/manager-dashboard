@@ -26,6 +26,25 @@ function req(method = 'GET', body?: unknown, query = '', headers: Record<string,
 }
 describe('DDP-022 complaint BFF contracts', () => {
   beforeEach(() => vi.mocked(backend).mockReset());
+  it('forwards calendar history filters with required summary and actual room/severity fields', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: complaintPage() });
+    const response = await GET(req('GET', undefined, '?period=month&date=2026-09-01'), context());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      items: [{ roomNumber: '204', severity: 'HIGH' }],
+      summary: { open: 1 }
+    });
+    expect(backend).toHaveBeenCalledWith(
+      '/mad/complaints?period=month&date=2026-09-01',
+      'GET',
+      'private-token',
+      undefined
+    );
+    const { summary: _summary, ...withoutSummary } = complaintPage();
+    void _summary;
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: withoutSummary });
+    expect((await GET(req('GET', undefined, '?period=month'), context())).status).toBe(503);
+  });
   it('validates and forwards filters while stripping notes and arbitrary provider fields from lists', async () => {
     vi.mocked(backend).mockResolvedValue({
       status: 200,
@@ -93,7 +112,10 @@ describe('DDP-022 complaint BFF contracts', () => {
       '?status=BAD',
       '?workerId=bad',
       '?unknown=1',
-      '?category='
+      '?category=',
+      '?period=year',
+      '?period=month&date=2026-02-30',
+      '?date=2026-09-01'
     ])
       expect((await GET(req('GET', undefined, query), context())).status).toBe(400);
     expect((await GET(req('GET', undefined, '?page=1'), context([complaint().id]))).status).toBe(400);

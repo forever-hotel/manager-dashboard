@@ -47,6 +47,8 @@ services:
       - "127.0.0.1:${BACKEND_PORT:-4000}:4000"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      # Give Neon connection retries time to finish before failing dependants.
+      start_period: 120s
       interval: 10s
       timeout: 8s
       retries: 6

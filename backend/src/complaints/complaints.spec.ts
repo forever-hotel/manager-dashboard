@@ -8,6 +8,9 @@ const id = '11111111-1111-4111-8111-111111111111';
 const now = new Date('2026-10-16T00:00:00Z');
 const row: ComplaintRow = {
   id,
+  roomNumber: '204',
+  severity: 'HIGH',
+  workerName: null,
   category: 'Room',
   description: 'Guest description',
   referencedWorkerId: null,
@@ -76,7 +79,9 @@ describe('DDP-021 validation and transition rules', () => {
     { pageSize: '101' },
     { status: 'bad' },
     { category: '' },
-    { workerId: 'bad' }
+    { workerId: 'bad' },
+    { period: 'year' },
+    { period: 'month', date: '2026-02-30' }
   ])('rejects invalid filter %j', async change => {
     expect((await validate(plainToInstance(ComplaintQueryDto, change))).length).toBeGreaterThan(0);
   });
@@ -100,6 +105,23 @@ describe('DDP-021 validation and transition rules', () => {
   });
 });
 describe('DDP-021 complaint service', () => {
+  it('returns period metrics and applies matching submission bounds to list pagination', async () => {
+    const { service, query } = setup();
+    const end = new Date('2026-11-01T00:00:00Z');
+    query
+      .mockResolvedValueOnce([{ start: now, end }])
+      .mockResolvedValueOnce([{ open: '1', review: '2', resolved: '3', average: '35' }])
+      .mockResolvedValueOnce([{ total: '1' }])
+      .mockResolvedValueOnce([row]);
+    const result = await service.list({ ...new ComplaintQueryDto(), period: 'month', date: '2026-10-01' });
+    expect(result.summary).toEqual({ open: 1, review: 2, resolved: 3, averageMinutes: 35 });
+    expect(query.mock.calls[0][1]).toEqual(['month', '2026-10-01T12:00:00.000Z']);
+    expect(query.mock.calls[3][1]).toEqual([now, end, 20, 0]);
+    expect(query.mock.calls[3][0]).toContain('c.submitted_at >= $1 AND c.submitted_at < $2');
+  });
+  it('rejects an unscoped date', () => {
+    expect(() => setup().service.list({ ...new ComplaintQueryDto(), date: '2026-10-01' })).toThrow();
+  });
   it('lists a stable paginated snapshot with parameterized filters and no notes', async () => {
     const { service, query, transaction } = setup();
     query.mockResolvedValueOnce([{ total: '1' }]).mockResolvedValueOnce([row]);

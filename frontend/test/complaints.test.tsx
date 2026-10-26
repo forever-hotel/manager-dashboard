@@ -56,24 +56,22 @@ describe('DDP-022 complaint register', () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
-  it('TC-MAD-022-AC1: displays required fields, null worker and exact filters', async () => {
+  it('TC-MAD-022-AC1: shows actual room and severity and supports previous periods', async () => {
     const fetcher = setup();
     render(<ComplaintsDashboard />);
     await screen.findByRole('button', { name: /View complaint/ });
     const table = within(screen.getByRole('table'));
+    expect(table.getByText('204')).toBeVisible();
+    expect(table.getByText('high')).toBeVisible();
     expect(table.getByText('No worker referenced')).toBeVisible();
     expect(table.getByText(complaint().description)).toBeVisible();
-    expect(table.getByRole('cell', { name: 'Submitted' })).toBeVisible();
-    fireEvent.change(screen.getByLabelText('Status'), {
-      target: { value: 'UNDER_REVIEW' }
-    });
-    fireEvent.change(screen.getByLabelText('Category (exact match)'), {
-      target: { value: 'Room' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Search complaints' }));
+    expect(screen.queryByText('Filter and refresh complaints')).not.toBeInTheDocument();
+    expect(screen.queryByText('Complaint data availability')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Month' }));
+    fireEvent.change(screen.getByLabelText('Select complaints month'), { target: { value: '2026-09' } });
     await waitFor(() =>
       expect(fetcher).toHaveBeenCalledWith(
-        '/api/complaints?page=1&pageSize=20&status=UNDER_REVIEW&category=Room',
+        '/api/complaints?page=1&pageSize=20&period=month&date=2026-09-01',
         expect.anything()
       )
     );
@@ -89,10 +87,11 @@ describe('DDP-022 complaint register', () => {
       fireEvent.change(screen.getByLabelText('Internal note (manager only)'), {
         target: { value: 'Investigating privately' }
       });
-      fireEvent.click(screen.getByRole('button', { name: 'Save resolution update' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ })
+      );
       expect(await screen.findByText('Saved: Under review.')).toBeVisible();
-      await screen.findByText('Investigating privately');
-      expect(screen.getByLabelText('Internal note (manager only)')).toHaveValue('');
+      expect(screen.queryByRole('region', { name: 'Complaint details' })).not.toBeInTheDocument();
       expect(JSON.parse(String(patches(fetcher)[0][1]?.body))).toEqual({
         version: 0,
         status: 'UNDER_REVIEW',
@@ -115,13 +114,17 @@ describe('DDP-022 complaint register', () => {
         target: { value: 'Keep my draft' }
       });
       fetcher.mockResolvedValueOnce(json({}, status));
-      fireEvent.click(screen.getByRole('button', { name: 'Save resolution update' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ })
+      );
       await screen.findByRole('alert');
       expect(screen.getByLabelText('Internal note (manager only)')).toHaveValue('Keep my draft');
       expect(screen.getByLabelText('Internal note (manager only)')).toBeEnabled();
       expect(screen.queryByText(/^Saved:/)).not.toBeInTheDocument();
       if (status === 409) {
-        expect(screen.getByRole('button', { name: 'Save resolution update' })).toBeDisabled();
+        expect(
+          screen.getByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ })
+        ).toBeDisabled();
         fetcher.mockResolvedValueOnce(json(complaint({ version: 1, status: 'UNDER_REVIEW' })));
         fireEvent.click(
           screen.getByRole('button', {
@@ -130,7 +133,9 @@ describe('DDP-022 complaint register', () => {
         );
         await screen.findByText('Next status: Resolved');
         expect(screen.getByLabelText('Internal note (manager only)')).toHaveValue('Keep my draft');
-        fireEvent.click(screen.getByRole('button', { name: 'Save resolution update' }));
+        fireEvent.click(
+          screen.getByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ })
+        );
         await screen.findByText('Saved: Resolved.');
         expect(JSON.parse(String(patches(fetcher).at(-1)?.[1]?.body))).toMatchObject({
           version: 1,
@@ -143,14 +148,16 @@ describe('DDP-022 complaint register', () => {
     const fetcher = setup();
     render(<ComplaintsDashboard />);
     await open();
-    fireEvent.click(screen.getByRole('button', { name: 'Save resolution update' }));
+    fireEvent.click(screen.getByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ }));
     await screen.findByText('Enter an internal note.');
     expect(patches(fetcher)).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Close details' }));
     expect(screen.getByRole('button', { name: /View complaint/ })).toHaveFocus();
     fetcher.mockResolvedValueOnce(json(complaint({ status: 'RESOLVED', version: 2 })));
     await open();
-    expect(screen.getByRole('button', { name: 'Save resolution update' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ })
+    ).toBeDisabled();
   });
   it('handles empty/error/loading states and pagination', async () => {
     const fetcher = setup();
@@ -159,13 +166,18 @@ describe('DDP-022 complaint register', () => {
     expect(screen.getByText('Loading complaints...')).toBeVisible();
     await screen.findByRole('alert');
     fetcher.mockResolvedValueOnce(json(complaintPage([])));
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh register' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Retry complaints' }));
     await screen.findByText('No complaints match these filters.');
     fetcher.mockResolvedValueOnce(json(complaintPage([complaint()], 21)));
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh register' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Month' }));
     await screen.findByRole('button', { name: /View complaint/ });
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/complaints?page=2&pageSize=20', expect.anything()));
+    await waitFor(() =>
+      expect(fetcher).toHaveBeenCalledWith(
+        expect.stringContaining('/api/complaints?page=2&pageSize=20&period=month&date='),
+        expect.anything()
+      )
+    );
   });
   it('preserves a draft when dismissal is cancelled and renders notes as text', async () => {
     const fetcher = setup();
@@ -223,7 +235,7 @@ describe('DDP-022 complaint register', () => {
       within(screen.getByRole('region', { name: 'Complaint details' })).getByText('Second guest issue')
     ).toBeVisible();
   });
-  it('prevents duplicate writes and distinguishes a saved update from failed detail refresh', async () => {
+  it('closes after saving even when the register refresh fails', async () => {
     const fetcher = setup();
     render(<ComplaintsDashboard />);
     await open();
@@ -237,18 +249,29 @@ describe('DDP-022 complaint register', () => {
           finish = resolve;
         })
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Save resolution update' }));
+    fireEvent.click(screen.getByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ }));
     const saving = screen.getByRole('button', { name: 'Saving...' });
     expect(saving).toBeDisabled();
     fireEvent.click(saving);
     expect(patches(fetcher)).toHaveLength(1);
-    // The detail request is issued immediately after PATCH; list effect follows.
+    // Saving closes details and refreshes the register.
     fetcher.mockResolvedValueOnce(json({}, 503));
     await act(async () => {
       finish(json(complaint({ status: 'UNDER_REVIEW', version: 1 })));
     });
     expect(await screen.findByText('Saved: Under review.')).toBeVisible();
     expect(await screen.findByRole('alert')).toHaveTextContent('Service unavailable');
+  });
+  it('closes the action panel when period or date changes', async () => {
+    setup();
+    render(<ComplaintsDashboard />);
+    await open();
+    fireEvent.change(screen.getByLabelText('Internal note (manager only)'), { target: { value: 'Unsaved note' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Month' }));
+    expect(screen.queryByRole('region', { name: 'Complaint details' })).not.toBeInTheDocument();
+    await open();
+    fireEvent.change(screen.getByLabelText('Select complaints month'), { target: { value: '2026-09' } });
+    expect(screen.queryByRole('region', { name: 'Complaint details' })).not.toBeInTheDocument();
   });
   it('enforces transition and note boundaries', () => {
     expect(nextStatus('SUBMITTED')).toBe('UNDER_REVIEW');

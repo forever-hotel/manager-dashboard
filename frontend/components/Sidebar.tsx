@@ -94,7 +94,9 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
                 <span className="sidebar-dot" />
                 <span>{item.name}</span>
                 {item.href === '/complaints' && !!notifications?.snapshot?.counts.complaints && (
-                  <span className="complaint-count">{notifications.snapshot.counts.complaints}</span>
+                  <span className="complaint-count" title="Unresolved complaints across all dates">
+                    {notifications.snapshot.counts.complaints}
+                  </span>
                 )}
               </Link>
             ))}

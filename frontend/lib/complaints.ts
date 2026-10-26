@@ -2,6 +2,9 @@ import { z } from 'zod';
 export const complaintStatus = z.enum(['SUBMITTED', 'UNDER_REVIEW', 'RESOLVED']);
 export const complaintSchema = z.object({
   id: z.uuid(),
+  roomNumber: z.string().min(1).max(10),
+  severity: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  workerName: z.string().nullable(),
   category: z.string(),
   description: z.string(),
   referencedWorkerId: z.uuid().nullable(),
@@ -26,7 +29,15 @@ export const complaintPageSchema = z.object({
   items: z.array(complaintSchema),
   total: z.number().int().nonnegative(),
   page: z.number().int().positive(),
-  pageSize: z.number().int().min(1).max(100)
+  pageSize: z.number().int().min(1).max(100),
+  summary: z
+    .object({
+      open: z.number().int().nonnegative(),
+      review: z.number().int().nonnegative(),
+      resolved: z.number().int().nonnegative(),
+      averageMinutes: z.number().nonnegative().nullable()
+    })
+    .optional()
 });
 export const complaintPatchSchema = z
   .object({
@@ -51,9 +62,15 @@ export const complaintQuerySchema = z
     pageSize: page(100).optional(),
     status: complaintStatus.optional(),
     category: z.string().trim().min(1).max(100).optional(),
-    workerId: z.uuid().optional()
+    workerId: z.uuid().optional(),
+    period: z.enum(['day', 'week', 'month']).optional(),
+    date: z.iso
+      .date()
+      .refine(value => !value.startsWith('0000'))
+      .optional()
   })
-  .strict();
+  .strict()
+  .refine(value => !value.date || Boolean(value.period), 'Select a period with the date.');
 export type Complaint = z.infer<typeof complaintSchema>;
 export type ComplaintDetail = z.infer<typeof complaintDetailSchema>;
 export const statusLabel = {

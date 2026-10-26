@@ -46,14 +46,14 @@ describe('DDP-021 complaints with disposable PostgreSQL', () => {
     // Shared-schema complaint subset; unrelated booking/order/request FKs are
     // outside this fixture. Privacy, status, worker FK and resolution invariant match.
     await database.query(`CREATE TYPE complaint_status AS ENUM ('SUBMITTED','UNDER_REVIEW','RESOLVED');
-      CREATE TABLE foss_complaints(complaint_id uuid PRIMARY KEY, category varchar(100) NOT NULL,
+      CREATE TABLE foss_complaints(complaint_id uuid PRIMARY KEY, category varchar(100) NOT NULL,room_number varchar(10) NOT NULL DEFAULT '204',severity text NOT NULL DEFAULT 'HIGH',
       description text NOT NULL, referenced_worker_id uuid REFERENCES staff_users(worker_id),
       status complaint_status NOT NULL DEFAULT 'SUBMITTED', resolution_notes text,
       submitted_at timestamptz NOT NULL, resolved_at timestamptz,
       CHECK ((status='RESOLVED' AND resolved_at IS NOT NULL) OR (status<>'RESOLVED' AND resolved_at IS NULL)))`);
     await database.query(readSchemaSection('complaints'));
     await database.query(`GRANT SELECT ON mad_revoked_sessions TO "${role}";
-      GRANT SELECT(complaint_id,category,description,referenced_worker_id,submitted_at,status,resolved_at),UPDATE(status,resolved_at) ON foss_complaints TO "${role}";
+      GRANT SELECT(complaint_id,room_number,severity,category,description,referenced_worker_id,submitted_at,status,resolved_at),UPDATE(status,resolved_at) ON foss_complaints TO "${role}";
       GRANT SELECT,INSERT,UPDATE ON mad_complaint_state TO "${role}";
       GRANT SELECT,INSERT ON mad_complaint_history TO "${role}";
       GRANT INSERT ON mad_complaint_outbox TO "${role}";
@@ -150,6 +150,23 @@ describe('DDP-021 complaints with disposable PostgreSQL', () => {
       items: [{ id: otherId }]
     });
     expect((await call('get', '?status=RESOLVED').expect(200)).body as unknown).toMatchObject({ items: [], total: 0 });
+  });
+  it('filters the register to a hotel-calendar period and reports resolution metrics', async () => {
+    const october = await call('get', '?period=month&date=2026-10-01').expect(200);
+    expect(october.body as unknown).toMatchObject({
+      total: 2,
+      summary: { open: 2, review: 0, resolved: 0, averageMinutes: null },
+      items: [{ roomNumber: '204', severity: 'HIGH' }, { workerName: 'Fixture Staff' }]
+    });
+    const september = await call('get', '?period=month&date=2026-09-01').expect(200);
+    expect(september.body as unknown).toMatchObject({ total: 0, items: [], summary: { open: 0, review: 0 } });
+    await call('patch', '/' + id, patch).expect(200);
+    await call('patch', '/' + id, { ...patch, version: 1, status: 'RESOLVED' }).expect(200);
+    const resolved = await call('get', '?period=month&date=2026-10-01').expect(200);
+    expect(resolved.body as unknown).toMatchObject({ summary: { open: 1, review: 0, resolved: 1 } });
+    await call('get', '?period=year').expect(400);
+    await call('get', '?period=month&date=2026-02-30').expect(400);
+    await call('get', '?date=2026-10-01').expect(400);
   });
   it('TC-MAD-021-AC2: records actor/time, both transitions, private notes and note-free events', async () => {
     await call('patch', '/' + id, patch).expect(200);
