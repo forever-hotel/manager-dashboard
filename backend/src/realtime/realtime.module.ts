@@ -9,12 +9,14 @@ import { AuthModule } from '../auth/auth.module';
 import { RealtimeController } from './realtime.controller';
 import { RealtimeConsumer } from './realtime.consumer';
 import { RealtimeGateway } from './realtime.gateway';
+import { AnalyticsChangesWorker } from './analytics-changes.worker';
 @Module({
   imports: [AuthModule, RoomsModule, TasksModule],
   controllers: [RealtimeController],
   exports: [RealtimeGateway],
   providers: [
     RealtimeGateway,
+    AnalyticsChangesWorker,
     StockAlertsService,
     StockEventsConsumer,
     RealtimeConsumer,

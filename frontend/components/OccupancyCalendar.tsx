@@ -1,5 +1,6 @@
 'use client';
 import ReportDownload from './ReportDownload';
+import { useRealtimeRefresh } from './useRealtimeRefresh';
 import { DataPanel } from './DashboardVisuals';
 import { useEffect, useState } from 'react';
 import { AnalyticsError } from '@/lib/analytics';
@@ -19,6 +20,7 @@ export default function OccupancyCalendar({
 }) {
   const [month, setMonth] = useState(initialMonth);
   const [attempt, setAttempt] = useState(0);
+  useRealtimeRefresh('analytics', () => setAttempt(value => value + 1));
   const [state, setState] = useState<State>({ month: initialMonth });
   const [selected, setSelected] = useState<string>();
   useEffect(() => {

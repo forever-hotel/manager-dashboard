@@ -1,3 +1,4 @@
+import { sharedSocketFixture } from './shared-socket-fixture';
 import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -22,6 +23,7 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
   let admin: DataSource,
     database: DataSource,
     app: INestApplication<App>,
+    shared: INestApplication<App>,
     provider: Awaited<ReturnType<typeof seedLocalAuth>>;
   const suffix = randomUUID().replace(/-/g, '').slice(0, 12),
     name = 'ddp_tasks_test_' + suffix,
@@ -77,11 +79,13 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
     app = module.createNestApplication();
     configureHttp(app);
     await app.listen(0, '127.0.0.1');
+    shared = await sharedSocketFixture(app);
   }, 60000);
   beforeEach(async () => {
     await database.query('TRUNCATE wkms_tasks,mad_task_events,mad_task_versions');
   });
   afterAll(async () => {
+    await shared?.close();
     await app?.close();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
@@ -107,8 +111,8 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
       .post('/mad/realtime/ticket')
       .set('Authorization', 'Bearer ' + provider.issue('manager'))
       .expect(201);
-    const client = io(await app.getUrl(), {
-      path: '/mad/socket.io',
+    const client = io(await shared.getUrl(), {
+      path: '/socket.io',
       transports: ['websocket'],
       auth: { ticket: (result.body as { ticket: string }).ticket },
       extraHeaders: { Origin: 'http://localhost:3000' },
@@ -272,7 +276,7 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
         messageId: event.eventId
       });
       await channel.waitForConfirms();
-      expect(await received).toEqual({ ...event, task: room });
+      expect(await received).toEqual({ changed: true });
       client.disconnect();
       await database.query(
         "UPDATE wkms_tasks SET status='COMPLETED',completed_at=now(),updated_at=clock_timestamp() WHERE task_id=$1",

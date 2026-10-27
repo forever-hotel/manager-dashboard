@@ -1,3 +1,4 @@
+vi.mock('@/components/useRealtimeRefresh', () => ({ useRealtimeRefresh: () => undefined }));
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import OperationsAnalytics from '@/components/OperationsAnalytics';

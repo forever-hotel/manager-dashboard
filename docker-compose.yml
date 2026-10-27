@@ -22,6 +22,8 @@ services:
       NODE_ENV: development
       PORT: 4000
       MAD_REALTIME_ENABLED: "true"
+      SHARED_WEBSOCKET_URL: http://shared-websocket:4700
+      MAD_WEBSOCKET_RELAY_KEY: ${MAD_WEBSOCKET_RELAY_KEY:?Set MAD_WEBSOCKET_RELAY_KEY}
       MAD_PROMOTIONS_PUBLISH_ENABLED: ${MAD_PROMOTIONS_PUBLISH_ENABLED:-false}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://mad:mad-local-only@mad-rabbitmq:5672}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
@@ -54,6 +56,25 @@ services:
       retries: 6
     restart: unless-stopped
 
+  shared-websocket:
+    build: ./backend
+    command: ["node", "dist/shared-websocket/main.js"]
+    environment:
+      PORT: 4700
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://mad:mad-local-only@mad-rabbitmq:5672}
+      WEBSOCKET_SUBSYSTEMS_JSON: |
+        {"mad":{"authUrl":"http://mad-backend:4000/auth/session","relayKey":"${MAD_WEBSOCKET_RELAY_KEY:?Set MAD_WEBSOCKET_RELAY_KEY}","origins":["${APP_ORIGIN:-http://localhost:3000}"],"roles":{"MANAGER":["analytics","rooms","kitchen","tasks","stock","notifications"]}}}
+    depends_on:
+      mad-rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4700/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
   api-gateway:
     build: ${API_GATEWAY_CONTEXT:-./api-gateway}
     environment:
@@ -61,9 +82,19 @@ services:
       HOST: 0.0.0.0
       PORT: 8080
       MAD_SERVICE_URL: http://mad-backend:4000
+      WEBSOCKET_SERVICE_URL: http://shared-websocket:4700
       ALLOWED_ORIGINS: ${APP_ORIGIN:-http://localhost:3000}
       ROUTES_JSON: |
         [
+          {
+            "id": "shared-websocket",
+            "enabled": true,
+            "prefix": "/realtime",
+            "rewritePrefix": "",
+            "upstreamEnv": "WEBSOCKET_SERVICE_URL",
+            "websocket": true,
+            "cookieNames": []
+          },
           {
             "id": "mad-auth",
             "enabled": true,
@@ -92,6 +123,8 @@ services:
     depends_on:
       mad-backend:
         condition: service_healthy
+      shared-websocket:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
@@ -111,7 +144,7 @@ services:
     environment:
       BACKEND_API_URL: http://api-gateway:8080
       BACKEND_API_MODE: gateway
-      MAD_SOCKET_PUBLIC_URL: ${MAD_SOCKET_PUBLIC_URL:-http://localhost:4000}
+      MAD_SOCKET_PUBLIC_URL: ${MAD_SOCKET_PUBLIC_URL:-http://localhost:8080}
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
     ports:

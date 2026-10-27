@@ -1,3 +1,4 @@
+import { sharedSocketFixture } from './shared-socket-fixture';
 import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -23,6 +24,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
   let admin: DataSource,
     database: DataSource,
     app: INestApplication<App>,
+    shared: INestApplication<App>,
     provider: Awaited<ReturnType<typeof seedLocalAuth>>;
   const suffix = randomUUID().replace(/-/g, '').slice(0, 12),
     name = 'ddp_kitchen_test_' + suffix,
@@ -84,11 +86,13 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     app = module.createNestApplication();
     configureHttp(app);
     await app.listen(0, '127.0.0.1');
+    shared = await sharedSocketFixture(app);
   }, 60000);
   beforeEach(async () => {
     await database.query('TRUNCATE kms_food_order_items,kms_food_orders,mad_realtime_events,mad_realtime_versions');
   });
   afterAll(async () => {
+    await shared?.close();
     await app?.close();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
@@ -118,8 +122,8 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     return (result.body as { ticket: string }).ticket;
   }
   async function socket(ticketValue: string, origin = 'http://localhost:3000'): Promise<Socket> {
-    const client = io(await app.getUrl(), {
-      path: '/mad/socket.io',
+    const client = io(await shared.getUrl(), {
+      path: '/socket.io',
       transports: ['websocket'],
       auth: { ticket: ticketValue },
       extraHeaders: { Origin: origin },
@@ -291,7 +295,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     try {
       const delivered = new Promise<unknown>(resolve => client.once('kitchen.order.changed', resolve));
       await restarted.dispatch();
-      expect(await delivered).toEqual(latest);
+      expect(await delivered).toEqual({ changed: true });
       expect(await database.query('SELECT event_id FROM mad_realtime_events WHERE delivered_at IS NULL')).toEqual([]);
     } finally {
       client.disconnect();
@@ -342,7 +346,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
         messageId: event.eventId
       });
       await channel.waitForConfirms();
-      expect(await received).toEqual(event);
+      expect(await received).toEqual({ changed: true });
       expect(((await get().expect(200)).body as Summary).orders[0]).toMatchObject({ id, status: 'READY', version });
     } finally {
       client?.disconnect();

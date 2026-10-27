@@ -1,64 +1,42 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
 import { z } from 'zod';
-
+import { subscribeRealtime, retryRealtime } from '@/lib/realtime-connection';
 export function useOperationsSnapshot<T>(url: string, schema: z.ZodType<T>, healthEvent: string, changeEvent: string) {
   const [result, setResult] = useState<{ url: string; data: T } | null>(null);
   const [message, setMessage] = useState('Loading...');
-  const [retry, setRetry] = useState(0);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let stopped = false,
-      socket: Socket | undefined,
-      timer: ReturnType<typeof setTimeout> | undefined,
-      attempt = 0,
       loading = false,
       dirty = false,
       healthy = false,
-      exhausted = false,
-      authFailed = false;
+      denied = false;
     const controller = new AbortController();
-
-    const failure = (status: number) => {
-      if (status === 401 || status === 403) {
-        authFailed = true;
-        clearTimeout(timer);
-        socket?.removeAllListeners();
-        socket?.disconnect();
-        setResult(null);
-        setMessage(status === 401 ? 'Please sign in again.' : 'Manager access is required.');
-        return true;
-      }
-      return false;
-    };
     async function refresh() {
-      if (stopped || authFailed) return;
+      if (stopped || denied) return;
       if (loading) {
         dirty = true;
         return;
       }
       loading = true;
       try {
-        const response = await fetch(url, {
-          cache: 'no-store',
-          credentials: 'same-origin',
-          signal: controller.signal
-        });
-        if (stopped || authFailed) return;
-        if (failure(response.status)) return;
+        const response = await fetch(url, { cache: 'no-store', credentials: 'same-origin', signal: controller.signal });
+        if (stopped || denied) return;
+        if ([401, 403].includes(response.status)) {
+          denied = true;
+          setResult(null);
+          setMessage(response.status === 401 ? 'Please sign in again.' : 'Manager access is required.');
+          return;
+        }
         if (!response.ok) throw new Error();
         const data = schema.parse(await response.json());
-        if (stopped || authFailed) return;
-        setResult({ url, data });
-        setMessage(
-          healthy
-            ? ''
-            : exhausted
-              ? 'Live updates offline after five attempts. Retry to reconnect.'
-              : 'Live updates unavailable. Showing the last snapshot.'
-        );
+        if (!stopped && !denied) {
+          setResult({ url, data });
+          setMessage(healthy ? '' : 'Live updates unavailable. Showing the last snapshot.');
+        }
       } catch {
-        if (!stopped && !authFailed) setMessage('Data is stale or unavailable. Retry to refresh.');
+        if (!stopped && !denied) setMessage('Data is stale or unavailable. Retry to refresh.');
       } finally {
         loading = false;
         if (dirty && !stopped) {
@@ -67,90 +45,42 @@ export function useOperationsSnapshot<T>(url: string, schema: z.ZodType<T>, heal
         }
       }
     }
-    function schedule() {
-      if (stopped || authFailed || timer) return;
-      healthy = false;
-      setMessage('Data may be stale. Reconnecting...');
-      if (attempt >= 5) {
-        exhausted = true;
+    const stop = subscribeRealtime((name, data) => {
+      if (name === 'live.denied') {
+        denied = true;
+        setResult(null);
+        setMessage(data === 401 ? 'Please sign in again.' : 'Manager access is required.');
+      } else if (name === healthEvent) {
+        const previous = healthy;
+        healthy = Boolean(data && typeof data === 'object' && 'healthy' in data && data.healthy === true);
+        if (!healthy) setMessage('Live updates unavailable. Showing the last snapshot.');
+        if (healthy !== previous) void refresh();
+      } else if (name === changeEvent || name === 'live.connected') void refresh();
+      else if (name === 'live.offline') {
+        healthy = false;
+        setMessage('Data may be stale. Reconnecting...');
+      } else if (name === 'live.exhausted') {
+        healthy = false;
         setMessage('Live updates offline after five attempts. Retry to reconnect.');
-        return;
       }
-      timer = setTimeout(
-        () => {
-          timer = undefined;
-          void connect();
-        },
-        Math.min(1000 * 2 ** attempt, 16000)
-      );
-      attempt++;
-    }
-    async function connect() {
-      if (stopped || authFailed) return;
-      try {
-        socket?.removeAllListeners();
-        socket?.disconnect();
-        const response = await fetch('/api/realtime/ticket', {
-          method: 'POST',
-          credentials: 'same-origin',
-          signal: controller.signal
-        });
-        if (stopped || failure(response.status)) return;
-        if (!response.ok) throw new Error();
-        const data = (await response.json()) as {
-          ticket: string;
-          socketUrl: string;
-        };
-        if (stopped || authFailed) return;
-        socket = io(data.socketUrl, {
-          path: '/mad/socket.io',
-          transports: ['websocket'],
-          auth: { ticket: data.ticket },
-          reconnection: false,
-          timeout: 7000
-        });
-        socket.on('connect', () => {
-          attempt = 0;
-          exhausted = false;
-          void refresh();
-        });
-        socket.on(healthEvent, (data: unknown) => {
-          const next = typeof data === 'object' && data !== null && (data as { healthy?: unknown }).healthy === true;
-          const changed = healthy !== next;
-          healthy = next;
-          if (!healthy) setMessage('Live updates unavailable. Showing the last snapshot.');
-          if (changed) void refresh();
-        });
-        socket.on(changeEvent, (raw: unknown) => {
-          // Events are invalidations only: always reread the authoritative snapshot.
-          // Coalescing below prevents overlapping reads; no producer payload is rendered.
-          void raw;
-          void refresh();
-        });
-        socket.on('disconnect', schedule);
-        socket.on('connect_error', schedule);
-      } catch {
-        if (!stopped) schedule();
-      }
-    }
+    });
     void refresh();
-    void connect();
-    // Reconcile missed events without changing the current filters or page.
-    const reconciliation = setInterval(() => {
+    const timer = setInterval(() => {
       void refresh();
     }, 30000);
     return () => {
       stopped = true;
       controller.abort();
-      clearTimeout(timer);
-      clearInterval(reconciliation);
-      socket?.removeAllListeners();
-      socket?.disconnect();
+      clearInterval(timer);
+      stop();
     };
-  }, [url, retry, schema, healthEvent, changeEvent]);
+  }, [url, schema, healthEvent, changeEvent, attempt]);
   return {
     snapshot: result?.url === url ? result.data : null,
     message,
-    retry: () => setRetry(n => n + 1)
+    retry: () => {
+      retryRealtime();
+      setAttempt(n => n + 1);
+    }
   };
 }

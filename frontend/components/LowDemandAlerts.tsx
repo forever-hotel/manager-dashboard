@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRealtimeRefresh } from './useRealtimeRefresh';
 import { AnalyticsError } from '@/lib/analytics';
 import { loadLowDemand, type LowDemand } from '@/lib/low-demand';
 
@@ -7,12 +8,16 @@ export default function LowDemandAlerts() {
   const [data, setData] = useState<LowDemand>();
   const [error, setError] = useState<number>();
   const [attempt, setAttempt] = useState(0);
+  useRealtimeRefresh('analytics', () => setAttempt(value => value + 1));
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
     loadLowDemand(controller.signal)
       .then(value => {
-        if (active) setData(value);
+        if (active) {
+          setData(value);
+          setError(undefined);
+        }
       })
       .catch(reason => {
         if (active) setError(reason instanceof AnalyticsError ? reason.status : 503);

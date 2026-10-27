@@ -1,3 +1,4 @@
+import { sharedSocketFixture } from './shared-socket-fixture';
 import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -30,6 +31,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
   let admin: DataSource,
     database: DataSource,
     app: INestApplication<App>,
+    shared: INestApplication<App>,
     provider: Awaited<ReturnType<typeof seedLocalAuth>>;
   const suffix = randomUUID().replace(/-/g, '').slice(0, 12),
     name = 'ddp_stock_test_' + suffix,
@@ -86,11 +88,13 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
     app = module.createNestApplication();
     configureHttp(app);
     await app.listen(0, '127.0.0.1');
+    shared = await sharedSocketFixture(app);
   }, 60000);
   beforeEach(async () => {
     await database.query('TRUNCATE kms_menu_items,mad_stock_alerts,mad_stock_events');
   });
   afterAll(async () => {
+    await shared?.close();
     await app?.close();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
@@ -131,8 +135,8 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
       .post('/mad/realtime/ticket')
       .set('Authorization', 'Bearer ' + provider.issue('manager'))
       .expect(201);
-    const client = io(await app.getUrl(), {
-      path: '/mad/socket.io',
+    const client = io(await shared.getUrl(), {
+      path: '/socket.io',
       transports: ['websocket'],
       auth: { ticket: (result.body as { ticket: string }).ticket },
       extraHeaders: { Origin: 'http://localhost:3000' },
@@ -240,12 +244,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
         });
       });
       await consumer.dispatch();
-      expect((await received).alert).toMatchObject({
-        menuItemId: itemId,
-        name: 'Soup',
-        active: true,
-        stockStatus: 'LOW_STOCK'
-      });
+      expect(await received).toEqual({ changed: true });
       expect(
         await database.query("SELECT count(*)::integer AS count FROM mad_stock_events WHERE delivery_state='published'")
       ).toEqual([{ count: 1 }]);
@@ -302,7 +301,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
         messageId: first.eventId
       });
       await channel.waitForConfirms();
-      expect((await received).menuItemId).toBe(itemId);
+      expect(await received).toEqual({ changed: true });
       channel.publish('hotel.events', STOCK_BINDING, Buffer.from('invalid JSON'), { persistent: true });
       await channel.waitForConfirms();
       async function deadLetter(timeout: number) {

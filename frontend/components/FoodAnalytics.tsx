@@ -15,7 +15,9 @@ export default function FoodAnalytics() {
   const [kitchen, setKitchen] = useState<KitchenSnapshot | null>(null);
   const { data, error, retry } = useAnalyticsSnapshot(
     '/api/analytics/operations/food-orders?' + new URLSearchParams({ period, date }),
-    foodSchema
+    foodSchema,
+    true,
+    'food'
   );
   const range = data
     ? { from: hotelDate(new Date(data.start)), to: hotelDate(new Date(Date.parse(data.end) - 86400000)) }
@@ -67,6 +69,16 @@ export default function FoodAnalytics() {
         />
       </div>
       {!data && <AnalyticsFailure error={error} retry={retry} />}
+      <p className="page-note" aria-live="polite">
+        Peak ordering hours ({period}):{' '}
+        {data
+          ? data.peakHours.length
+            ? data.peakHours
+                .map(hour => String(hour).padStart(2, '0') + ':00–' + String((hour + 1) % 24).padStart(2, '0') + ':00')
+                .join(', ') + ' (Asia/Colombo)'
+            : 'No orders in this period.'
+          : 'Loading...'}
+      </p>
       <div className="operations-panels">
         <KitchenQueue onSnapshot={setKitchen} />
         <DataPanel title={'Top ordered items (' + period + ')'}>

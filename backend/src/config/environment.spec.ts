@@ -4,7 +4,9 @@ describe('Startup configuration', () => {
     DATABASE_URL: 'postgresql://mad:password@localhost:5432/mad',
     FRONTEND_URL: 'http://localhost:3000',
     JWT_SECRET: 'test-secret-with-at-least-32-characters',
-    JWT_ISSUER: 'mad'
+    JWT_ISSUER: 'mad',
+    SHARED_WEBSOCKET_URL: 'http://localhost:4100',
+    MAD_WEBSOCKET_RELAY_KEY: 'shared-socket-test-key-at-least-32-characters'
   };
   it('requires explicit publication enablement and a broker URL when enabled', () => {
     expect(validateEnvironment(valid)).toMatchObject({
@@ -70,9 +72,12 @@ describe('Startup configuration', () => {
         })
       ).toThrow('RABBITMQ_URL must be an AMQP URL');
   });
-  it.each(Object.keys(valid))('names missing %s without exposing values', key => {
-    expect(() => validateEnvironment({ ...valid, [key]: undefined })).toThrow(key);
-  });
+  it.each(['DATABASE_URL', 'FRONTEND_URL', 'JWT_SECRET', 'JWT_ISSUER'])(
+    'names missing %s without exposing values',
+    key => {
+      expect(() => validateEnvironment({ ...valid, [key]: undefined })).toThrow(key);
+    }
+  );
   it.each(['DATABASE_URL', 'FRONTEND_URL'])('redacts invalid %s', key => {
     try {
       validateEnvironment({ ...valid, [key]: 'secret-value' });

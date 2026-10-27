@@ -6,6 +6,7 @@ import OccupancyCalendar from './OccupancyCalendar';
 import { statusColor } from '@/lib/status-color';
 import { hotelDate } from '@/lib/analytics-period';
 import AnalyticsPeriodNavigation from './AnalyticsPeriodNavigation';
+import { useRealtimeRefresh } from './useRealtimeRefresh';
 import { useEffect, useState } from 'react';
 import {
   AnalyticsError,
@@ -29,6 +30,7 @@ export default function AnalyticsDashboard() {
   const [date, setDate] = useState(() => hotelDate());
   const [page, setPage] = useState(1);
   const [attempt, setAttempt] = useState(0);
+  useRealtimeRefresh('analytics', () => setAttempt(value => value + 1));
   const [state, setState] = useState<State>({ period: 'week', date: hotelDate(), page: 1 });
   useEffect(() => {
     const controller = new AbortController();

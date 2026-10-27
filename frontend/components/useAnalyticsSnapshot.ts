@@ -1,9 +1,16 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
-export function useAnalyticsSnapshot<T>(url: string, schema: z.ZodType<T>, enabled = true) {
+import { useRealtimeRefresh } from './useRealtimeRefresh';
+export function useAnalyticsSnapshot<T>(
+  url: string,
+  schema: z.ZodType<T>,
+  enabled = true,
+  live?: 'analytics' | 'food'
+) {
   const [state, setState] = useState<{ url: string; data?: T; error?: number }>({ url });
   const [attempt, setAttempt] = useState(0);
+  useRealtimeRefresh(enabled ? live : undefined, () => setAttempt(n => n + 1));
   useEffect(() => {
     if (!enabled) return;
     let active = true;

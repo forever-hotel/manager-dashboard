@@ -1,3 +1,4 @@
+import { sharedSocketFixture } from './shared-socket-fixture';
 import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -19,6 +20,7 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
   let admin: DataSource,
     database: DataSource,
     app: INestApplication<App>,
+    shared: INestApplication<App>,
     provider: Awaited<ReturnType<typeof seedLocalAuth>>;
   const suffix = randomUUID().replaceAll('-', '').slice(0, 12),
     name = 'ddp_notifications_test_' + suffix,
@@ -88,6 +90,7 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
     app = module.createNestApplication();
     configureHttp(app);
     await app.listen(0, '127.0.0.1');
+    shared = await sharedSocketFixture(app);
   }, 60000);
   beforeEach(async () => {
     await database.query('TRUNCATE mad_notification_reads,foss_complaints,mad_complaint_state,kms_menu_items');
@@ -100,6 +103,7 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
     ]);
   });
   afterAll(async () => {
+    await shared?.close();
     await app?.close();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
@@ -125,8 +129,8 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
       .post('/mad/realtime/ticket')
       .set('Authorization', 'Bearer ' + provider.issue('manager'))
       .expect(201);
-    const client = io(await app.getUrl(), {
-      path: '/mad/socket.io',
+    const client = io(await shared.getUrl(), {
+      path: '/socket.io',
       transports: ['websocket'],
       auth: { ticket: (response.body as { ticket: string }).ticket },
       extraHeaders: { Origin: 'http://localhost:3000' },

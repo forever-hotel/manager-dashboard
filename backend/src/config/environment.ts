@@ -20,6 +20,26 @@ export function validateEnvironment(env: Record<string, unknown>) {
       throw new Error('Configuration: RABBITMQ_URL must be an AMQP URL');
     }
   }
+  if (realtime === 'true') {
+    const key = env.MAD_WEBSOCKET_RELAY_KEY;
+    if (typeof key !== 'string' || key.length < 32)
+      throw new Error('Configuration: MAD_WEBSOCKET_RELAY_KEY must contain at least 32 characters');
+    try {
+      if (typeof env.SHARED_WEBSOCKET_URL !== 'string') throw new Error();
+      const url = new URL(env.SHARED_WEBSOCKET_URL);
+      if (
+        !['http:', 'https:'].includes(url.protocol) ||
+        url.username ||
+        url.password ||
+        url.pathname !== '/' ||
+        url.hash ||
+        url.search
+      )
+        throw new Error();
+    } catch {
+      throw new Error('Configuration: SHARED_WEBSOCKET_URL must be an HTTP(S) origin');
+    }
+  }
   validateStaffConfig(env);
   env.LOW_BOOKING_THRESHOLD = lowBookingThreshold(env.LOW_BOOKING_THRESHOLD);
   if (!env.DATABASE_URL) {
