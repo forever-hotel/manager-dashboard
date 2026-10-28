@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, ValidateIf, Equals, IsIn, IsInt, IsString, Length, Matches, Max, Min } from 'class-validator';
+import { IsEmail, ValidateIf, IsBoolean, IsIn, IsInt, IsString, Length, Matches, Max, Min } from 'class-validator';
 
 import { STAFF_ROLES } from './create-staff.dto';
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
@@ -11,8 +11,8 @@ export class UpdateStaffDto {
   version!: number;
 
   @ValidateIf((_object, value: unknown) => value !== undefined)
-  @Equals(false)
-  isActive?: false;
+  @IsBoolean()
+  isActive?: boolean;
   @Transform(trim)
   @IsString()
   @Length(1, 255)

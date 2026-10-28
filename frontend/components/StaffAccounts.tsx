@@ -35,17 +35,20 @@ export default function StaffAccounts() {
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<{
     staff: Staff;
-    action: 'deactivate';
+    action: 'activate' | 'deactivate' | 'delete';
   } | null>(null);
   const [refresh, setRefresh] = useState(0);
   const lock = useRef(false);
   const nameRef = useRef<HTMLInputElement>(null);
-  const confirmationRef = useRef<HTMLElement>(null);
+  const confirmationRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (!confirm) return;
     const previous = document.activeElement;
-    confirmationRef.current?.focus();
+    const dialog = confirmationRef.current;
+    dialog?.showModal();
+    dialog?.focus();
     return () => {
+      dialog?.close();
       if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
     };
   }, [confirm]);
@@ -119,7 +122,8 @@ export default function StaffAccounts() {
         nic: current.nic ?? '',
         age: current.age === null ? '' : String(current.age)
       });
-      nameRef.current?.focus();
+      nameRef.current?.focus({ preventScroll: true });
+      nameRef.current?.closest('section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (error) {
       setMessage(
         error instanceof Error && Object.values(messages).includes(error.message) ? error.message : messages[503]
@@ -135,7 +139,12 @@ export default function StaffAccounts() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    if (!response.ok) throw new Error(messages[response.status] ?? messages[503]);
+    if (!response.ok)
+      throw new Error(
+        method === 'DELETE' && response.status === 409
+          ? 'This account has linked history or changed since loading. Reload it; if linked, deactivate it instead.'
+          : (messages[response.status] ?? messages[503])
+      );
   }
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -180,11 +189,18 @@ export default function StaffAccounts() {
     setBusy(true);
     setMessage('');
     try {
-      await mutate('/' + confirm.staff.staffId, 'PATCH', {
+      await mutate('/' + confirm.staff.staffId, confirm.action === 'delete' ? 'DELETE' : 'PATCH', {
         version: confirm.staff.version,
-        isActive: false
+        ...(confirm.action !== 'delete' ? { isActive: confirm.action === 'activate' } : {})
       });
-      setSuccess('Staff account deactivated.');
+      setSuccess(
+        confirm.action === 'delete'
+          ? 'Staff account deleted.'
+          : confirm.action === 'activate'
+            ? 'Staff account activated.'
+            : 'Staff account deactivated.'
+      );
+      if (editing?.staffId === confirm.staff.staffId) clear();
       setConfirm(null);
       reload();
     } catch (error) {
@@ -229,7 +245,7 @@ export default function StaffAccounts() {
       </div>
 
       {message && (
-        <p role="alert" className="font-normal text-[13px] text-ink mb-4">
+        <p role="alert" className="font-normal text-[13px] text-danger mb-4">
           {message}
         </p>
       )}
@@ -335,11 +351,15 @@ export default function StaffAccounts() {
         </form>
       </section>
       {confirm && (
-        <section
+        <dialog
           ref={confirmationRef}
           tabIndex={-1}
           role="alertdialog"
-          aria-modal="false"
+          aria-modal="true"
+          onCancel={event => {
+            if (busy) event.preventDefault();
+            else setConfirm(null);
+          }}
           aria-labelledby="staff-confirm-title"
           aria-describedby="staff-confirm-description"
           onKeyDown={event => {
@@ -348,21 +368,33 @@ export default function StaffAccounts() {
               setConfirm(null);
             }
           }}
-          className="border border-border rounded-lg p-5 mb-4 bg-surface"
+          className="success-dialog"
         >
           <h2 id="staff-confirm-title" className="font-medium text-base text-ink">
-            Deactivate account for {confirm.staff.name}?
+            {confirm.action === 'delete' ? 'Delete' : confirm.action === 'activate' ? 'Activate' : 'Deactivate'} account
+            for {confirm.staff.name}?
           </h2>
           <p id="staff-confirm-description" className="font-normal text-[13px] my-3">
-            This blocks access and invalidates existing sessions.
+            {confirm.action === 'delete'
+              ? 'This permanently deletes an unused account. Accounts with linked history cannot be deleted; deactivate them instead.'
+              : confirm.action === 'activate'
+                ? 'This restores access using the existing password. Previous sessions remain invalid.'
+                : 'This blocks access and invalidates existing sessions.'}
           </p>
           <button
             type="button"
             disabled={busy}
             onClick={() => void action()}
-            className="font-normal text-[13px] bg-brand-light rounded-md px-4 py-2 button button-danger"
+            className={
+              'font-normal text-[13px] rounded-md px-4 py-2 button ' +
+              (confirm.action === 'activate' ? 'button-primary' : 'button-danger')
+            }
           >
-            Confirm deactivation
+            {confirm.action === 'delete'
+              ? 'Confirm deletion'
+              : confirm.action === 'activate'
+                ? 'Confirm activation'
+                : 'Confirm deactivation'}
           </button>{' '}
           <button
             type="button"
@@ -372,7 +404,7 @@ export default function StaffAccounts() {
           >
             Keep account unchanged
           </button>
-        </section>
+        </dialog>
       )}
       <section className="register-section staff-register">
         <div className="staff-register-heading">
@@ -442,7 +474,7 @@ export default function StaffAccounts() {
                       <button type="button" onClick={() => void select(s)}>
                         Edit
                       </button>
-                      {s.isActive && (
+                      {s.isActive ? (
                         <button
                           type="button"
                           className="text-danger"
@@ -450,7 +482,18 @@ export default function StaffAccounts() {
                         >
                           Deactivate
                         </button>
+                      ) : (
+                        <button type="button" onClick={() => setConfirm({ staff: s, action: 'activate' })}>
+                          Activate
+                        </button>
                       )}
+                      <button
+                        type="button"
+                        className="text-danger"
+                        onClick={() => setConfirm({ staff: s, action: 'delete' })}
+                      >
+                        Delete account
+                      </button>
                     </RowActions>
                   </td>
                 </tr>

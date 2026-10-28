@@ -77,6 +77,9 @@ export default function RowActions({
             aria-label={label}
             className="row-actions-popup"
             style={position}
+            onClickCapture={event => {
+              if ((event.target as HTMLElement).closest('button')) trigger.current?.focus();
+            }}
             onClick={event => {
               if ((event.target as HTMLElement).closest('button')) setPosition(undefined);
             }}

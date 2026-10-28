@@ -19,3 +19,7 @@ export class StaffDetailQueryDto {}
 export class StaffResetDto {
   @IsOptional() @IsInt() @Min(0) @Max(2147483646) version?: number;
 }
+
+export class StaffDeleteDto {
+  @IsInt() @Min(0) @Max(2147483646) version!: number;
+}

@@ -119,6 +119,47 @@ export class StaffProfilesService {
       this.fail(error);
     }
   }
+  async remove(staffId: string, actorId: string, version: number) {
+    try {
+      await this.database.transaction(async manager => {
+        const [row] = await manager.query<StaffProfile[]>(
+          `SELECT ${columns} FROM public.staff_users WHERE worker_id=$1 FOR UPDATE`,
+          [staffId]
+        );
+        const current = this.requireStaff(row);
+        if (staffId === actorId) throw new BadRequestException('You cannot delete your own account.');
+        if (current.version !== version)
+          throw new ConflictException('The staff account changed. Reload it before deleting.');
+        // Check every incoming foreign key, including cascading and SET NULL links,
+        // so deletion cannot silently erase or detach operational history.
+        const checks = await manager.query<{ statement: string }[]>(`
+          SELECT format('SELECT EXISTS (SELECT 1 FROM %s WHERE %I=$1) AS linked',
+            c.conrelid::regclass, a.attname) AS statement
+          FROM pg_constraint c
+          JOIN unnest(c.conkey) WITH ORDINALITY k(attnum,ord) ON true
+          JOIN unnest(c.confkey) WITH ORDINALITY f(attnum,ord) ON f.ord=k.ord
+          JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.attnum
+          JOIN pg_attribute target ON target.attrelid=c.confrelid AND target.attnum=f.attnum
+          WHERE c.contype='f' AND c.confrelid='public.staff_users'::regclass
+            AND target.attname='worker_id'
+            AND c.conrelid <> 'public.mad_staff_deliveries'::regclass
+        `);
+        for (const check of checks) {
+          const [result] = await manager.query<{ linked: boolean }[]>(check.statement, [staffId]);
+          if (result.linked) throw new ConflictException('This account has linked history. Deactivate it instead.');
+        }
+        await manager.query('DELETE FROM public.mad_staff_deliveries WHERE worker_id=$1', [staffId]);
+        await manager.query('DELETE FROM public.staff_users WHERE worker_id=$1', [staffId]);
+      });
+      this.logger.log({ event: 'staff.account_deleted', actorId, staffId, outcome: 'deleted' });
+      return { deleted: true };
+    } catch (error: unknown) {
+      const storage = error as { code?: string; driverError?: { code?: string } };
+      if (storage?.code === '23503' || storage?.driverError?.code === '23503')
+        throw new ConflictException('This account has linked history. Deactivate it instead.');
+      this.fail(error);
+    }
+  }
   private async reconcileDelivery(manager: EntityManager, before: StaffProfile, after: StaffProfile) {
     const rows = await manager.query<
       {

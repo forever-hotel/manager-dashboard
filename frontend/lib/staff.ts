@@ -35,7 +35,7 @@ export const staffPatch = staffInput
   .partial()
   .extend({
     version: z.number().int().min(0).max(2147483646),
-    isActive: z.literal(false).optional()
+    isActive: z.boolean().optional()
   })
   .strict()
   .refine(v => Object.keys(v).length > 1);

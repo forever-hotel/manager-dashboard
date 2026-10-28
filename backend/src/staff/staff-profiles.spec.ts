@@ -49,12 +49,15 @@ describe('DDP-014 profile validation', () => {
     expect(await validate(dto)).toEqual([]);
     expect(dto.email).toBe(profile.email);
   });
+  it('accepts explicit boolean activation', async () => {
+    expect(await validate(plainToInstance(UpdateStaffDto, { version: 0, isActive: true }))).toEqual([]);
+  });
   it.each([
     { version: null },
     { version: 0, name: null },
     { version: 0, age: '25' },
     { version: 0, role: 'MANAGER' },
-    { version: 0, isActive: true },
+    { version: 0, isActive: 'true' },
     { version: 0, isActive: null },
     { version: 0, phone: 'bad' },
     { version: 0, nic: 'bad' },
@@ -96,6 +99,14 @@ describe('DDP-014 profile service', () => {
       outcome: 'saved'
     });
     expect(JSON.stringify(log.mock.calls)).not.toContain(after.name);
+  });
+  it('reactivates an account with a new session version without replacing its password', async () => {
+    const after = { ...profile, isActive: true, version: 1 };
+    const { service, query } = setup([{ ...profile, isActive: false }], after);
+    await expect(service.update(profile.staffId, 'manager-id', { version: 0, isActive: true })).resolves.toEqual(after);
+    const [sql, values] = query.mock.calls[1];
+    expect(sql).not.toContain('password_hash');
+    expect(values?.slice(-2)).toEqual([true, 1]);
   });
   it.each([{ rows: [] }, { rows: [{ ...profile, role: 'MANAGER' }] }])(
     'rejects unknown or manager targets for reads and edits',
@@ -225,5 +236,38 @@ describe('DDP-014 profile service', () => {
         name: 'New'
       })
     ).rejects.toMatchObject({ status: 503 });
+  });
+});
+
+describe('Staff account deletion', () => {
+  function deletion(linked = false) {
+    const query = jest.fn().mockResolvedValue([]);
+    query
+      .mockResolvedValueOnce([profile])
+      .mockResolvedValueOnce([{ statement: 'SELECT EXISTS (SELECT 1 FROM tasks WHERE worker_id=$1) AS linked' }])
+      .mockResolvedValueOnce([{ linked }]);
+    const transaction = jest.fn(async (work: (manager: { query: typeof query }) => Promise<unknown>) =>
+      work({ query })
+    );
+    return { query, service: new StaffProfilesService({ transaction } as unknown as DataSource, cipher) };
+  }
+  it('checks history before deleting credentials and the account', async () => {
+    const { query, service } = deletion();
+    await expect(service.remove(profile.staffId, 'manager-id', 0)).resolves.toEqual({ deleted: true });
+    expect(query).toHaveBeenCalledWith('DELETE FROM public.mad_staff_deliveries WHERE worker_id=$1', [profile.staffId]);
+    expect(query).toHaveBeenCalledWith('DELETE FROM public.staff_users WHERE worker_id=$1', [profile.staffId]);
+  });
+  it('blocks deletion when history references the staff account', async () => {
+    const { query, service } = deletion(true);
+    await expect(service.remove(profile.staffId, 'manager-id', 0)).rejects.toThrow('linked history');
+    expect(query.mock.calls.some(([sql]) => String(sql).startsWith('DELETE'))).toBe(false);
+  });
+  it.each([
+    [profile.staffId, 0],
+    ['manager-id', 1]
+  ])('blocks self deletion and stale versions', async (actor, version) => {
+    const { query, service } = deletion();
+    await expect(service.remove(profile.staffId, actor, version)).rejects.toThrow();
+    expect(query.mock.calls.some(([sql]) => String(sql).startsWith('DELETE'))).toBe(false);
   });
 });

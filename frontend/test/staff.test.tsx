@@ -9,6 +9,7 @@ beforeEach(() => {
       new Response(JSON.stringify(options?.method ? {} : url.includes('?') ? staffPageFixture() : staffFixture()))
   );
   vi.stubGlobal('fetch', fetchMock);
+  Element.prototype.scrollIntoView = vi.fn();
   vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function (this: HTMLDialogElement) {
     this.setAttribute('open', '');
   });
@@ -79,7 +80,7 @@ describe('DDP-029 staff management', () => {
       version: 0
     });
   });
-  it.each(['Deactivate'])('AC2: requires confirmation for %s', async name => {
+  it.each(['Deactivate', 'Delete account'])('AC2: requires confirmation for %s', async name => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
     fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
@@ -88,12 +89,15 @@ describe('DDP-029 staff management', () => {
     expect(fetchMock.mock.calls.some(([, o]) => o?.method)).toBe(false);
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Confirm deactivation'
+        name: name === 'Delete account' ? 'Confirm deletion' : 'Confirm deactivation'
       })
     );
     await waitFor(() => expect(fetchMock.mock.calls.some(([, o]) => o?.method)).toBe(true));
     const call = fetchMock.mock.calls.find(([, o]) => o?.method);
-    expect(JSON.parse(call![1]!.body as string)).toEqual({ version: 0, isActive: false });
+    expect(call![1]!.method).toBe(name === 'Delete account' ? 'DELETE' : 'PATCH');
+    expect(JSON.parse(call![1]!.body as string)).toEqual(
+      name === 'Delete account' ? { version: 0 } : { version: 0, isActive: false }
+    );
   });
   it('DDP-048: focuses confirmation and returns focus to its opener on Escape', async () => {
     render(<StaffAccounts />);
@@ -107,7 +111,7 @@ describe('DDP-029 staff management', () => {
     expect(confirmation).toHaveAccessibleDescription(/invalidates existing sessions/);
     fireEvent.keyDown(confirmation, { key: 'Escape' });
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Actions for Test Worker' })).toHaveFocus();
     expect(fetchMock.mock.calls.some(([, options]) => options?.method)).toBe(false);
   });
   it('AC3: retains form input on conflicts and supports deliberate version reload', async () => {
@@ -147,6 +151,16 @@ describe('DDP-029 staff management', () => {
     expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
     expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Activate' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm activation' }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/staff/' + staffFixture().staffId,
+        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ version: 0, isActive: true }) })
+      )
+    );
+    await screen.findByText('Staff account activated.');
   });
   it('reports service failures and allows directory retry', async () => {
     fetchMock.mockResolvedValueOnce(new Response('{}', { status: 503 }));

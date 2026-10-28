@@ -27,7 +27,7 @@ async function handle(request: NextRequest, context: Context) {
   if (!(
     (method === 'GET' && (path.length === 0 || detail)) ||
     (method === 'POST' && (path.length === 0 || reset)) ||
-    (method === 'PATCH' && detail)
+    ((method === 'PATCH' || method === 'DELETE') && detail)
   ))
     return reply({ code: 'NOT_FOUND' }, 404);
   let query = '',
@@ -49,7 +49,15 @@ async function handle(request: NextRequest, context: Context) {
     try {
       const raw = await request.text();
       if (raw.length > 16384) return reply({ code: 'PAYLOAD_TOO_LARGE' }, 413);
-      const parsed = (reset ? staffReset : method === 'PATCH' ? staffPatch : staffInput).safeParse(JSON.parse(raw));
+      const parsed = (
+        method === 'DELETE'
+          ? z.object({ version: z.number().int().min(0).max(2147483646) }).strict()
+          : reset
+            ? staffReset
+            : method === 'PATCH'
+              ? staffPatch
+              : staffInput
+      ).safeParse(JSON.parse(raw));
       if (!parsed.success) return reply({ code: 'VALIDATION_ERROR' }, 400);
       body = parsed.data;
     } catch {
@@ -77,7 +85,15 @@ async function handle(request: NextRequest, context: Context) {
     );
   }
   const schema =
-    method === 'POST' ? staffReceipt : method === 'PATCH' ? staffProfile : detail ? staffDetail : staffPage;
+    method === 'DELETE'
+      ? z.object({ deleted: z.literal(true) }).strict()
+      : method === 'POST'
+        ? staffReceipt
+        : method === 'PATCH'
+          ? staffProfile
+          : detail
+            ? staffDetail
+            : staffPage;
   const parsed = schema.safeParse(result.data);
   if (method === 'GET' && parsed.success) {
     if (detail && 'staffId' in parsed.data && parsed.data.staffId.toLowerCase() !== path[0].toLowerCase())
@@ -101,3 +117,5 @@ async function handle(request: NextRequest, context: Context) {
 export const GET = handle;
 export const POST = handle;
 export const PATCH = handle;
+
+export const DELETE = handle;

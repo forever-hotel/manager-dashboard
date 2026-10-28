@@ -1,7 +1,8 @@
 import { StaffDirectoryService } from './staff-directory.service';
-import { StaffDetailQueryDto, StaffDirectoryDto, StaffResetDto } from './staff-directory.dto';
+import { StaffDeleteDto, StaffDetailQueryDto, StaffDirectoryDto, StaffResetDto } from './staff-directory.dto';
 import {
   Body,
+  Delete,
   Query,
   Get,
   Patch,
@@ -44,6 +45,14 @@ export class StaffController {
     @Req() request: AuthenticatedRequest
   ) {
     return this.profiles.update(id, request.user.sub, patch);
+  }
+  @Delete(':id')
+  remove(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: StaffDeleteDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.profiles.remove(id, request.user.sub, body.version);
   }
   @Post(':id/reset-password')
   @HttpCode(200)

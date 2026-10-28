@@ -730,13 +730,6 @@
   border-radius: 10px;
   background: white;
 }
-.staff-create-form label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
 .staff-create-form input,
 .staff-create-form select {
   height: 40px;
