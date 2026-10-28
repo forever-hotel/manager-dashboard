@@ -1,3 +1,4 @@
+import { PromotionListDto } from './promotion.dto';
 import {
   Body,
   Controller,
@@ -22,7 +23,7 @@ export class PromotionsController {
   @Post() create(@Body() input: NewPromotionDto) {
     return this.promotions.create(input);
   }
-  @Get() list(@Query() query: PromotionPageDto) {
+  @Get() list(@Query() query: PromotionListDto) {
     return this.promotions.list(query);
   }
   @Get('room-types') roomTypes(@Query() query: PromotionPageDto) {

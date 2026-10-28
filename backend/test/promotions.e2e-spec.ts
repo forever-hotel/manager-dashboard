@@ -363,6 +363,36 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         await get(path + '?' + query).expect(400);
     }
   });
+  it('filters lifecycle views before pagination and hides promotions at their exclusive expiry', async () => {
+    await post().expect(201);
+    await post({ ...payload, code: 'INACTIVE', status: 'INACTIVE' }).expect(201);
+    await post({ ...payload, code: 'FUTURE', validFrom: '2026-10-20T00:00:00+05:30' }).expect(201);
+    await post({ ...payload, code: 'EXPIRED' }).expect(201);
+    await post({ ...payload, code: 'EXHAUSTED' }).expect(201);
+    await database.query(
+      "UPDATE mad_promotion_codes SET valid_until='2026-10-16T00:00:00Z' WHERE code_string='EXPIRED'"
+    );
+    await database.query(
+      "UPDATE mad_promotion_codes SET current_redemptions=max_redemptions WHERE code_string='EXHAUSTED'"
+    );
+    expect((await get('/mad/promotions?view=active&pageSize=1').expect(200)).body as unknown).toMatchObject({
+      total: 1,
+      items: [{ code: 'AUTUMN_26', lifecycleState: 'ACTIVE' }]
+    });
+    expect((await get('/mad/promotions?view=inactive').expect(200)).body as unknown).toMatchObject({
+      total: 1,
+      items: [{ code: 'INACTIVE', status: 'INACTIVE' }]
+    });
+    expect((await get('/mad/promotions?view=scheduled').expect(200)).body as unknown).toMatchObject({
+      total: 1,
+      items: [{ code: 'FUTURE', lifecycleState: 'SCHEDULED' }]
+    });
+    expect((await get('/mad/promotions?view=active&page=2&pageSize=1').expect(200)).body as unknown).toMatchObject({
+      total: 1,
+      items: []
+    });
+    await get('/mad/promotions?view=invalid').expect(400);
+  });
   it('TC-DDP-018-AUTH: every endpoint rejects absent/invalid sessions and disallowed roles without writes', async () => {
     for (const endpoint of ['/mad/promotions', '/mad/promotions/room-types', '/mad/promotions/' + randomUUID()]) {
       for (const [token, status] of [

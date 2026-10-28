@@ -79,6 +79,12 @@ export class PromotionVersionDto {
   version!: number;
 }
 
+export class PromotionListDto extends PromotionPageDto {
+  @IsOptional()
+  @IsIn(['active', 'inactive', 'scheduled'])
+  view?: 'active' | 'inactive' | 'scheduled';
+}
+
 // PUT replaces editable fields; redemption counts and status are never client-writable.
 export class EditPromotionDto extends CreatePromotionDto {
   @IsInt()

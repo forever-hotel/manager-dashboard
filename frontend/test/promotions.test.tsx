@@ -24,7 +24,7 @@ function setup(items = [promotion()]) {
   return fetcher;
 }
 async function ready() {
-  await screen.findByRole('button', { name: 'Edit' });
+  await screen.findByRole('button', { name: 'Actions for OFFER26' });
 }
 function fill() {
   for (const [label, value] of [
@@ -35,11 +35,9 @@ function fill() {
     ['Max redemptions', '100']
   ])
     fireEvent.change(screen.getByLabelText(label), { target: { value } });
-  const option = screen.getByRole('option', {
-    name: 'Suite'
-  }) as HTMLOptionElement;
-  option.selected = true;
-  fireEvent.change(screen.getByLabelText('Applicable room types'));
+  fireEvent.click(screen.getByLabelText('Applicable room types'));
+  fireEvent.click(screen.getByRole('checkbox', { name: /Suite/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Done' }));
 }
 const mutations = (fetcher: ReturnType<typeof setup>) =>
   fetcher.mock.calls.filter(([, init]) => init?.method !== 'GET');
@@ -103,7 +101,8 @@ describe('DDP-020 promotion management', () => {
     const fetcher = setup();
     render(<PromotionsDashboard />);
     await ready();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for OFFER26' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit promotion' }));
     await screen.findByRole('button', { name: 'Save changes' });
     fireEvent.change(screen.getByLabelText('Promo code'), {
       target: { value: 'MYEDIT' }
@@ -131,13 +130,16 @@ describe('DDP-020 promotion management', () => {
       const fetcher = setup([promotion({ status: action === 'Activate' ? 'INACTIVE' : 'ACTIVE' })]);
       render(<PromotionsDashboard />);
       await ready();
-      fireEvent.click(screen.getByRole('button', { name: action }));
+      fireEvent.click(screen.getByRole('button', { name: 'Actions for OFFER26' }));
+      fireEvent.click(screen.getByRole('button', { name: action + ' promotion' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm ' + action.toLowerCase() }));
       await screen.findByText(/Saved OFFER26:/);
       const [url, init] = mutations(fetcher)[0];
       expect(url).toBe('/api/promotions/' + promotion().id + (action === 'Delete' ? '' : '/' + action.toLowerCase()));
       expect(init?.method).toBe(action === 'Delete' ? 'DELETE' : 'POST');
       expect(JSON.parse(String(init?.body))).toEqual({ version: 0 });
-      expect(window.confirm).toHaveBeenCalledTimes(action === 'Activate' ? 0 : 1);
+      expect(window.confirm).not.toHaveBeenCalled();
+      expect(screen.queryByRole('region', { name: 'Actions for OFFER26' })).not.toBeInTheDocument();
     }
   );
   it('cancelling deletion leaves records and history untouched', async () => {
@@ -145,9 +147,23 @@ describe('DDP-020 promotion management', () => {
     vi.mocked(window.confirm).mockReturnValue(false);
     render(<PromotionsDashboard />);
     await ready();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for OFFER26' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete promotion' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel action' }));
     expect(mutations(fetcher)).toHaveLength(0);
     expect(screen.getByText('OFFER26')).toBeVisible();
+  });
+  it('defaults to active and switches to inactive for reactivation without browser dialogs', async () => {
+    const fetcher = setup();
+    render(<PromotionsDashboard />);
+    await ready();
+    expect(fetcher).toHaveBeenCalledWith('/api/promotions?page=1&pageSize=20&view=active', expect.anything());
+    expect(screen.queryByText('Promotion validation and units')).not.toBeInTheDocument();
+    expect(screen.queryByText('Refresh promotions')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Show promotions'), { target: { value: 'inactive' } });
+    await waitFor(() =>
+      expect(fetcher).toHaveBeenCalledWith('/api/promotions?page=1&pageSize=20&view=inactive', expect.anything())
+    );
   });
   it.each(['PENDING', 'FAILED', 'NO_PENDING_WORK'] as const)(
     'TC-MAD-020-AC3: %s never claims website availability',
@@ -175,8 +191,8 @@ describe('DDP-020 promotion management', () => {
     render(<PromotionsDashboard />);
     expect(screen.getByText('Loading promotions...')).toBeVisible();
     await screen.findByRole('alert');
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh promotions' }));
-    expect(await screen.findByText('No promotions yet.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry promotions' }));
+    expect(await screen.findByText('No unexpired promotions in this view.')).toBeVisible();
   });
   it('displays exact fixed amounts, redemptions and room names', async () => {
     setup([promotion({ discountType: 'FIXED_AMOUNT', discountValue: 12345 })]);
@@ -193,7 +209,9 @@ describe('DDP-020 promotion management', () => {
     render(<PromotionsDashboard />);
     await ready();
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    await waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/promotions?page=2&pageSize=20', expect.anything()));
+    await waitFor(() =>
+      expect(fetcher).toHaveBeenCalledWith('/api/promotions?page=2&pageSize=20&view=active', expect.anything())
+    );
     await ready();
     fill();
     let finish!: (response: Response) => void;

@@ -1,3 +1,4 @@
+import { PromotionListDto } from './promotion.dto';
 import {
   BadRequestException,
   ConflictException,
@@ -253,17 +254,31 @@ export class PromotionsService {
     });
   }
 
-  async list(query: PromotionPageDto) {
+  async list(query: PromotionListDto) {
     return this.guarded(() =>
       this.database.transaction('REPEATABLE READ', async manager => {
+        const now = this.now();
+        const values: unknown[] = [];
+        let where = ' WHERE p.deleted_at IS NULL';
+        if (query.view) {
+          values.push(now);
+          where += ' AND p.valid_until > $1';
+          if (query.view === 'inactive') where += " AND p.status='INACTIVE'";
+          else {
+            where += " AND p.status='ACTIVE' AND p.current_redemptions < p.max_redemptions";
+            where += query.view === 'active' ? ' AND p.valid_from <= $1' : ' AND p.valid_from > $1';
+          }
+        }
         const [count] = await manager.query<{ total: string }[]>(
-          'SELECT count(*) AS total FROM public.mad_promotion_codes WHERE deleted_at IS NULL'
+          'SELECT count(*) AS total FROM public.mad_promotion_codes p' + where,
+          values
         );
         const rows = await manager.query<PromotionRow[]>(
-          select + ' WHERE p.deleted_at IS NULL ORDER BY p.created_at DESC,p.promo_id DESC LIMIT $1 OFFSET $2',
-          [query.pageSize, (query.page - 1) * query.pageSize]
+          select +
+            where +
+            ` ORDER BY p.created_at DESC,p.promo_id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+          [...values, query.pageSize, (query.page - 1) * query.pageSize]
         );
-        const now = this.now();
         return {
           items: rows.map(row => promotionView(row, now)),
           total: Number(count.total),

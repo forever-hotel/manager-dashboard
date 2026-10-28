@@ -27,7 +27,16 @@ async function handle(request: NextRequest, context: Context) {
     body: unknown;
   if (method === 'GET') {
     const params = request.nextUrl.searchParams;
-    if ([...params.keys()].some(key => !list || !['page', 'pageSize'].includes(key) || params.getAll(key).length !== 1))
+    if (
+      [...params.keys()].some(
+        key =>
+          !list ||
+          !['page', 'pageSize', ...(path.length === 0 ? ['view'] : [])].includes(key) ||
+          params.getAll(key).length !== 1
+      )
+    )
+      return reply({ code: 'VALIDATION_ERROR' }, 400);
+    if (params.has('view') && !['active', 'inactive', 'scheduled'].includes(params.get('view')!))
       return reply({ code: 'VALIDATION_ERROR' }, 400);
     if (list) {
       for (const [key, max, fallback] of [

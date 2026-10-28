@@ -26,6 +26,13 @@ function req(method = 'GET', body?: unknown, headers: Record<string, string> = {
 }
 describe('DDP-020 protected promotion BFF', () => {
   beforeEach(() => vi.mocked(backend).mockReset());
+  it('forwards lifecycle views and rejects invalid or misplaced view filters', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: page([promotion()]) });
+    expect((await GET(req('GET', undefined, {}, '?view=active&page=1'), context())).status).toBe(200);
+    expect(backend).toHaveBeenCalledWith('/mad/promotions?view=active&page=1', 'GET', 'private', undefined);
+    expect((await GET(req('GET', undefined, {}, '?view=expired'), context())).status).toBe(400);
+    expect((await GET(req('GET', undefined, {}, '?view=active'), context(['room-types']))).status).toBe(400);
+  });
   it('lists promotions and strips unrecognized data', async () => {
     vi.mocked(backend).mockResolvedValue({
       status: 200,

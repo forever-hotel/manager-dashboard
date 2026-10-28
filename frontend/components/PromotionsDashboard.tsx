@@ -1,4 +1,5 @@
 'use client';
+import RoomTypeSelect from './RoomTypeSelect';
 import HeaderNotifications from '@/components/HeaderNotifications';
 import { useEffect, useRef, useState } from 'react';
 import { statusColor } from '@/lib/status-color';
@@ -21,6 +22,15 @@ import {
 } from '@/lib/promotions';
 
 export default function PromotionsDashboard({ initialDate }: { initialDate?: string } = {}) {
+  const [view, setView] = useState<'active' | 'inactive' | 'scheduled'>('active');
+  const [selected, setSelected] = useState<Promotion>();
+  const [confirmAction, setConfirmAction] = useState<'activate' | 'deactivate' | 'delete'>();
+  const actionPanel = useRef<HTMLElement>(null);
+  const formPanel = useRef<HTMLFormElement>(null);
+  const roomCache = useRef<RoomType[] | undefined>(undefined);
+  useEffect(() => {
+    if (selected) actionPanel.current?.focus();
+  }, [selected, confirmAction]);
   const [promos, setPromos] = useState<Promotion[]>([]);
   const [rooms, setRooms] = useState<RoomType[]>([]);
   const [form, setForm] = useState<PromotionForm>(() => ({
@@ -28,6 +38,9 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
     ...promotionDates(initialDate)
   }));
   const [editing, setEditing] = useState<Promotion>();
+  useEffect(() => {
+    if (editing) formPanel.current?.focus();
+  }, [editing]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -50,13 +63,14 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
       try {
         const [result, options] = await Promise.all([
           promotionRequest(
-            `?page=${page}&pageSize=20`,
+            `?page=${page}&pageSize=20&view=${view}`,
             pageSchema(promotionSchema),
             'GET',
             undefined,
             controller.signal
           ),
           (async () => {
+            if (roomCache.current) return roomCache.current;
             const values: RoomType[] = [];
             let current = 1;
             while (true) {
@@ -68,13 +82,17 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                 controller.signal
               );
               values.push(...part.items);
-              if (values.length >= part.total) return values;
+              if (values.length >= part.total) {
+                roomCache.current = values;
+                return values;
+              }
               if (!part.items.length) throw new Error('Incomplete room types');
               current++;
             }
           })()
         ]);
         if (active) {
+          setError('');
           setPromos(result.items);
           setTotal(result.total);
           setRooms(options);
@@ -96,7 +114,11 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
       active = false;
       controller.abort();
     };
-  }, [page, refresh]);
+  }, [page, refresh, view]);
+  useEffect(() => {
+    const timer = setInterval(() => setRefresh(value => value + 1), 30000);
+    return () => clearInterval(timer);
+  }, []);
   function reload() {
     setLoading(true);
     setError('');
@@ -160,6 +182,8 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
       const latest = await promotionRequest('/' + p.id, promotionSchema);
       if (latest.deletedAt) throw new PromotionError(404);
       setEditing(latest);
+      setSelected(undefined);
+      setConfirmAction(undefined);
       setForm(formFrom(latest));
       setErrors({});
       setConflict(false);
@@ -167,8 +191,18 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
   }
   function recover() {
     if (!editing) {
-      setConflict(false);
-      reload();
+      if (selected)
+        void work(async () => {
+          const latest = await promotionRequest('/' + selected.id, promotionSchema);
+          setSelected(latest);
+          setConfirmAction(undefined);
+          setConflict(false);
+          reload();
+        });
+      else {
+        setConflict(false);
+        reload();
+      }
       return;
     }
     void work(async () => {
@@ -183,13 +217,6 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
     });
   }
   function action(p: Promotion, action: 'activate' | 'deactivate' | 'delete') {
-    if (
-      action !== 'activate' &&
-      !window.confirm(
-        `${action === 'delete' ? 'Delete' : 'Deactivate'} ${p.code}? ${action === 'delete' ? 'The code stays reserved and booking history is retained. This cannot be undone.' : 'This prevents future use after website synchronization.'}`
-      )
-    )
-      return;
     void work(async () => {
       const saved = await promotionRequest(
         '/' + p.id + (action === 'delete' ? '' : '/' + action),
@@ -197,6 +224,8 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
         action === 'delete' ? 'DELETE' : 'POST',
         { version: p.version }
       );
+      setSelected(undefined);
+      setConfirmAction(undefined);
       setNotice(`Saved ${saved.code}: ${saved.lifecycleState}. ${publicationLabel(saved.publicationStatus)}`);
       if (editing?.id === p.id) {
         setEditing(undefined);
@@ -218,36 +247,16 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
       <div className="page-topbar">
         <h1 className="font-medium text-[22px] text-brand">Promotions</h1>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-brand-light rounded-md p-1">
-            <button
-              disabled
-              title="All promotion validity periods are listed"
-              className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
-            >
-              Day
-            </button>
-            <button
-              disabled
-              title="All promotion validity periods are listed"
-              className="font-medium text-xs text-ink px-3 py-1 rounded bg-surface shadow-sm button button-secondary"
-            >
-              Week
-            </button>
-            <button
-              disabled
-              title="All promotion validity periods are listed"
-              className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
-            >
-              Month
-            </button>
-          </div>
           <HeaderNotifications />
         </div>
       </div>
 
       {error && (
         <p role="alert" className="font-normal text-[13px] text-danger mb-3">
-          {error}
+          {error}{' '}
+          <button type="button" className="button button-ghost" disabled={busy} onClick={reload}>
+            Retry promotions
+          </button>
         </p>
       )}
       {notice && (
@@ -270,6 +279,8 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
       <section className="mb-8">
         <h2 className="section-eyebrow">Promotion management</h2>
         <form
+          ref={formPanel}
+          tabIndex={-1}
           noValidate
           onSubmit={event => {
             event.preventDefault();
@@ -401,28 +412,14 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
             <label htmlFor="roomTypeIds" className="font-normal text-xs text-muted block mb-1">
               Applicable room types
             </label>
-            <select
-              multiple
-              id="roomTypeIds"
-              name="roomTypeIds"
-              aria-invalid={!!errors.roomTypeIds}
-              aria-describedby={errors.roomTypeIds ? 'roomTypeIds-error' : undefined}
-              disabled={busy}
-              className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
+            <RoomTypeSelect
+              rooms={rooms}
               value={form.roomTypeIds}
-              onChange={e =>
-                field(
-                  'roomTypeIds',
-                  Array.from(e.target.selectedOptions, o => o.value)
-                )
-              }
-            >
-              {rooms.map(room => (
-                <option key={room.id} value={room.id}>
-                  {room.name}
-                </option>
-              ))}
-            </select>
+              onChange={ids => field('roomTypeIds', ids)}
+              disabled={busy || !roomsReady}
+              invalid={!!errors.roomTypeIds}
+              describedBy={errors.roomTypeIds ? 'roomTypeIds-error' : undefined}
+            />
             {fieldError('roomTypeIds')}
           </div>
 
@@ -455,7 +452,37 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
 
       {/* Promotions table */}
       <section className="register-section mb-10">
-        <h2 className="mb-3 font-medium text-base text-ink">Promotions</h2>
+        <div className="panel-heading">
+          <h2>
+            {view === 'active'
+              ? 'Active promotions'
+              : view === 'inactive'
+                ? 'Inactive promotions'
+                : 'Scheduled promotions'}
+          </h2>
+          <label className="text-xs text-muted">
+            Show promotions
+            <select
+              aria-label="Show promotions"
+              className="button button-secondary"
+              value={view}
+              disabled={busy}
+              onChange={event => {
+                setView(event.target.value as typeof view);
+                setPage(1);
+                setSelected(undefined);
+                setConfirmAction(undefined);
+                setConflict(false);
+                setLoading(true);
+                setError('');
+              }}
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="scheduled">Scheduled</option>
+            </select>
+          </label>
+        </div>
         <div
           className="border border-border rounded-lg overflow-x-auto bg-surface"
           tabIndex={0}
@@ -484,66 +511,54 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
               {!loading && !promos.length && !error && (
                 <tr>
                   <td colSpan={7} className="text-xs text-ink px-3 py-3">
-                    No promotions yet.
+                    No unexpired promotions in this view.
                   </td>
                 </tr>
               )}
               {!loading &&
-                promos.map((p, i, arr) => (
-                  <tr key={p.code} className={i < arr.length - 1 ? 'border-b border-border' : ''}>
-                    <td className="text-xs text-ink px-3 py-3">{p.code}</td>
-                    <td className="text-xs text-ink px-3 py-3">
-                      {p.discountType === 'PERCENTAGE'
-                        ? `${p.discountValue}%`
-                        : `LKR ${(p.discountValue / 100).toFixed(2)}`}
-                    </td>
-                    <td className="text-xs text-ink px-3 py-3">
-                      {new Date(p.validUntil).toLocaleString('en-GB', {
-                        timeZone: 'Asia/Colombo'
-                      })}
-                    </td>
-                    <td className="text-xs text-ink px-3 py-3">
-                      {p.currentRedemptions} / {p.maxRedemptions}
-                    </td>
-                    <td className="text-xs text-ink px-3 py-3">
-                      {p.roomTypeIds.map(id => rooms.find(r => r.id === id)?.name ?? id).join(', ')}
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className={'status-badge ' + statusColor(p.lifecycleState)}>{p.lifecycleState}</span>
-                      <p className="font-normal text-xs text-muted mt-1">{publicationLabel(p.publicationStatus)}</p>
-                    </td>
-                    <td className="px-3 py-3">
-                      <button
-                        disabled={busy || conflict}
-                        onClick={() => edit(p)}
-                        className="font-normal text-xs text-ink underline button button-ghost"
-                      >
-                        Edit
-                      </button>
-                      {' / '}
-                      <button
-                        disabled={
-                          busy ||
-                          conflict ||
-                          (p.status === 'INACTIVE' &&
-                            (Date.parse(p.validUntil) <= Date.now() || p.currentRedemptions >= p.maxRedemptions))
-                        }
-                        onClick={() => action(p, p.status === 'ACTIVE' ? 'deactivate' : 'activate')}
-                        className={'button ' + (p.status === 'ACTIVE' ? 'button-danger' : 'button-success')}
-                      >
-                        {p.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-                      </button>
-                      {' / '}
-                      <button
-                        disabled={busy || conflict}
-                        onClick={() => action(p, 'delete')}
-                        className="font-normal text-xs text-ink underline button button-danger"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                promos
+                  .filter(p => !p.deletedAt && Date.parse(p.validUntil) > Date.now())
+                  .map((p, i, arr) => (
+                    <tr key={p.code} className={i < arr.length - 1 ? 'border-b border-border' : ''}>
+                      <td className="text-xs text-ink px-3 py-3">{p.code}</td>
+                      <td className="text-xs text-ink px-3 py-3">
+                        {p.discountType === 'PERCENTAGE'
+                          ? `${p.discountValue}%`
+                          : `LKR ${(p.discountValue / 100).toFixed(2)}`}
+                      </td>
+                      <td className="text-xs text-ink px-3 py-3">
+                        {new Date(p.validUntil).toLocaleString('en-GB', {
+                          timeZone: 'Asia/Colombo'
+                        })}
+                      </td>
+                      <td className="text-xs text-ink px-3 py-3">
+                        {p.currentRedemptions} / {p.maxRedemptions}
+                      </td>
+                      <td className="text-xs text-ink px-3 py-3">
+                        {p.roomTypeIds.map(id => rooms.find(r => r.id === id)?.name ?? id).join(', ')}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={'status-badge ' + statusColor(p.lifecycleState)}>{p.lifecycleState}</span>
+                        <p className="font-normal text-xs text-muted mt-1">{publicationLabel(p.publicationStatus)}</p>
+                      </td>
+                      <td className="px-3 py-3">
+                        <button
+                          type="button"
+                          className="button button-ghost promotion-kebab"
+                          disabled={busy || conflict}
+                          aria-label={'Actions for ' + p.code}
+                          aria-expanded={selected?.id === p.id}
+                          aria-controls="promotion-action-panel"
+                          onClick={() => {
+                            setSelected(selected?.id === p.id ? undefined : p);
+                            setConfirmAction(undefined);
+                          }}
+                        >
+                          <span aria-hidden="true">&#8942;</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
             </tbody>
           </table>
         </div>
@@ -573,24 +588,110 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
           </button>
         </div>
       </section>
-      <details className="advanced-controls">
-        <summary>Refresh promotions</summary>
-        <button
-          type="button"
-          disabled={busy || loading}
-          onClick={reload}
-          className="font-normal text-xs text-ink underline button button-ghost"
+      {selected && (
+        <section
+          id="promotion-action-panel"
+          ref={actionPanel}
+          tabIndex={-1}
+          className="data-panel promotion-action-panel"
+          aria-labelledby="promotion-action-heading"
         >
-          Refresh promotions
-        </button>
-      </details>
-      <details className="advanced-controls">
-        <summary>Promotion validation and units</summary>
-        <p className="font-normal text-xs text-muted mb-3">
-          Times use Asia/Colombo (+05:30), start inclusive and end exclusive. Fixed discounts use integer LKR cents (100
-          cents = LKR 1). Select one or more room types.
-        </p>
-      </details>
+          <div className="panel-heading">
+            <h2 id="promotion-action-heading">Actions for {selected.code}</h2>
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={busy}
+              onClick={() => {
+                setSelected(undefined);
+                setConfirmAction(undefined);
+              }}
+            >
+              Close actions
+            </button>
+          </div>
+          <div className="promotion-action-body">
+            {Date.parse(selected.validUntil) <= Date.now() || selected.deletedAt ? (
+              <p>This promotion has expired or been deleted. It cannot be activated.</p>
+            ) : confirmAction ? (
+              <>
+                <h3>
+                  {confirmAction === 'delete'
+                    ? 'Delete promotion?'
+                    : confirmAction === 'deactivate'
+                      ? 'Deactivate promotion?'
+                      : 'Activate promotion?'}
+                </h3>
+                <p>
+                  {confirmAction === 'delete'
+                    ? 'This permanently removes the promotion from use. Existing booking history is retained and the code cannot be reused.'
+                    : confirmAction === 'deactivate'
+                      ? 'This promotion will stop being available after the website receives the update. You can activate it again before it expires.'
+                      : 'This promotion will become available during its validity period after the website receives the update.'}
+                </p>
+                <div className="flex flex-wrap gap-3 mt-4">
+                  <button
+                    type="button"
+                    disabled={busy || conflict}
+                    className={'button ' + (confirmAction === 'delete' ? 'button-danger' : 'button-primary')}
+                    onClick={() => action(selected, confirmAction)}
+                  >
+                    {busy
+                      ? 'Saving...'
+                      : confirmAction === 'delete'
+                        ? 'Confirm delete'
+                        : confirmAction === 'deactivate'
+                          ? 'Confirm deactivate'
+                          : 'Confirm activate'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="button button-secondary"
+                    onClick={() => setConfirmAction(undefined)}
+                  >
+                    Cancel action
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p>Manage this promotion. Changes are sent to the website for synchronization.</p>
+                <div className="flex flex-wrap gap-3 mt-4">
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    disabled={busy || conflict}
+                    onClick={() => edit(selected)}
+                  >
+                    Edit promotion
+                  </button>
+                  <button
+                    type="button"
+                    className={'button ' + (selected.status === 'ACTIVE' ? 'button-secondary' : 'button-success')}
+                    disabled={
+                      busy ||
+                      conflict ||
+                      (selected.status === 'INACTIVE' && selected.currentRedemptions >= selected.maxRedemptions)
+                    }
+                    onClick={() => setConfirmAction(selected.status === 'ACTIVE' ? 'deactivate' : 'activate')}
+                  >
+                    {selected.status === 'ACTIVE' ? 'Deactivate promotion' : 'Activate promotion'}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-danger"
+                    disabled={busy || conflict}
+                    onClick={() => setConfirmAction('delete')}
+                  >
+                    Delete promotion
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

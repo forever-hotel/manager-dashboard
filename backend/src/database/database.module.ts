@@ -13,9 +13,11 @@ import { ConfigService } from '@nestjs/config';
         synchronize: false,
         logging: config.get<string>('DB_LOGGING') === 'true',
         // Allow transient hosted-database connection failures during startup.
-        retryAttempts: 6,
+        retryAttempts: 12,
         retryDelay: 3000,
-        extra: { connectionTimeoutMillis: 5000, statement_timeout: 5000 }
+        // Hosted DB connection/TLS setup can take longer than a local connection.
+        // Keep the SQL timeout separate so slow application queries stay bounded.
+        extra: { connectionTimeoutMillis: 15000, statement_timeout: 5000, keepAlive: true }
       })
     })
   ]

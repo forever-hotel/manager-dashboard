@@ -201,6 +201,20 @@ describe('DDP-018 service', () => {
       items: [expect.objectContaining({ id: roomId })]
     });
   });
+  it.each(['active', 'inactive', 'scheduled'] as const)(
+    'filters %s before pagination and excludes expired records',
+    async view => {
+      const { service, query } = setup();
+      query.mockResolvedValueOnce([{ total: '0' }]).mockResolvedValueOnce([]);
+      await service.list({ page: 2, pageSize: 20, view });
+      expect(query.mock.calls[0][0]).toContain('p.valid_until > $1');
+      expect(query.mock.calls[1][0]).toContain('p.valid_until > $1');
+      expect(query.mock.calls[1][1]).toEqual([now, 20, 20]);
+      expect(query.mock.calls[1][0]).toContain(view === 'inactive' ? "p.status='INACTIVE'" : "p.status='ACTIVE'");
+      if (view !== 'inactive')
+        expect(query.mock.calls[1][0]).toContain(view === 'active' ? 'p.valid_from <= $1' : 'p.valid_from > $1');
+    }
+  );
 });
 
 describe('DDP-019 versioned promotion lifecycle', () => {
