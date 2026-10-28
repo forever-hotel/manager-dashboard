@@ -52,6 +52,12 @@ describe('DDP-020 promotion management', () => {
     expect(mutations(fetcher)).toHaveLength(0);
   });
   beforeEach(() => {
+    vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    });
+    vi.spyOn(HTMLDialogElement.prototype, 'close').mockImplementation(function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+    });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-16T00:00:00Z'));
   });

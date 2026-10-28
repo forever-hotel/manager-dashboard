@@ -1,4 +1,5 @@
 'use client';
+import RowActions from '@/components/RowActions';
 import { PageHeader, SummaryCard } from './DashboardVisuals';
 import AnalyticsPeriodNavigation from './AnalyticsPeriodNavigation';
 import { hotelDate } from '@/lib/analytics-period';
@@ -349,15 +350,20 @@ export default function ComplaintsDashboard({
                       <span className={'status-badge ' + statusColor(row.status)}>{statusLabel[row.status]}</span>
                     </td>
                     <td className="px-3 py-3">
-                      <button
+                      <RowActions
+                        label={'Actions for complaint ' + row.id}
+                        triggerId={'complaint-open-' + row.id}
                         disabled={saving}
-                        onClick={e => open(row, e.currentTarget)}
-                        id={`complaint-open-${row.id}`}
-                        aria-label={`View complaint ${row.id}`}
-                        className={'button ' + (row.status === 'RESOLVED' ? 'button-secondary' : 'button-primary')}
                       >
-                        {row.status === 'SUBMITTED' ? 'Review' : row.status === 'UNDER_REVIEW' ? 'Resolve' : 'View'}
-                      </button>
+                        <button
+                          disabled={saving}
+                          onClick={e => open(row, e.currentTarget)}
+                          aria-label={`View complaint ${row.id}`}
+                          className={'button ' + (row.status === 'RESOLVED' ? 'button-secondary' : 'button-primary')}
+                        >
+                          {row.status === 'SUBMITTED' ? 'Review' : row.status === 'UNDER_REVIEW' ? 'Resolve' : 'View'}
+                        </button>
+                      </RowActions>
                     </td>
                   </tr>
                 ))}

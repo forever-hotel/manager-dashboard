@@ -387,6 +387,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
       total: 1,
       items: [{ code: 'FUTURE', lifecycleState: 'SCHEDULED' }]
     });
+
     expect((await get('/mad/promotions?view=active&page=2&pageSize=1').expect(200)).body as unknown).toMatchObject({
       total: 1,
       items: []

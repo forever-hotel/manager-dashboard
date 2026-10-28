@@ -1,6 +1,8 @@
 'use client';
+import RowActions from '@/components/RowActions';
 import RoomTypeSelect from './RoomTypeSelect';
 import HeaderNotifications from '@/components/HeaderNotifications';
+import SuccessDialog from '@/components/SuccessDialog';
 import { useEffect, useRef, useState } from 'react';
 import { statusColor } from '@/lib/status-color';
 import { promotionDates } from '@/lib/low-demand';
@@ -259,11 +261,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
           </button>
         </p>
       )}
-      {notice && (
-        <p role="status" className="font-normal text-[13px] text-ink mb-3">
-          {notice}
-        </p>
-      )}
+      <SuccessDialog message={notice} onClose={() => setNotice('')} />
 
       {conflict && (
         <button
@@ -460,8 +458,8 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                 ? 'Inactive promotions'
                 : 'Scheduled promotions'}
           </h2>
-          <label className="text-xs text-muted">
-            Show promotions
+          <label className="promotion-view-filter text-xs text-muted">
+            <span>Show promotions</span>
             <select
               aria-label="Show promotions"
               className="button button-secondary"
@@ -542,20 +540,31 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                         <p className="font-normal text-xs text-muted mt-1">{publicationLabel(p.publicationStatus)}</p>
                       </td>
                       <td className="px-3 py-3">
-                        <button
-                          type="button"
-                          className="button button-ghost promotion-kebab"
-                          disabled={busy || conflict}
-                          aria-label={'Actions for ' + p.code}
-                          aria-expanded={selected?.id === p.id}
-                          aria-controls="promotion-action-panel"
-                          onClick={() => {
-                            setSelected(selected?.id === p.id ? undefined : p);
-                            setConfirmAction(undefined);
-                          }}
-                        >
-                          <span aria-hidden="true">&#8942;</span>
-                        </button>
+                        <RowActions label={'Actions for ' + p.code} disabled={busy || conflict}>
+                          <button type="button" onClick={() => edit(p)}>
+                            Edit promotion
+                          </button>
+                          <button
+                            type="button"
+                            disabled={p.status === 'INACTIVE' && p.currentRedemptions >= p.maxRedemptions}
+                            onClick={() => {
+                              setSelected(p);
+                              setConfirmAction(p.status === 'ACTIVE' ? 'deactivate' : 'activate');
+                            }}
+                          >
+                            {p.status === 'ACTIVE' ? 'Deactivate promotion' : 'Activate promotion'}
+                          </button>
+                          <button
+                            type="button"
+                            className="text-danger"
+                            onClick={() => {
+                              setSelected(p);
+                              setConfirmAction('delete');
+                            }}
+                          >
+                            Delete promotion
+                          </button>
+                        </RowActions>
                       </td>
                     </tr>
                   ))}
@@ -588,7 +597,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
           </button>
         </div>
       </section>
-      {selected && (
+      {selected && confirmAction && (
         <section
           id="promotion-action-panel"
           ref={actionPanel}
@@ -654,41 +663,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                   </button>
                 </div>
               </>
-            ) : (
-              <>
-                <p>Manage this promotion. Changes are sent to the website for synchronization.</p>
-                <div className="flex flex-wrap gap-3 mt-4">
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    disabled={busy || conflict}
-                    onClick={() => edit(selected)}
-                  >
-                    Edit promotion
-                  </button>
-                  <button
-                    type="button"
-                    className={'button ' + (selected.status === 'ACTIVE' ? 'button-secondary' : 'button-success')}
-                    disabled={
-                      busy ||
-                      conflict ||
-                      (selected.status === 'INACTIVE' && selected.currentRedemptions >= selected.maxRedemptions)
-                    }
-                    onClick={() => setConfirmAction(selected.status === 'ACTIVE' ? 'deactivate' : 'activate')}
-                  >
-                    {selected.status === 'ACTIVE' ? 'Deactivate promotion' : 'Activate promotion'}
-                  </button>
-                  <button
-                    type="button"
-                    className="button button-danger"
-                    disabled={busy || conflict}
-                    onClick={() => setConfirmAction('delete')}
-                  >
-                    Delete promotion
-                  </button>
-                </div>
-              </>
-            )}
+            ) : null}
           </div>
         </section>
       )}

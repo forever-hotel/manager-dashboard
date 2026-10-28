@@ -9,10 +9,17 @@ beforeEach(() => {
       new Response(JSON.stringify(options?.method ? {} : url.includes('?') ? staffPageFixture() : staffFixture()))
   );
   vi.stubGlobal('fetch', fetchMock);
+  vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  });
+  vi.spyOn(HTMLDialogElement.prototype, 'close').mockImplementation(function (this: HTMLDialogElement) {
+    this.removeAttribute('open');
+  });
 });
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 function fill() {
@@ -31,10 +38,13 @@ function fill() {
     });
 }
 describe('DDP-029 staff management', () => {
-  it('AC1: supports all roles and required fields and displays queued delivery', async () => {
+  it('AC1: supports all roles and required fields and queues credential delivery', async () => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
-    expect(screen.getByText('Queued for delivery')).toBeVisible();
+    expect(screen.queryByText('Staff credential delivery status')).not.toBeInTheDocument();
+    expect(screen.queryByText('Staff filters and refresh')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '+ Add new' })).not.toBeInTheDocument();
+    for (const name of ['Day', 'Week', 'Month']) expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     for (const name of ['Receptionist', 'Worker', 'Kitchen Staff', 'Kitchen Manager'])
       expect(within(screen.getByLabelText('Role')).getByRole('option', { name })).toBeInTheDocument();
     fill();
@@ -55,6 +65,7 @@ describe('DDP-029 staff management', () => {
   it('AC2: edits fields and roles with the current version then refreshes', async () => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     await waitFor(() => expect(screen.getByLabelText('Full name')).toHaveValue('Test Worker'));
     fireEvent.change(screen.getByLabelText('Role'), {
@@ -68,27 +79,27 @@ describe('DDP-029 staff management', () => {
       version: 0
     });
   });
-  it.each(['Reset pwd', 'Deactivate'])('AC2: requires confirmation for %s', async name => {
+  it.each(['Deactivate'])('AC2: requires confirmation for %s', async name => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
     fireEvent.click(screen.getByRole('button', { name }));
     expect(screen.getByRole('alertdialog')).toBeVisible();
     expect(fetchMock.mock.calls.some(([, o]) => o?.method)).toBe(false);
     fireEvent.click(
       screen.getByRole('button', {
-        name: name === 'Reset pwd' ? 'Confirm reset' : 'Confirm deactivation'
+        name: 'Confirm deactivation'
       })
     );
     await waitFor(() => expect(fetchMock.mock.calls.some(([, o]) => o?.method)).toBe(true));
     const call = fetchMock.mock.calls.find(([, o]) => o?.method);
-    expect(JSON.parse(call![1]!.body as string)).toEqual(
-      name === 'Reset pwd' ? { version: 0 } : { version: 0, isActive: false }
-    );
+    expect(JSON.parse(call![1]!.body as string)).toEqual({ version: 0, isActive: false });
   });
   it('DDP-048: focuses confirmation and returns focus to its opener on Escape', async () => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
-    const trigger = screen.getByRole('button', { name: 'Reset pwd' });
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
+    const trigger = screen.getByRole('button', { name: 'Deactivate' });
     trigger.focus();
     fireEvent.click(trigger);
     const confirmation = screen.getByRole('alertdialog');
@@ -102,6 +113,7 @@ describe('DDP-029 staff management', () => {
   it('AC3: retains form input on conflicts and supports deliberate version reload', async () => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     await waitFor(() => expect(screen.getByLabelText('Full name')).toHaveValue('Test Worker'));
     fireEvent.change(screen.getByLabelText('Full name'), {
@@ -120,7 +132,7 @@ describe('DDP-029 staff management', () => {
     await screen.findByText(/Current version loaded/);
     expect(screen.getByLabelText('Full name')).toHaveValue('My draft');
   });
-  it('searches and filters the directory and leaves inactive accounts read-only for reset/deactivate', async () => {
+  it('lists inactive accounts without reset or deactivate actions', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -130,31 +142,20 @@ describe('DDP-029 staff management', () => {
       )
     );
     render(<StaffAccounts />);
-    await screen.findByText(/Delivery failed/);
+    await screen.findByText('Test Worker');
     expect(screen.queryByRole('button', { name: 'Reset pwd' })).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Search'), {
-      target: { value: 'Worker' }
-    });
-    fireEvent.change(screen.getByLabelText('Filter role'), {
-      target: { value: 'WORKER' }
-    });
-    fireEvent.change(screen.getByLabelText('Filter status'), {
-      target: { value: 'inactive' }
-    });
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/staff?page=1&pageSize=20&search=Worker&role=WORKER&status=inactive',
-        expect.any(Object)
-      )
-    );
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible();
   });
   it('reports service failures and allows directory retry', async () => {
     fetchMock.mockResolvedValueOnce(new Response('{}', { status: 503 }));
     render(<StaffAccounts />);
-    await screen.findByText(/Use Refresh directory/);
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh directory' }));
+    await screen.findByText(/Service unavailable/);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await screen.findByText('Test Worker');
-    fireEvent.click(screen.getByRole('button', { name: 'Reset pwd' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
     fireEvent.click(screen.getByRole('button', { name: 'Keep account unchanged' }));
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
@@ -172,7 +173,7 @@ describe('DDP-029 staff management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getByLabelText('Full name')).toHaveValue('');
   });
-  it('paginates and refreshes delivery status without changing a draft', async () => {
+  it('paginates without changing a draft', async () => {
     fetchMock.mockImplementation(
       async (url: string) =>
         new Response(

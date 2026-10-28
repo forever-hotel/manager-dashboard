@@ -37,9 +37,10 @@ function setup() {
 async function open() {
   fireEvent.click(
     await screen.findByRole('button', {
-      name: 'View complaint ' + complaint().id
+      name: 'Actions for complaint ' + complaint().id
     })
   );
+  fireEvent.click(screen.getByRole('button', { name: 'View complaint ' + complaint().id }));
   await screen.findByLabelText('Internal note (manager only)');
 }
 const patches = (fetcher: ReturnType<typeof setup>) =>
@@ -59,7 +60,7 @@ describe('DDP-022 complaint register', () => {
   it('TC-MAD-022-AC1: shows actual room and severity and supports previous periods', async () => {
     const fetcher = setup();
     render(<ComplaintsDashboard />);
-    await screen.findByRole('button', { name: /View complaint/ });
+    await screen.findByRole('button', { name: /Actions for complaint/ });
     const table = within(screen.getByRole('table'));
     expect(table.getByText('204')).toBeVisible();
     expect(table.getByText('high')).toBeVisible();
@@ -152,7 +153,7 @@ describe('DDP-022 complaint register', () => {
     await screen.findByText('Enter an internal note.');
     expect(patches(fetcher)).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Close details' }));
-    expect(screen.getByRole('button', { name: /View complaint/ })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /Actions for complaint/ })).toHaveFocus();
     fetcher.mockResolvedValueOnce(json(complaint({ status: 'RESOLVED', version: 2 })));
     await open();
     expect(
@@ -170,7 +171,7 @@ describe('DDP-022 complaint register', () => {
     await screen.findByText('No complaints match these filters.');
     fetcher.mockResolvedValueOnce(json(complaintPage([complaint()], 21)));
     fireEvent.click(screen.getByRole('button', { name: 'Month' }));
-    await screen.findByRole('button', { name: /View complaint/ });
+    await screen.findByRole('button', { name: /Actions for complaint/ });
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     await waitFor(() =>
       expect(fetcher).toHaveBeenCalledWith(
@@ -182,7 +183,7 @@ describe('DDP-022 complaint register', () => {
   it('preserves a draft when dismissal is cancelled and renders notes as text', async () => {
     const fetcher = setup();
     render(<ComplaintsDashboard />);
-    await screen.findByRole('button', { name: /View complaint/ });
+    await screen.findByRole('button', { name: /Actions for complaint/ });
     fetcher.mockResolvedValueOnce(
       json(
         complaint({
@@ -216,7 +217,7 @@ describe('DDP-022 complaint register', () => {
     });
     fetcher.mockResolvedValueOnce(json(complaintPage([complaint(), other])));
     render(<ComplaintsDashboard />);
-    await screen.findByRole('button', { name: 'View complaint ' + other.id });
+    await screen.findByRole('button', { name: 'Actions for complaint ' + other.id });
     let finish!: (value: Response) => void;
     fetcher.mockImplementationOnce(
       () =>
@@ -224,8 +225,10 @@ describe('DDP-022 complaint register', () => {
           finish = resolve;
         })
     );
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for complaint ' + complaint().id }));
     fireEvent.click(screen.getByRole('button', { name: 'View complaint ' + complaint().id }));
     fetcher.mockResolvedValueOnce(json(other));
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for complaint ' + other.id }));
     fireEvent.click(screen.getByRole('button', { name: 'View complaint ' + other.id }));
     await screen.findByLabelText('Internal note (manager only)');
     await act(async () => {

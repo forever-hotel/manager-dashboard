@@ -1,4 +1,6 @@
 'use client';
+import RowActions from '@/components/RowActions';
+import SuccessDialog from '@/components/SuccessDialog';
 import HeaderNotifications from '@/components/HeaderNotifications';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { statusColor } from '@/lib/status-color';
@@ -26,16 +28,14 @@ export default function StaffAccounts() {
   const [rows, setRows] = useState<Staff[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [role, setRole] = useState('');
-  const [status, setStatus] = useState('');
   const [message, setMessage] = useState('');
+  const [success, setSuccess] = useState('');
   const [listError, setListError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<{
     staff: Staff;
-    action: 'reset' | 'deactivate';
+    action: 'deactivate';
   } | null>(null);
   const [refresh, setRefresh] = useState(0);
   const lock = useRef(false);
@@ -51,10 +51,7 @@ export default function StaffAccounts() {
   }, [confirm]);
   const query = new URLSearchParams({
     page: String(page),
-    pageSize: '20',
-    ...(search ? { search } : {}),
-    ...(role ? { role } : {}),
-    ...(status ? { status } : {})
+    pageSize: '20'
   }).toString();
   useEffect(() => {
     let stopped = false;
@@ -164,7 +161,7 @@ export default function StaffAccounts() {
         editing ? { ...parsed.data, version: editing.version } : parsed.data
       );
       clear();
-      setMessage(
+      setSuccess(
         editing
           ? 'Profile saved. Existing sessions were invalidated.'
           : 'Account created. Credentials are queued for email delivery.'
@@ -183,19 +180,11 @@ export default function StaffAccounts() {
     setBusy(true);
     setMessage('');
     try {
-      await mutate(
-        '/' + confirm.staff.staffId + (confirm.action === 'reset' ? '/reset-password' : ''),
-        confirm.action === 'reset' ? 'POST' : 'PATCH',
-        {
-          version: confirm.staff.version,
-          ...(confirm.action === 'deactivate' ? { isActive: false } : {})
-        }
-      );
-      setMessage(
-        confirm.action === 'reset'
-          ? 'Password reset queued for email delivery. Previous sessions are invalidated.'
-          : 'Staff account deactivated.'
-      );
+      await mutate('/' + confirm.staff.staffId, 'PATCH', {
+        version: confirm.staff.version,
+        isActive: false
+      });
+      setSuccess('Staff account deactivated.');
       setConfirm(null);
       reload();
     } catch (error) {
@@ -235,32 +224,6 @@ export default function StaffAccounts() {
       <div className="page-topbar">
         <h1 className="font-medium text-[22px] text-brand">Staff accounts</h1>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-brand-light rounded-md p-1">
-            <button
-              type="button"
-              disabled
-              title="Staff directory shows current accounts"
-              className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
-            >
-              Day
-            </button>
-            <button
-              type="button"
-              disabled
-              title="Staff directory shows current accounts"
-              className="font-medium text-xs text-ink px-3 py-1 rounded bg-surface shadow-sm button button-secondary"
-            >
-              Week
-            </button>
-            <button
-              type="button"
-              disabled
-              title="Staff directory shows current accounts"
-              className="font-normal text-xs text-ink px-3 py-1 rounded button button-secondary"
-            >
-              Month
-            </button>
-          </div>
           <HeaderNotifications />
         </div>
       </div>
@@ -388,12 +351,10 @@ export default function StaffAccounts() {
           className="border border-border rounded-lg p-5 mb-4 bg-surface"
         >
           <h2 id="staff-confirm-title" className="font-medium text-base text-ink">
-            {confirm.action === 'reset' ? 'Reset password' : 'Deactivate account'} for {confirm.staff.name}?
+            Deactivate account for {confirm.staff.name}?
           </h2>
           <p id="staff-confirm-description" className="font-normal text-[13px] my-3">
-            {confirm.action === 'reset'
-              ? 'This invalidates existing sessions and emails new temporary credentials.'
-              : 'This blocks access and invalidates existing sessions.'}
+            This blocks access and invalidates existing sessions.
           </p>
           <button
             type="button"
@@ -401,7 +362,7 @@ export default function StaffAccounts() {
             onClick={() => void action()}
             className="font-normal text-[13px] bg-brand-light rounded-md px-4 py-2 button button-danger"
           >
-            Confirm {confirm.action === 'reset' ? 'reset' : 'deactivation'}
+            Confirm deactivation
           </button>{' '}
           <button
             type="button"
@@ -416,14 +377,6 @@ export default function StaffAccounts() {
       <section className="register-section staff-register">
         <div className="staff-register-heading">
           <h2 className="font-medium text-base text-ink">All staff accounts</h2>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={clear}
-            className="font-medium text-xs text-ink underline button button-primary"
-          >
-            + Add new
-          </button>
         </div>
 
         {loading && (
@@ -433,7 +386,10 @@ export default function StaffAccounts() {
         )}
         {listError && (
           <p role="status" className="text-[13px]">
-            {listError} Use Refresh directory to retry.
+            {listError}{' '}
+            <button type="button" onClick={reload} className="underline button button-ghost">
+              Retry
+            </button>
           </p>
         )}
         <div
@@ -443,7 +399,7 @@ export default function StaffAccounts() {
           aria-label="Staff directory data"
         >
           <table className="w-full text-left border-collapse dashboard-table">
-            <caption className="sr-only">Staff accounts matching current filters</caption>
+            <caption className="sr-only">Staff accounts</caption>
             <thead>
               <tr className="border-b border-border bg-surface-alt">
                 {['Name', 'Role', 'Email', 'Status', 'Last login', 'Actions'].map(h => (
@@ -482,45 +438,27 @@ export default function StaffAccounts() {
                   </td>
 
                   <td className="px-3 py-3">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void select(s)}
-                      className="font-normal text-xs text-ink underline button button-ghost"
-                    >
-                      Edit
-                    </button>
-                    {s.isActive && (
-                      <>
-                        {' \u00b7 '}
+                    <RowActions label={'Actions for ' + s.name} disabled={busy}>
+                      <button type="button" onClick={() => void select(s)}>
+                        Edit
+                      </button>
+                      {s.isActive && (
                         <button
                           type="button"
-                          disabled={busy}
-                          onClick={() => setConfirm({ staff: s, action: 'reset' })}
-                          className="font-normal text-xs text-ink underline button button-ghost"
-                        >
-                          Reset pwd
-                        </button>
-                        {' \u00b7 '}
-                        <button
-                          type="button"
-                          disabled={busy}
+                          className="text-danger"
                           onClick={() => setConfirm({ staff: s, action: 'deactivate' })}
-                          className="font-normal text-xs text-ink underline button button-danger"
                         >
                           Deactivate
                         </button>
-                      </>
-                    )}
+                      )}
+                    </RowActions>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {!loading && !listError && rows.length === 0 && (
-          <p className="text-[13px] my-3">No staff match these filters.</p>
-        )}
+        {!loading && !listError && rows.length === 0 && <p className="text-[13px] my-3">No staff accounts found.</p>}
         <div className="font-normal text-[13px] text-ink mt-3">
           Page {page} &middot; {total} accounts{' '}
           <button
@@ -547,81 +485,7 @@ export default function StaffAccounts() {
           </button>
         </div>
       </section>
-      <details className="advanced-controls">
-        <summary>Staff filters and refresh</summary>
-        <div className="flex gap-4 mb-3 font-normal text-[13px] text-ink">
-          <label>
-            Search
-            <input
-              maxLength={100}
-              value={search}
-              onChange={e => {
-                setSearch(e.target.value);
-                setPage(1);
-                setLoading(true);
-              }}
-              className="block border border-border rounded-md px-3 py-2"
-            />
-          </label>
-          <label>
-            Filter role
-            <select
-              value={role}
-              onChange={e => {
-                setRole(e.target.value);
-                setPage(1);
-                setLoading(true);
-              }}
-              className="block border border-border rounded-md px-3 py-2"
-            >
-              <option value="">All roles</option>
-              {staffRoles.map(r => (
-                <option key={r} value={r}>
-                  {staffLabels[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Filter status
-            <select
-              value={status}
-              onChange={e => {
-                setStatus(e.target.value);
-                setPage(1);
-                setLoading(true);
-              }}
-              className="block border border-border rounded-md px-3 py-2"
-            >
-              <option value="">All statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </label>
-          <button type="button" onClick={reload} className="underline button button-ghost">
-            Refresh directory
-          </button>
-        </div>
-      </details>
-      <details className="advanced-controls">
-        <summary>Staff credential delivery status</summary>
-        <ul>
-          {rows.map(staff => (
-            <li key={staff.staffId}>
-              {staff.name}:{' '}
-              {
-                {
-                  pending: 'Queued for delivery',
-                  sent: 'Email accepted by provider',
-                  failed: 'Delivery failed; retries pending',
-                  cancelled: 'Delivery cancelled or expired',
-                  none: 'No delivery record'
-                }[staff.deliveryStatus]
-              }
-            </li>
-          ))}
-        </ul>
-      </details>
+      <SuccessDialog message={success} onClose={() => setSuccess('')} />
     </main>
   );
 }
