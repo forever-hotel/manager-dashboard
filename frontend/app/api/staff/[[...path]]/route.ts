@@ -3,16 +3,7 @@ import { z } from 'zod';
 import { SESSION_COOKIE } from '@/lib/auth';
 import { backend } from '@/lib/backend';
 import { serverConfig } from '@/lib/environment';
-import {
-  staffQuery,
-  staffInput,
-  staffPatch,
-  staffReset,
-  staffDetail,
-  staffProfile,
-  staffPage,
-  staffReceipt
-} from '@/lib/staff';
+import { staffQuery, staffInput, staffPatch, staffDetail, staffProfile, staffPage, staffReceipt } from '@/lib/staff';
 type Context = { params: Promise<{ path?: string[] }> };
 const reply = (data: unknown, status: number) =>
   NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -22,11 +13,10 @@ async function handle(request: NextRequest, context: Context) {
   const path = (await context.params).path ?? [];
   const id = z.uuid().safeParse(path[0]).success;
   const detail = path.length === 1 && id;
-  const reset = path.length === 2 && id && path[1] === 'reset-password';
   const method = request.method;
   if (!(
     (method === 'GET' && (path.length === 0 || detail)) ||
-    (method === 'POST' && (path.length === 0 || reset)) ||
+    (method === 'POST' && path.length === 0) ||
     ((method === 'PATCH' || method === 'DELETE') && detail)
   ))
     return reply({ code: 'NOT_FOUND' }, 404);
@@ -52,11 +42,9 @@ async function handle(request: NextRequest, context: Context) {
       const parsed = (
         method === 'DELETE'
           ? z.object({ version: z.number().int().min(0).max(2147483646) }).strict()
-          : reset
-            ? staffReset
-            : method === 'PATCH'
-              ? staffPatch
-              : staffInput
+          : method === 'PATCH'
+            ? staffPatch
+            : staffInput
       ).safeParse(JSON.parse(raw));
       if (!parsed.success) return reply({ code: 'VALIDATION_ERROR' }, 400);
       body = parsed.data;
@@ -65,7 +53,7 @@ async function handle(request: NextRequest, context: Context) {
     }
   }
   const result = await backend('/mad/staff' + (path.length ? '/' + path.join('/') : '') + query, method, token, body);
-  const expected = method === 'POST' && !reset ? 201 : 200;
+  const expected = method === 'POST' ? 201 : 200;
   if (result.status !== expected) {
     const status = [400, 401, 403, 404, 409].includes(result.status) ? result.status : 503;
     return reply(

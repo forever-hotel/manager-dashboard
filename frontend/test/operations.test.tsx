@@ -1,5 +1,5 @@
 vi.mock('@/components/useRealtimeRefresh', () => ({ useRealtimeRefresh: () => undefined }));
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import OperationsAnalytics from '@/components/OperationsAnalytics';
 import WorkerAnalytics from '@/components/WorkerAnalytics';
@@ -161,6 +161,8 @@ describe('DDP-033 worker view', () => {
     });
     expect(table).toHaveTextContent('Worker One');
     expect(table).toHaveTextContent('N/A');
+    expect(within(table).getByRole('columnheader', { name: 'Open complaints' })).toBeVisible();
+    expect(within(table).getByRole('row', { name: /Worker One/ })).toHaveTextContent('2');
     expect(screen.queryByRole('columnheader', { name: 'Actions' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Sort workers')).not.toBeInTheDocument();
     expect(screen.queryByText('Worker filters, detailed metrics, exports and task queue')).not.toBeInTheDocument();

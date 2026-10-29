@@ -113,7 +113,7 @@ export default function WorkerAnalytics() {
             <caption className="sr-only">Worker performance in minutes, current filters</caption>
             <thead>
               <tr>
-                {['Name', 'Role', 'Tasks completed', 'Average completion', 'Status'].map(label => (
+                {['Name', 'Role', 'Tasks completed', 'Average completion', 'Open complaints', 'Status'].map(label => (
                   <th scope="col" key={label}>
                     {label}
                   </th>
@@ -129,6 +129,7 @@ export default function WorkerAnalytics() {
                   <td title="Elapsed time from task submission to completion, including waiting time">
                     {w.averageCompletionMinutes === null ? 'N/A' : w.averageCompletionMinutes.toFixed(1) + ' min'}
                   </td>
+                  <td>{w.openComplaintCount}</td>
                   <td>
                     <span className={'status-badge ' + statusColor(w.isActive ? 'ACTIVE' : 'INACTIVE')}>
                       {w.isActive ? 'Active' : 'Inactive'}
@@ -138,7 +139,7 @@ export default function WorkerAnalytics() {
               ))}
               {!ordered.length && (
                 <UnavailableRow
-                  columns={5}
+                  columns={6}
                   message={data ? 'No workers match these filters.' : 'Worker summary unavailable.'}
                 />
               )}

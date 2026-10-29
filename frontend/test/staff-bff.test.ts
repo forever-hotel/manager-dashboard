@@ -59,7 +59,7 @@ describe('DDP-029 staff proxy', () => {
       status: 200,
       data: { staffId, deliveryId: staffId, deliveryStatus: 'pending' }
     });
-    expect((await POST(req('POST', { version: 0 }), context([staffId, 'reset-password']))).status).toBe(200);
+    expect((await POST(req('POST', { version: 0 }), context([staffId, 'reset-password']))).status).toBe(404);
   });
   it('rejects missing sessions, cross-origin writes, invalid paths and malformed payloads', async () => {
     expect((await GET(req('GET', undefined, '', false), context())).status).toBe(401);
@@ -78,7 +78,7 @@ describe('DDP-029 staff proxy', () => {
       expect((await GET(req('GET', undefined, query), context())).status).toBe(400);
     expect((await GET(req('GET', undefined, '?page=1'), context([staffId]))).status).toBe(400);
     expect((await POST(req('POST', {}), context())).status).toBe(400);
-    expect((await POST(req('POST', {}), context([staffId, 'reset-password']))).status).toBe(400);
+    expect((await POST(req('POST', {}), context([staffId, 'reset-password']))).status).toBe(404);
     expect((await PATCH(req('PATCH', { version: 0, isActive: 'true' }), context([staffId]))).status).toBe(400);
     expect((await POST(req('POST', { name: 'x'.repeat(17000) }), context())).status).toBe(413);
     expect(backend).not.toHaveBeenCalled();

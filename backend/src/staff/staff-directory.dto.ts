@@ -16,10 +16,6 @@ export class StaffDirectoryDto {
   @Transform(pageNumber) @IsInt() @Min(1) @Max(100) pageSize = 20;
 }
 export class StaffDetailQueryDto {}
-export class StaffResetDto {
-  @IsOptional() @IsInt() @Min(0) @Max(2147483646) version?: number;
-}
-
 export class StaffDeleteDto {
   @IsInt() @Min(0) @Max(2147483646) version!: number;
 }

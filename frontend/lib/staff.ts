@@ -39,7 +39,6 @@ export const staffPatch = staffInput
   })
   .strict()
   .refine(v => Object.keys(v).length > 1);
-export const staffReset = z.object({ version: z.number().int().min(0).max(2147483646) }).strict();
 export const staffProfile = z.object({
   staffId: z.uuid(),
   name: z.string(),

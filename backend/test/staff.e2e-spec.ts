@@ -353,11 +353,6 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     });
     expect(send).not.toHaveBeenCalled();
   });
-  function reset(id: string, session = token()) {
-    return request(app.getHttpServer())
-      .post('/mad/staff/' + id + '/reset-password')
-      .set('Authorization', 'Bearer ' + session);
-  }
   async function snapshot(id: string) {
     const [row] = await database.query<
       {
@@ -373,120 +368,15 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     );
     return row;
   }
-  it.each(STAFF_ROLES)('TC-MAD-013-AC1/AC3: resets %s and queues only the new credential version', async staffRole => {
-    const created = await post({ ...profile, role: staffRole }).expect(201);
-    const { staffId, deliveryId } = created.body as {
-      staffId: string;
-      deliveryId: string;
-    };
-    const [original] = await database.query<{ encrypted_credentials: string }[]>(
-      'SELECT encrypted_credentials FROM mad_staff_deliveries WHERE worker_id=$1',
-      [staffId]
-    );
-    const oldToken = new JwtService({ secret }).sign(
-      { sub: staffId, role: staffRole, ver: 0, jti: randomUUID() },
-      { issuer: 'mad', audience: 'mad', expiresIn: '8h' }
-    );
-    await post(profile, oldToken).expect(403);
-    const oldPassword = cipher.decrypt(deliveryId, original.encrypted_credentials).password;
-    await database.query(
-      "UPDATE staff_users SET password_change_required=false,failed_attempts=5,locked_until=now()+interval '15 minutes' WHERE worker_id=$1",
-      [staffId]
-    );
-    const response = await reset(staffId).expect(200);
-    await post(profile, oldToken).expect(401);
-    const body = response.body as {
-      staffId: string;
-      deliveryId: string;
-      deliveryStatus: string;
-    };
-    expect(body).toEqual({
-      staffId,
-      deliveryId: body.deliveryId,
-      deliveryStatus: 'pending'
-    });
-    expect(body.deliveryId).not.toBe(deliveryId);
-    const account = await snapshot(staffId);
-    expect(account).toMatchObject({
-      session_version: 1,
-      password_change_required: true,
-      failed_attempts: 0,
-      locked_until: null
-    });
-    expect(await compare(oldPassword, account.password_hash)).toBe(false);
-    const [delivery] = await database.query<{ encrypted_credentials: string; credential_version: number }[]>(
-      'SELECT * FROM mad_staff_deliveries WHERE worker_id=$1',
-      [staffId]
-    );
-    expect(delivery.credential_version).toBe(account.session_version);
-    const credentials = cipher.decrypt(body.deliveryId, delivery.encrypted_credentials);
-    expect(await compare(credentials.password, account.password_hash)).toBe(true);
-    expect(getRounds(account.password_hash)).toBe(12);
-    const send = jest.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined);
-    const worker = new StaffDeliveryWorker(
-      runtime,
-      new ConfigService({ ...config, STAFF_EMAIL_ENABLED: 'true' }),
-      cipher,
-      { send }
-    );
-    await worker.processOnce();
-    await database.query('UPDATE mad_staff_deliveries SET next_attempt_at=now() WHERE worker_id=$1', [staffId]);
-    await worker.processOnce();
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(send.mock.calls[0]).toEqual(send.mock.calls[1]);
-    expect(await snapshot(staffId)).toEqual(account);
-  });
-  it('TC-MAD-013-AC2: rejects missing, malformed and unauthorized requests without writes', async () => {
-    const created = await post().expect(201);
-    const { staffId } = created.body as { staffId: string };
+  it('does not expose manager-triggered staff password reset', async () => {
+    const { staffId } = (await post().expect(201)).body as { staffId: string };
     const before = await snapshot(staffId);
     await request(app.getHttpServer())
       .post('/mad/staff/' + staffId + '/reset-password')
-      .expect(401);
-    await reset(staffId, 'invalid').expect(401);
-    await reset(staffId, token('worker')).expect(403);
-    await reset(staffId, token('first')).expect(403);
-    expect((await reset(randomUUID()).expect(404)).body).toMatchObject({
-      code: 'NOT_FOUND'
-    });
-    await reset('invalid-id').expect(400);
-    await reset(ids.manager).expect(404);
+      .set('Authorization', 'Bearer ' + token())
+      .send({ version: 0 })
+      .expect(404);
     expect(await snapshot(staffId)).toEqual(before);
-    await database.query('UPDATE staff_users SET is_active=false WHERE worker_id=$1', [staffId]);
-    await reset(staffId).expect(409);
-    expect(await snapshot(staffId)).toEqual(before);
-  });
-  it('TC-DDP-013-ATOMIC: rolls back password and version if queue update fails', async () => {
-    const created = await post().expect(201);
-    const { staffId } = created.body as { staffId: string };
-    const before = await snapshot(staffId);
-    await database.query(`REVOKE UPDATE ON mad_staff_deliveries FROM "${role}"`);
-    try {
-      await reset(staffId).expect(503);
-      expect(await snapshot(staffId)).toEqual(before);
-    } finally {
-      await database.query(`GRANT UPDATE ON mad_staff_deliveries TO "${role}"`);
-    }
-  });
-  it('TC-DDP-013-CONCURRENT: serializes resets and retains the latest matching delivery', async () => {
-    const created = await post().expect(201);
-    const { staffId } = created.body as { staffId: string };
-    const responses = await Promise.all([reset(staffId), reset(staffId)]);
-    expect(responses.map(r => r.status)).toEqual([200, 200]);
-    const account = await snapshot(staffId);
-    expect(account.session_version).toBe(2);
-    const rows = await database.query<
-      {
-        delivery_id: string;
-        encrypted_credentials: string;
-        credential_version: number;
-      }[]
-    >('SELECT * FROM mad_staff_deliveries WHERE worker_id=$1', [staffId]);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].credential_version).toBe(2);
-    expect(
-      await compare(cipher.decrypt(rows[0].delivery_id, rows[0].encrypted_credentials).password, account.password_hash)
-    ).toBe(true);
   });
   function readProfile(id: string, session = token()) {
     return request(app.getHttpServer())
@@ -642,8 +532,8 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       ...saved,
       deliveryStatus: 'pending'
     });
-    await reset(staffId).expect(200);
-    await edit(staffId, { version: 1, name: 'Stale After Reset' }).expect(409);
+    await edit(staffId, { version: 1, name: 'Latest Edit' }).expect(200);
+    await edit(staffId, { version: 1, name: 'Stale Edit' }).expect(409);
   });
   it('TC-DDP-014-NEGATIVE: rejects bad input, forbidden targets and unauthorized reads/edits without writes', async () => {
     const { staffId } = (await post().expect(201)).body as { staffId: string };
@@ -656,7 +546,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       { version: 0, role: 'MANAGER' },
       { version: 0, name: null },
       { version: 0, email: 'bad' },
-      { version: 0, isActive: true },
+      { version: 0, isActive: 'true' },
       { version: 0, password_hash: 'changed' },
       { version: 0, age: 0 },
       { version: 0, username: 'changed' }
@@ -792,15 +682,5 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     } finally {
       await database.query(`GRANT SELECT ON mad_staff_deliveries TO "${role}"`);
     }
-  });
-  it('TC-MAD-029-AC3: versioned resets reject stale accounts without credential writes', async () => {
-    const response = await post().expect(201);
-    const { staffId } = response.body as { staffId: string };
-    const before = await snapshot(staffId);
-    await reset(staffId).send({ version: 1 }).expect(409);
-    expect(await snapshot(staffId)).toEqual(before);
-    await reset(staffId).send({ version: 0 }).expect(200);
-    await reset(staffId).send({ version: 0 }).expect(409);
-    await reset(staffId).send({ version: -1 }).expect(400);
   });
 });
