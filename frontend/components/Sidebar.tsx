@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { replaceLocation } from '@/lib/navigation';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';

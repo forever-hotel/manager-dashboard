@@ -1,11 +1,10 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { connect, type Channel, type ChannelModel } from 'amqplib';
+import { connect, type ChannelModel } from 'amqplib';
 import { SharedGateway } from './shared.gateway';
 import { eventChannels, REALTIME_EXCHANGE } from './contracts';
 @Injectable()
 export class SharedBroker implements OnModuleInit, OnModuleDestroy {
   private connection?: ChannelModel;
-  private channel?: Channel;
   private timer?: ReturnType<typeof setTimeout>;
   private stopped = false;
   ready = false;
@@ -29,7 +28,6 @@ export class SharedBroker implements OnModuleInit, OnModuleDestroy {
         this.schedule();
       });
       const channel = await connection.createChannel();
-      this.channel = channel;
       channel.on('error', () => {
         this.ready = false;
       });

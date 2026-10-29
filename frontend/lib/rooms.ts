@@ -23,4 +23,3 @@ export const roomSnapshotSchema = z
     readOnly: z.literal(true)
   })
   .refine(s => new Set(s.rooms.map(r => r.id)).size === s.rooms.length);
-export type RoomSnapshot = z.infer<typeof roomSnapshotSchema>;

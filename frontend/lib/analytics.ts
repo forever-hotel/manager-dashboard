@@ -33,7 +33,6 @@ export const bookingSchema = z
       .max(31)
   })
   .refine(data => data.total === data.trend.reduce((sum, bucket) => sum + bucket.count, 0));
-export type BookingSummary = z.infer<typeof bookingSchema>;
 export class AnalyticsError extends Error {
   constructor(public status: number) {
     super('Analytics unavailable');
