@@ -19,14 +19,18 @@ export async function backend(path: string, method = 'GET', token?: string, body
     });
     const data: unknown = await response.json();
     // Rate limits are transient, not evidence that a manager session is invalid.
-    if (response.status === 429)
+    if (response.status === 429) {
+      const retry = response.headers.get('retry-after');
+      const retryAfter = retry && /^\d{1,6}$/.test(retry) ? Math.max(1, Math.min(3600, Number(retry))) : 60;
       return {
         status: 503,
         data: {
           code: 'RATE_LIMITED',
-          message: 'Too many requests. Please retry shortly.'
+          message: 'Too many requests. Please retry shortly.',
+          retryAfter
         }
       };
+    }
     return { status: response.status, data };
   } catch {
     return {

@@ -54,6 +54,14 @@ describe('BFF cookie/session boundary', () => {
     expect(result.headers.get('set-cookie')).toContain('SameSite=strict');
     expect(result.headers.get('cache-control')).toBe('no-store');
   });
+  it('returns real login throttling with retry timing without deleting a session', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 503, data: { code: 'RATE_LIMITED', retryAfter: 37 } });
+    const response = await POST(req('login', { cookie: true }), context('login'));
+    expect(response.status).toBe(429);
+    expect(response.headers.get('retry-after')).toBe('37');
+    expect((await response.json()).code).toBe('RATE_LIMITED');
+    expect(response.headers.get('set-cookie')).toBeNull();
+  });
   it('marks HTTPS cookies Secure', async () => {
     vi.stubEnv('APP_ORIGIN', 'https://mad.test');
     vi.mocked(backend).mockResolvedValue({

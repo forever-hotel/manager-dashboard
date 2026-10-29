@@ -42,6 +42,11 @@ export function LoginForm({ next, expired = false }: { next?: string; expired?: 
           password: data.password
         })
       });
+      if (response.status === 429) {
+        const value = response.headers.get('retry-after');
+        const seconds = value && /^\d{1,6}$/.test(value) ? Math.max(1, Math.min(3600, Number(value))) : 60;
+        throw new Error(`Too many sign-in attempts. Try again in ${seconds} seconds.`);
+      }
       if (!response.ok)
         throw new Error(
           response.status >= 500

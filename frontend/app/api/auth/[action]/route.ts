@@ -46,6 +46,27 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     return reply({ code: 'VALIDATION_ERROR', message: 'Invalid request.' }, 400);
   }
   const result = await backend('/auth/' + action, 'POST', token, body);
+  if (
+    action === 'login' &&
+    result.status === 503 &&
+    result.data &&
+    typeof result.data === 'object' &&
+    'code' in result.data &&
+    result.data.code === 'RATE_LIMITED'
+  ) {
+    const retryAfter =
+      'retryAfter' in result.data &&
+      typeof result.data.retryAfter === 'number' &&
+      Number.isInteger(result.data.retryAfter)
+        ? Math.max(1, Math.min(3600, result.data.retryAfter))
+        : 60;
+    const response = reply(
+      { code: 'RATE_LIMITED', message: 'Too many sign-in attempts. Please wait before retrying.' },
+      429
+    );
+    response.headers.set('Retry-After', String(retryAfter));
+    return response;
+  }
   if (action === 'logout') {
     // Retain the cookie on failure so the user can retry durable revocation.
     const signedOut = result.status === 200 || result.status === 401;

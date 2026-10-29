@@ -57,6 +57,18 @@ describe('Reference login design with real authentication', () => {
       })
     );
   });
+  it('shows a rate-limit wait instead of an incorrect password or outage message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('{}', { status: 429, headers: { 'Retry-After': '37' } }))
+    );
+    render(<LoginForm />);
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'manager' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'test-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByText('Too many sign-in attempts. Try again in 37 seconds.')).toBeVisible();
+    expect(navigate).not.toHaveBeenCalled();
+  });
   it('keeps failed authentication on the login page', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 401 })));
     render(<LoginForm />);

@@ -111,6 +111,18 @@ describe('Configuration, redirects and server transport', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 429 })));
     expect((await backend('/auth/session', 'GET', 'token')).status).toBe(503);
   });
+  it('preserves rate-limit timing while keeping session throttling transient', async () => {
+    vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');
+    vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('{}', { status: 429, headers: { 'Retry-After': '37' } }))
+    );
+    expect(await backend('/auth/login', 'POST')).toMatchObject({
+      status: 503,
+      data: { code: 'RATE_LIMITED', retryAfter: 37 }
+    });
+  });
   it('rejects ambiguous backend origins and transport modes', () => {
     vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');
     vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080/mad');
