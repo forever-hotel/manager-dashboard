@@ -30,8 +30,8 @@ function fill() {
   for (const [label, value] of [
     ['Promo code', 'new26'],
     ['Discount value', '25'],
-    ['Valid from', '2026-10-01T00:00'],
-    ['Valid until', '2099-11-01T00:00'],
+    ['Valid from', '2026-10-01'],
+    ['Valid until', '2099-11-01'],
     ['Max redemptions', '100']
   ])
     fireEvent.change(screen.getByLabelText(label), { target: { value } });
@@ -46,8 +46,8 @@ describe('DDP-020 promotion management', () => {
     const fetcher = setup();
     render(<PromotionsDashboard initialDate="2028-02-29" />);
     await ready();
-    expect(screen.getByLabelText('Valid from')).toHaveValue('2028-02-29T00:00');
-    expect(screen.getByLabelText('Valid until')).toHaveValue('2028-03-01T00:00');
+    expect(screen.getByLabelText('Valid from')).toHaveValue('2028-02-29');
+    expect(screen.getByLabelText('Valid until')).toHaveValue('2028-02-29');
     expect(screen.getByLabelText('Promo code')).toHaveValue('');
     expect(mutations(fetcher)).toHaveLength(0);
   });
@@ -58,6 +58,7 @@ describe('DDP-020 promotion management', () => {
     vi.spyOn(HTMLDialogElement.prototype, 'close').mockImplementation(function (this: HTMLDialogElement) {
       this.removeAttribute('open');
     });
+    Element.prototype.scrollIntoView = vi.fn();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-16T00:00:00Z'));
   });
@@ -82,7 +83,7 @@ describe('DDP-020 promotion management', () => {
         discountType: 'PERCENTAGE',
         discountValue: 25,
         validFrom: '2026-10-01T00:00:00+05:30',
-        validUntil: '2099-11-01T00:00:00+05:30',
+        validUntil: '2099-11-02T00:00:00+05:30',
         maxRedemptions: 100,
         roomTypeIds: [room.id],
         status: button === 'Save as draft' ? 'INACTIVE' : 'ACTIVE'
@@ -138,6 +139,7 @@ describe('DDP-020 promotion management', () => {
       await ready();
       fireEvent.click(screen.getByRole('button', { name: 'Actions for OFFER26' }));
       fireEvent.click(screen.getByRole('button', { name: action + ' promotion' }));
+      expect(screen.getByRole('alertdialog', { name: 'Actions for OFFER26' })).toHaveAttribute('open');
       fireEvent.click(screen.getByRole('button', { name: 'Confirm ' + action.toLowerCase() }));
       await screen.findByText(/Saved OFFER26:/);
       const [url, init] = mutations(fetcher)[0];
@@ -145,7 +147,7 @@ describe('DDP-020 promotion management', () => {
       expect(init?.method).toBe(action === 'Delete' ? 'DELETE' : 'POST');
       expect(JSON.parse(String(init?.body))).toEqual({ version: 0 });
       expect(window.confirm).not.toHaveBeenCalled();
-      expect(screen.queryByRole('region', { name: 'Actions for OFFER26' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('alertdialog', { name: 'Actions for OFFER26' })).not.toBeInTheDocument();
     }
   );
   it('cancelling deletion leaves records and history untouched', async () => {
@@ -214,7 +216,7 @@ describe('DDP-020 promotion management', () => {
     fetcher.mockResolvedValueOnce(json(page([promotion()], 21)));
     render(<PromotionsDashboard />);
     await ready();
-    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next promotions' }));
     await waitFor(() =>
       expect(fetcher).toHaveBeenCalledWith('/api/promotions?page=2&pageSize=20&view=active', expect.anything())
     );
@@ -235,10 +237,27 @@ describe('DDP-020 promotion management', () => {
     finish(json(promotion()));
     await screen.findByText(/Saved OFFER26/);
   });
+  it('converts an inclusive single date and month/year boundaries into exclusive midnight timestamps', () => {
+    const base = formFrom(promotion());
+    for (const [day, next] of [
+      ['2028-02-29', '2028-03-01'],
+      ['2028-12-31', '2029-01-01']
+    ]) {
+      const payload = formPayload({ ...base, validFrom: day, validUntil: day });
+      expect(payload.validFrom).toBe(day + 'T00:00:00+05:30');
+      expect(payload.validUntil).toBe(next + 'T00:00:00+05:30');
+      expect(Date.parse(payload.validUntil) - Date.parse(payload.validFrom)).toBe(86400000);
+      expect(
+        formFrom({ ...promotion(), validFrom: payload.validFrom, validUntil: payload.validUntil }).validUntil
+      ).toBe(day);
+    }
+    expect(formPayload({ ...base, validUntil: 'not-a-date' }).validUntil).toBe('');
+  });
   it('round-trips hotel dates and rejects invalid boundaries, currency and duplicate selections', async () => {
     const p = promotion();
     const payload = formPayload(formFrom(p));
-    expect(Date.parse(payload.validFrom)).toBe(Date.parse(p.validFrom));
+    expect(payload.validFrom).toBe('2026-10-01T00:00:00+05:30');
+    expect(payload.validUntil).toBe('2099-11-02T00:00:00+05:30');
     expect(createSchema.safeParse(payload).success).toBe(true);
     for (const change of [
       { discountValue: 1.5 },

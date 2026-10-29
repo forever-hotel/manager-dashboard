@@ -34,8 +34,17 @@ beforeEach(() => {
       )
   );
   vi.stubGlobal('fetch', fetchMock);
+  vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  });
+  vi.spyOn(HTMLDialogElement.prototype, 'close').mockImplementation(function (this: HTMLDialogElement) {
+    this.removeAttribute('open');
+  });
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 describe('DDP-032 operations views', () => {
   it('shows empty food metrics and the live queue without obsolete reports', async () => {
     render(<OperationsAnalytics type="food-orders" />);
@@ -116,10 +125,10 @@ describe('DDP-032 operations views', () => {
     expect(await screen.findByText('Worker One')).toBeVisible();
     expect(screen.getAllByText('Unassigned')).toHaveLength(19);
     fireEvent.click(screen.getByRole('button', { name: 'Next requests' }));
-    expect(await screen.findByText('21 requests Â· Page 2 of 2')).toBeVisible();
+    expect(await screen.findByText('21–21 of 21 requests')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Next requests' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Active requests' }));
-    expect(await screen.findByText('21 requests Â· Page 1 of 2')).toBeVisible();
+    expect(await screen.findByText('1–20 of 21 requests')).toBeVisible();
     expect(screen.getAllByText('Assigned')).toHaveLength(20);
   });
   it('AC3: ignores stale period responses and supports retry', async () => {
@@ -153,15 +162,14 @@ describe('DDP-033 worker view', () => {
     });
     expect(table).toHaveTextContent('Worker One');
     expect(table).toHaveTextContent('N/A');
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Worker One' }));
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }));
+    expect(screen.getByRole('dialog', { name: 'Worker One' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Submitted complaints' })).toHaveAttribute(
       'href',
       '/complaints?workerId=' + workerId + '&status=SUBMITTED'
     );
-    expect(
-      screen.getByRole('group', {
-        name: 'worker-performance report downloads'
-      })
-    ).toBeVisible();
+    expect(screen.queryByText('Worker filters, detailed metrics, exports and task queue')).not.toBeInTheDocument();
   });
   it('AC2: sorts ties deterministically and leaves N/A last in both directions', () => {
     const worker = workerSchema.parse(workerFixture()).workers[0];
@@ -175,25 +183,30 @@ describe('DDP-033 worker view', () => {
     expect(sortWorkers([other, worker], 'completedTaskCount', true)[0].workerId).toBe(workerId);
     expect(sortWorkers([other, worker], 'fullName', false)[0].workerId).toBe(workerId);
   });
-  it('AC2/AC3: validates worker filter and retains it on period changes', async () => {
+  it('supports historical periods and name search', async () => {
     render(<WorkerAnalytics />);
     await screen.findByText('Worker One');
-    fireEvent.change(screen.getByLabelText('Worker ID'), {
-      target: { value: 'bad' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Apply worker filter' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('valid worker ID');
-    fireEvent.change(screen.getByLabelText('Worker ID'), {
-      target: { value: workerId }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Apply worker filter' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Day' }));
+    fireEvent.change(screen.getByLabelText('Search workers'), { target: { value: 'missing' } });
+    expect(screen.getByText('No workers match these filters.')).toBeVisible();
+    fireEvent.change(screen.getByLabelText('Search workers'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Month' }));
+    fireEvent.change(screen.getByLabelText('Select worker performance month'), { target: { value: '2026-09' } });
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/analytics/operations/worker-performance?period=day&workerId=' + workerId,
-        expect.any(Object)
+        '/api/analytics/operations/worker-performance?period=month&date=2026-09-01',
+        expect.anything()
       )
     );
+  });
+  it('opens the live queue only when requested', async () => {
+    render(<WorkerAnalytics />);
+    await screen.findByText('Worker One');
+    expect(screen.queryByText('Live task queue')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'View task queue' }));
+    expect(screen.getByRole('dialog', { name: 'Worker task queue' })).toBeVisible();
+    expect(screen.getByText('Live task queue')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Close details' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
   it('supports stable sorting and paging of zero-task workers', async () => {
     fetchMock.mockResolvedValueOnce(
@@ -215,9 +228,9 @@ describe('DDP-033 worker view', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Ascending' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next workers' }));
-    expect(screen.getByText(/Page 2 of 2/)).toBeVisible();
+    expect(screen.getByText('11–11 of 11 workers')).toBeVisible();
     expect(screen.getByText('Worker 10')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Previous workers' }));
-    expect(screen.getByText(/Page 1 of 2/)).toBeVisible();
+    expect(screen.getByText('1–10 of 11 workers')).toBeVisible();
   });
 });

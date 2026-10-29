@@ -151,7 +151,7 @@ export const emptyForm: PromotionForm = {
 };
 // The form always uses hotel time, regardless of the manager's browser timezone.
 export function hotelInput(iso: string) {
-  return new Date(Date.parse(iso) + 330 * 60000).toISOString().slice(0, -1);
+  return new Date(Date.parse(iso) + 330 * 60000).toISOString().slice(0, 10);
 }
 export function formFrom(p: Promotion): PromotionForm {
   return {
@@ -159,18 +159,22 @@ export function formFrom(p: Promotion): PromotionForm {
     discountType: p.discountType,
     discountValue: String(p.discountValue),
     validFrom: hotelInput(p.validFrom),
-    validUntil: hotelInput(p.validUntil),
+    validUntil: hotelInput(new Date(Date.parse(p.validUntil) - 1).toISOString()),
     maxRedemptions: String(p.maxRedemptions),
     roomTypeIds: p.roomTypeIds
   };
 }
 export function formPayload(form: PromotionForm) {
-  const date = (s: string) => s + (s.length === 16 ? ':00' : '') + '+05:30';
+  const date = (value: string, exclusiveEnd = false) => {
+    if (!z.iso.date().safeParse(value).success || value.startsWith('0000')) return '';
+    const day = exclusiveEnd ? new Date(Date.parse(value) + 86400000).toISOString().slice(0, 10) : value;
+    return day + 'T00:00:00+05:30';
+  };
   return {
     ...form,
     discountValue: Number(form.discountValue),
     maxRedemptions: Number(form.maxRedemptions),
     validFrom: date(form.validFrom),
-    validUntil: date(form.validUntil)
+    validUntil: date(form.validUntil, true)
   };
 }

@@ -1,4 +1,5 @@
 'use client';
+import Pagination from './Pagination';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { replaceLocation } from '@/lib/navigation';
 import { notificationsSchema, type NotificationItem } from '@/lib/notifications';
@@ -172,23 +173,7 @@ export default function NotificationsPanel({ initialPage = 1 }: { initialPage?: 
               </li>
             ))}
           </ul>
-          <nav aria-label="Notification pages" className="flex gap-4 mt-4 text-[13px]">
-            <button
-              disabled={state.page === 1}
-              onClick={() => state.setPage(p => p - 1)}
-              className="button button-secondary"
-            >
-              Previous alerts
-            </button>
-            <span>Page {state.page}</span>
-            <button
-              disabled={state.page * 20 >= data.total}
-              onClick={() => state.setPage(p => p + 1)}
-              className="button button-secondary"
-            >
-              Next alerts
-            </button>
-          </nav>
+          <Pagination page={state.page} pageSize={20} total={data.total} noun="alerts" onChange={state.setPage} />
         </>
       )}
     </main>

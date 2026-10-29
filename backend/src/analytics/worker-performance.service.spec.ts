@@ -53,7 +53,7 @@ describe('DDP-025 worker performance', () => {
         }
       ]
     });
-    expect(query).toHaveBeenCalledWith(WORKER_PERFORMANCE_SQL, ['day', 'Asia/Colombo', now.toISOString(), null]);
+    expect(query).toHaveBeenCalledWith(WORKER_PERFORMANCE_SQL, ['day', 'Asia/Colombo', now.toISOString(), null, null]);
   });
   it('Given independent aggregates, maps rounded durations and flags exclusions', async () => {
     const data = {
@@ -79,7 +79,8 @@ describe('DDP-025 worker performance', () => {
       'week',
       'Asia/Colombo',
       now.toISOString(),
-      worker().workerId
+      worker().workerId,
+      null
     ]);
     expect(result.workers[0]).toMatchObject({
       completedTaskCount: 3,
@@ -154,13 +155,25 @@ describe('DDP-025 worker performance', () => {
         message: 'Service Unavailable'
       });
   });
+  it('passes the selected calendar date separately from the current freshness clock', async () => {
+    const { service, query } = setup();
+    await service.summary({ period: 'month', date: '2026-09-01' });
+    expect(query).toHaveBeenCalledWith(WORKER_PERFORMANCE_SQL, [
+      'month',
+      'Asia/Colombo',
+      now.toISOString(),
+      null,
+      '2026-09-01'
+    ]);
+  });
   it('bounds the export worker cohort in SQL without changing normal analytics requests', async () => {
     const { service, query } = setup();
     await service.summary({ period: 'day' }, 201);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('ORDER BY worker_id LIMIT $5'), [
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('ORDER BY worker_id LIMIT $6'), [
       'day',
       'Asia/Colombo',
       now.toISOString(),
+      null,
       null,
       201
     ]);

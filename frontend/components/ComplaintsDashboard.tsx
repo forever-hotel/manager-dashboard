@@ -1,4 +1,5 @@
 'use client';
+import Pagination from './Pagination';
 import RowActions from '@/components/RowActions';
 import { PageHeader, SummaryCard } from './DashboardVisuals';
 import AnalyticsPeriodNavigation from './AnalyticsPeriodNavigation';
@@ -63,12 +64,20 @@ export default function ComplaintsDashboard({
   const [conflict, setConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const lock = useRef(false);
-  const panel = useRef<HTMLElement>(null);
+  const panel = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
   const detailController = useRef<AbortController | null>(null);
   useEffect(() => () => detailController.current?.abort(), []);
   useEffect(() => {
-    if (selectedId) panel.current?.focus();
+    if (!selectedId) return;
+    const dialog = panel.current;
+    const previous = document.activeElement;
+    dialog?.showModal();
+    dialog?.focus();
+    return () => {
+      dialog?.close();
+      if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
+    };
   }, [selectedId]);
   useEffect(() => {
     const controller = new AbortController();
@@ -370,41 +379,30 @@ export default function ComplaintsDashboard({
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          pageSize={20}
+          total={total}
+          noun="complaints"
+          disabled={saving || loading}
+          onChange={value => {
+            setLoading(true);
+            setError('');
+            setPage(value);
+          }}
+        />
       </section>
-      <div className="flex gap-3 mb-6">
-        <button
-          disabled={saving || loading || page <= 1}
-          onClick={() => {
-            setLoading(true);
-            setError('');
-            setPage(page - 1);
-          }}
-          className={button + ' button button-secondary'}
-        >
-          Previous page
-        </button>
-        <span className="text-xs text-ink">
-          Page {page} / {Math.max(1, Math.ceil(total / 20))}
-        </span>
-        <button
-          disabled={saving || loading || page * 20 >= total}
-          onClick={() => {
-            setLoading(true);
-            setError('');
-            setPage(page + 1);
-          }}
-          className={button + ' button button-secondary'}
-        >
-          Next page
-        </button>
-      </div>
       {selectedId && (
-        <section
+        <dialog
           ref={panel}
           tabIndex={-1}
           aria-labelledby="complaint-detail-heading"
           aria-busy={detailLoading || saving}
-          className="complaint-action-panel border border-border rounded-lg p-5 mb-8 bg-surface"
+          onCancel={event => {
+            event.preventDefault();
+            close();
+          }}
+          className="success-dialog complaint-dialog"
         >
           <div className="flex justify-between mb-3">
             <h2 id="complaint-detail-heading" className="font-medium text-base text-ink">
@@ -527,7 +525,7 @@ export default function ComplaintsDashboard({
               </form>
             </>
           )}
-        </section>
+        </dialog>
       )}
     </main>
   );

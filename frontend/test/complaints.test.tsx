@@ -1,8 +1,16 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ComplaintsDashboard from '@/components/ComplaintsDashboard';
 import { COMPLAINT_CHANGED_EVENT, complaintPatchSchema, nextStatus } from '@/lib/complaints';
 import { complaint, complaintPage } from './complaints-fixture';
+beforeEach(() => {
+  vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  });
+  vi.spyOn(HTMLDialogElement.prototype, 'close').mockImplementation(function (this: HTMLDialogElement) {
+    this.removeAttribute('open');
+  });
+});
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 function setup() {
   let current = complaint();
@@ -84,7 +92,7 @@ describe('DDP-022 complaint register', () => {
     try {
       render(<ComplaintsDashboard />);
       await open();
-      expect(screen.getByRole('region', { name: 'Complaint details' })).toHaveFocus();
+      expect(screen.getByRole('dialog', { name: 'Complaint details' })).toHaveFocus();
       fireEvent.change(screen.getByLabelText('Internal note (manager only)'), {
         target: { value: 'Investigating privately' }
       });
@@ -92,7 +100,7 @@ describe('DDP-022 complaint register', () => {
         screen.getByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ })
       );
       expect(await screen.findByText('Saved: Under review.')).toBeVisible();
-      expect(screen.queryByRole('region', { name: 'Complaint details' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Complaint details' })).not.toBeInTheDocument();
       expect(JSON.parse(String(patches(fetcher)[0][1]?.body))).toEqual({
         version: 0,
         status: 'UNDER_REVIEW',
@@ -172,7 +180,7 @@ describe('DDP-022 complaint register', () => {
     fetcher.mockResolvedValueOnce(json(complaintPage([complaint()], 21)));
     fireEvent.click(screen.getByRole('button', { name: 'Month' }));
     await screen.findByRole('button', { name: /Actions for complaint/ });
-    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next complaints' }));
     await waitFor(() =>
       expect(fetcher).toHaveBeenCalledWith(
         expect.stringContaining('/api/complaints?page=2&pageSize=20&period=month&date='),
@@ -235,7 +243,7 @@ describe('DDP-022 complaint register', () => {
       finish(json(complaint()));
     });
     expect(
-      within(screen.getByRole('region', { name: 'Complaint details' })).getByText('Second guest issue')
+      within(screen.getByRole('dialog', { name: 'Complaint details' })).getByText('Second guest issue')
     ).toBeVisible();
   });
   it('closes after saving even when the register refresh fails', async () => {
@@ -271,10 +279,10 @@ describe('DDP-022 complaint register', () => {
     await open();
     fireEvent.change(screen.getByLabelText('Internal note (manager only)'), { target: { value: 'Unsaved note' } });
     fireEvent.click(screen.getByRole('button', { name: 'Month' }));
-    expect(screen.queryByRole('region', { name: 'Complaint details' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Complaint details' })).not.toBeInTheDocument();
     await open();
     fireEvent.change(screen.getByLabelText('Select complaints month'), { target: { value: '2026-09' } });
-    expect(screen.queryByRole('region', { name: 'Complaint details' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Complaint details' })).not.toBeInTheDocument();
   });
   it('enforces transition and note boundaries', () => {
     expect(nextStatus('SUBMITTED')).toBe('UNDER_REVIEW');

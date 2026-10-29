@@ -43,12 +43,13 @@ export class WorkerPerformanceService {
       const [row] = await this.database.query<WorkerPerformanceRow[]>(
         exportLimit === undefined
           ? WORKER_PERFORMANCE_SQL
-          : WORKER_PERFORMANCE_SQL.replace('), completions AS (', 'ORDER BY worker_id LIMIT $5\n), completions AS ('),
+          : WORKER_PERFORMANCE_SQL.replace('), completions AS (', 'ORDER BY worker_id LIMIT $6\n), completions AS ('),
         [
           query.period,
           BOOKING_TIMEZONE,
           asOf,
           query.workerId ?? null,
+          query.date ?? null,
           ...(exportLimit === undefined ? [] : [exportLimit])
         ]
       );

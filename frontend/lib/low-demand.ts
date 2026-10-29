@@ -48,7 +48,7 @@ export function promotionDates(value: unknown) {
   const next = new Date(Date.parse(parsed.data) + 86400000).toISOString();
   if (next.length !== 24) return undefined;
   return {
-    validFrom: parsed.data + 'T00:00',
-    validUntil: next.slice(0, 10) + 'T00:00'
+    validFrom: parsed.data,
+    validUntil: parsed.data
   };
 }

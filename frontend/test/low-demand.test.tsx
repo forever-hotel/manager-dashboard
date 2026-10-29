@@ -49,12 +49,12 @@ describe('DDP-057 low-demand suggestions', () => {
     view.unmount();
     expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
   });
-  it('TC-MAD-057-AC2: prefills half-open Colombo dates across leap day and year boundaries', () => {
+  it('TC-MAD-057-AC2: prefills inclusive Colombo dates across leap day and year boundaries', () => {
     expect(promotionDates('2028-02-29')).toEqual({
-      validFrom: '2028-02-29T00:00',
-      validUntil: '2028-03-01T00:00'
+      validFrom: '2028-02-29',
+      validUntil: '2028-02-29'
     });
-    expect(promotionDates('2028-12-31')?.validUntil).toBe('2029-01-01T00:00');
+    expect(promotionDates('2028-12-31')?.validUntil).toBe('2028-12-31');
     for (const date of [undefined, '2027-02-29', 'not-a-date', '0000-01-01', '9999-12-31'])
       expect(promotionDates(date)).toBeUndefined();
   });

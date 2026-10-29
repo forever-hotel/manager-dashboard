@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ typ
   const parsed = z
     .object({
       period: z.enum(['day', 'week', 'month']).default('day'),
-      ...(['food-orders', 'service-requests'].includes(type)
+      ...(['food-orders', 'service-requests', 'worker-performance'].includes(type)
         ? {
             date: z.iso
               .date()

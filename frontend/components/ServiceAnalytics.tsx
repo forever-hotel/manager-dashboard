@@ -1,4 +1,5 @@
 'use client';
+import Pagination from './Pagination';
 import { useState } from 'react';
 import type { Period } from '@/lib/analytics';
 import { hotelDate } from '@/lib/analytics-period';
@@ -150,27 +151,7 @@ export default function ServiceAnalytics() {
           </table>
         </div>
         {list.data && (
-          <div className="booking-pagination">
-            <span>
-              {list.data.total} requests · Page {page} of {Math.max(1, Math.ceil(list.data.total / 20))}
-            </span>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={page === 1}
-              onClick={() => setPage(value => value - 1)}
-            >
-              Previous requests
-            </button>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={page * 20 >= list.data.total}
-              onClick={() => setPage(value => value + 1)}
-            >
-              Next requests
-            </button>
-          </div>
+          <Pagination page={page} pageSize={20} total={list.data.total} noun="requests" onChange={setPage} />
         )}
       </DataPanel>
     </main>

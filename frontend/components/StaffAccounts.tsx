@@ -1,4 +1,5 @@
 'use client';
+import Pagination from './Pagination';
 import RowActions from '@/components/RowActions';
 import SuccessDialog from '@/components/SuccessDialog';
 import HeaderNotifications from '@/components/HeaderNotifications';
@@ -502,31 +503,17 @@ export default function StaffAccounts() {
           </table>
         </div>
         {!loading && !listError && rows.length === 0 && <p className="text-[13px] my-3">No staff accounts found.</p>}
-        <div className="font-normal text-[13px] text-ink mt-3">
-          Page {page} &middot; {total} accounts{' '}
-          <button
-            type="button"
-            disabled={page === 1 || loading}
-            onClick={() => {
-              setPage(p => p - 1);
-              setLoading(true);
-            }}
-            className="underline button button-ghost"
-          >
-            Previous
-          </button>{' '}
-          <button
-            type="button"
-            disabled={page * 20 >= total || loading}
-            onClick={() => {
-              setPage(p => p + 1);
-              setLoading(true);
-            }}
-            className="underline button button-ghost"
-          >
-            Next
-          </button>
-        </div>
+        <Pagination
+          page={page}
+          pageSize={20}
+          total={total}
+          noun="accounts"
+          disabled={loading || busy}
+          onChange={value => {
+            setPage(value);
+            setLoading(true);
+          }}
+        />
       </section>
       <SuccessDialog message={success} onClose={() => setSuccess('')} />
     </main>

@@ -206,11 +206,11 @@ describe('DDP-029 staff management', () => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
     fill();
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next accounts' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/staff?page=2&pageSize=20', expect.any(Object)));
     expect(screen.getByLabelText('Full name')).toHaveValue('New Worker');
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Previous' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
-    await waitFor(() => expect(screen.getByText(/Page 1/)).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Previous accounts' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Previous accounts' }));
+    await waitFor(() => expect(screen.getByText('1–20 of 21 accounts')).toBeVisible());
   });
 });

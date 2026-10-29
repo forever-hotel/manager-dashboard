@@ -1,4 +1,5 @@
 'use client';
+import Pagination from './Pagination';
 import ReportDownload from './ReportDownload';
 import { PageHeader, SummaryCard, DataPanel, UnavailableRow } from './DashboardVisuals';
 import LowDemandAlerts from './LowDemandAlerts';
@@ -188,29 +189,14 @@ export default function AnalyticsDashboard() {
           </table>
         </div>
         {data && (
-          <div className="booking-pagination">
-            <span>
-              {data.bookingList.total ? (page - 1) * data.bookingList.pageSize + 1 : 0}&ndash;
-              {Math.min(page * data.bookingList.pageSize, data.bookingList.total)} of {data.bookingList.total} bookings
-              (all statuses)
-            </span>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={page === 1}
-              onClick={() => setPage(p => p - 1)}
-            >
-              Previous bookings
-            </button>
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={page * data.bookingList.pageSize >= data.bookingList.total}
-              onClick={() => setPage(p => p + 1)}
-            >
-              Next bookings
-            </button>
-          </div>
+          <Pagination
+            page={page}
+            pageSize={data.bookingList.pageSize}
+            total={data.bookingList.total}
+            noun="bookings"
+            suffix=" (all statuses)"
+            onChange={setPage}
+          />
         )}
       </DataPanel>
     </main>

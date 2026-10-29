@@ -1,4 +1,5 @@
 'use client';
+import Pagination from './Pagination';
 import { useState } from 'react';
 import { z } from 'zod';
 import { taskLabels, taskStatuses, tasksSnapshotSchema } from '@/lib/tasks';
@@ -122,26 +123,14 @@ export default function TaskQueue() {
       {snapshot && snapshot.tasks.length === 0 && (
         <p className="text-xs text-muted my-3">No tasks on this page for these filters.</p>
       )}
-      <div className="text-xs text-muted mt-4">
-        Page {page}
-        {snapshot ? ` · ${snapshot.total} matching tasks` : ''}.{' '}
-        <button
-          type="button"
-          className="underline button button-ghost"
-          disabled={page === 1}
-          onClick={() => setPage(p => p - 1)}
-        >
-          Previous
-        </button>{' '}
-        <button
-          type="button"
-          className="underline button button-ghost"
-          disabled={!snapshot || page * 20 >= snapshot.total}
-          onClick={() => setPage(p => p + 1)}
-        >
-          Next
-        </button>
-      </div>
+      <Pagination
+        page={page}
+        pageSize={20}
+        total={snapshot?.total ?? 0}
+        noun="tasks"
+        disabled={!snapshot}
+        onChange={setPage}
+      />
     </section>
   );
 }

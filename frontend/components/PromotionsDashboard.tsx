@@ -1,4 +1,5 @@
 'use client';
+import Pagination from './Pagination';
 import RowActions from '@/components/RowActions';
 import RoomTypeSelect from './RoomTypeSelect';
 import HeaderNotifications from '@/components/HeaderNotifications';
@@ -27,11 +28,19 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
   const [view, setView] = useState<'active' | 'inactive' | 'scheduled'>('active');
   const [selected, setSelected] = useState<Promotion>();
   const [confirmAction, setConfirmAction] = useState<'activate' | 'deactivate' | 'delete'>();
-  const actionPanel = useRef<HTMLElement>(null);
+  const actionPanel = useRef<HTMLDialogElement>(null);
   const formPanel = useRef<HTMLFormElement>(null);
   const roomCache = useRef<RoomType[] | undefined>(undefined);
   useEffect(() => {
-    if (selected) actionPanel.current?.focus();
+    if (!selected || !confirmAction) return;
+    const dialog = actionPanel.current;
+    const previous = document.activeElement;
+    dialog?.showModal();
+    dialog?.focus();
+    return () => {
+      dialog?.close();
+      if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
+    };
   }, [selected, confirmAction]);
   const [promos, setPromos] = useState<Promotion[]>([]);
   const [rooms, setRooms] = useState<RoomType[]>([]);
@@ -41,7 +50,10 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
   }));
   const [editing, setEditing] = useState<Promotion>();
   useEffect(() => {
-    if (editing) formPanel.current?.focus();
+    if (editing) {
+      formPanel.current?.focus({ preventScroll: true });
+      formPanel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }, [editing]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
@@ -253,7 +265,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
         </div>
       </div>
 
-      {error && (
+      {error && !confirmAction && (
         <p role="alert" className="font-normal text-[13px] text-danger mb-3">
           {error}{' '}
           <button type="button" className="button button-ghost" disabled={busy} onClick={reload}>
@@ -359,8 +371,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                 aria-invalid={!!errors.validFrom}
                 aria-describedby={errors.validFrom ? 'validFrom-error' : undefined}
                 disabled={busy}
-                type="datetime-local"
-                step="0.001"
+                type="date"
                 className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
                 value={form.validFrom}
                 onChange={e => field('validFrom', e.target.value)}
@@ -377,13 +388,13 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                 aria-invalid={!!errors.validUntil}
                 aria-describedby={errors.validUntil ? 'validUntil-error' : undefined}
                 disabled={busy}
-                type="datetime-local"
-                step="0.001"
+                type="date"
                 className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
                 value={form.validUntil}
                 onChange={e => field('validUntil', e.target.value)}
               />
               {fieldError('validUntil')}
+              <p className="text-xs text-muted mt-1">Includes this entire date (Sri Lanka time).</p>
             </div>
             <div>
               <label htmlFor="maxRedemptions" className="font-normal text-xs text-muted block mb-1">
@@ -525,7 +536,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                           : `LKR ${(p.discountValue / 100).toFixed(2)}`}
                       </td>
                       <td className="text-xs text-ink px-3 py-3">
-                        {new Date(p.validUntil).toLocaleString('en-GB', {
+                        {new Date(Date.parse(p.validUntil) - 1).toLocaleDateString('en-GB', {
                           timeZone: 'Asia/Colombo'
                         })}
                       </td>
@@ -571,38 +582,32 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
             </tbody>
           </table>
         </div>
-        <div className="flex gap-3 mt-3">
-          <button
-            disabled={busy || loading || page === 1}
-            onClick={() => {
-              setLoading(true);
-              setPage(page - 1);
-            }}
-            className="font-normal text-xs text-ink underline button button-ghost"
-          >
-            Previous page
-          </button>
-          <span className="text-xs text-ink">
-            Page {page} / {Math.max(1, Math.ceil(total / 20))}
-          </span>
-          <button
-            disabled={busy || loading || page * 20 >= total}
-            onClick={() => {
-              setLoading(true);
-              setPage(page + 1);
-            }}
-            className="font-normal text-xs text-ink underline button button-ghost"
-          >
-            Next page
-          </button>
-        </div>
+        <Pagination
+          page={page}
+          pageSize={20}
+          total={total}
+          noun="promotions"
+          disabled={busy || loading}
+          onChange={value => {
+            setLoading(true);
+            setPage(value);
+          }}
+        />
       </section>
       {selected && confirmAction && (
-        <section
+        <dialog
+          role="alertdialog"
+          onCancel={event => {
+            if (busy) event.preventDefault();
+            else {
+              setSelected(undefined);
+              setConfirmAction(undefined);
+            }
+          }}
           id="promotion-action-panel"
           ref={actionPanel}
           tabIndex={-1}
-          className="data-panel promotion-action-panel"
+          className="success-dialog"
           aria-labelledby="promotion-action-heading"
         >
           <div className="panel-heading">
@@ -620,6 +625,16 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
             </button>
           </div>
           <div className="promotion-action-body">
+            {error && (
+              <p role="alert" className="text-danger">
+                {error}
+              </p>
+            )}
+            {conflict && (
+              <button type="button" disabled={busy} className="button button-secondary" onClick={recover}>
+                Reload latest version
+              </button>
+            )}
             {Date.parse(selected.validUntil) <= Date.now() || selected.deletedAt ? (
               <p>This promotion has expired or been deleted. It cannot be activated.</p>
             ) : confirmAction ? (
@@ -665,7 +680,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
               </>
             ) : null}
           </div>
-        </section>
+        </dialog>
       )}
     </main>
   );

@@ -1,4 +1,5 @@
 'use client';
+import Pagination from './Pagination';
 import { useEffect, useState } from 'react';
 import { kitchenSnapshotSchema, kitchenLabels, type KitchenSnapshot, type KitchenStatus } from '@/lib/kitchen';
 import { useOperationsSnapshot } from './useOperationsSnapshot';
@@ -69,27 +70,7 @@ export default function KitchenQueue({ onSnapshot }: { onSnapshot?: (snapshot: K
         <div className="kitchen-column kitchen-ready">{group('READY')}</div>
       </div>
       {snapshot && (page > 1 || snapshot.total > 100) && (
-        <div className="booking-pagination">
-          <span>
-            Page {page} of {Math.max(1, Math.ceil(snapshot.total / 100))}
-          </span>
-          <button
-            type="button"
-            className="button button-secondary"
-            disabled={page === 1}
-            onClick={() => setPage(p => p - 1)}
-          >
-            Previous queue page
-          </button>
-          <button
-            type="button"
-            className="button button-secondary"
-            disabled={page * 100 >= snapshot.total}
-            onClick={() => setPage(p => p + 1)}
-          >
-            Next queue page
-          </button>
-        </div>
+        <Pagination page={page} pageSize={100} total={snapshot.total} noun="orders" onChange={setPage} />
       )}
     </section>
   );

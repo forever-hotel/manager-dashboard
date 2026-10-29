@@ -57,8 +57,8 @@ describe('DDP-028 task queue', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Apply worker filter' }));
     await screen.findByText('101');
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await screen.findByText(/Page 2/);
+    fireEvent.click(screen.getByRole('button', { name: 'Next tasks' }));
+    await screen.findByText(/21–.* tasks/);
     await screen.findByText('101');
     const expected = `/api/tasks?page=2&pageSize=20&status=ASSIGNED&worker=${workerId}`;
     await act(async () => {
@@ -68,9 +68,9 @@ describe('DDP-028 task queue', () => {
     expect(fetchMock).toHaveBeenCalledWith(expected, expect.any(Object));
     expect(screen.getByLabelText('Status')).toHaveValue('ASSIGNED');
     expect(screen.getByLabelText('Worker ID')).toHaveValue(workerId);
-    expect(screen.getByText(/Page 2/)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
-    await screen.findByText(/Page 1/);
+    expect(screen.getByText(/21–.* tasks/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Previous tasks' }));
+    await screen.findByText(/1–20 of .* tasks/);
   });
   it('shows empty results and disables forward pagination', async () => {
     fetchMock.mockImplementation(
@@ -85,7 +85,7 @@ describe('DDP-028 task queue', () => {
     );
     render(<TaskQueue />);
     expect(await screen.findByText('No tasks on this page for these filters.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next tasks' })).toBeDisabled();
   });
   it('reports offline transport and refreshes after health recovery', async () => {
     render(<TaskQueue />);

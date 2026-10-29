@@ -217,6 +217,12 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
     expect(((await get('workerId=' + id).expect(200)).body as Summary).workers[0].averageCompletionMinutes).toBe(0);
     expect(await database.query('SELECT * FROM wkms_tasks')).toEqual(before);
   });
+  it('uses the requested historical month while retaining the current freshness clock', async () => {
+    const result = (await get('period=month&date=2026-09-01').expect(200)).body as Summary;
+    expect(result.start).toBe('2026-08-31T18:30:00.000Z');
+    expect(result.end).toBe('2026-09-30T18:30:00.000Z');
+    expect(result.freshness.queriedAt).toBe(clock.toISOString());
+  });
   it('returns a safe failure when WKMS reporting access is unavailable', async () => {
     await database.query(
       `REVOKE SELECT(assigned_worker_id,status,submitted_at,completed_at,updated_at) ON wkms_tasks FROM "${role}"`
