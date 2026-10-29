@@ -130,19 +130,6 @@ export const workerSchema = z
     freshness
   })
   .refine(s => new Set(s.workers.map(w => w.workerId)).size === s.workers.length);
-export type Worker = z.infer<typeof workerSchema>['workers'][number];
-export type SortKey = 'fullName' | 'completedTaskCount' | 'averageCompletionMinutes' | 'openComplaintCount';
-export function sortWorkers(workers: Worker[], key: SortKey, descending: boolean) {
-  return [...workers].sort((a, b) => {
-    const x = a[key],
-      y = b[key];
-    if (x === null && y !== null) return 1;
-    if (y === null && x !== null) return -1;
-    const result =
-      typeof x === 'string' && typeof y === 'string' ? x.localeCompare(y) : Number(x ?? 0) - Number(y ?? 0);
-    return result ? (descending ? -result : result) : a.workerId.localeCompare(b.workerId);
-  });
-}
 export function localBoundary(value: string) {
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Colombo',

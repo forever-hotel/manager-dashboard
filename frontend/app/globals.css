@@ -1393,8 +1393,7 @@
   color: var(--color-muted);
   font-size: 12px;
 }
-.worker-toolbar input,
-.worker-toolbar select {
+.worker-toolbar input {
   padding: 9px 12px;
   background: white;
   border: 1px solid var(--color-border);

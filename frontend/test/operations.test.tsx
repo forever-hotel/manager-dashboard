@@ -3,8 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import OperationsAnalytics from '@/components/OperationsAnalytics';
 import WorkerAnalytics from '@/components/WorkerAnalytics';
-import { sortWorkers, workerSchema } from '@/lib/operations-analytics';
-import { foodFixture, serviceFixture, workerFixture, workerId } from './operations-fixture';
+import { foodFixture, serviceFixture, workerFixture } from './operations-fixture';
 vi.mock('@/components/KitchenQueue', () => ({
   default: () => <div>Live kitchen queue</div>
 }));
@@ -155,7 +154,7 @@ describe('DDP-032 operations views', () => {
   });
 });
 describe('DDP-033 worker view', () => {
-  it('AC1: displays worker metrics, N/A and usable complaint links', async () => {
+  it('AC1: displays worker metrics without removed controls', async () => {
     render(<WorkerAnalytics />);
     const table = await screen.findByRole('table', {
       name: 'Worker performance in minutes, current filters'
@@ -165,18 +164,6 @@ describe('DDP-033 worker view', () => {
     expect(screen.queryByRole('columnheader', { name: 'Actions' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Sort workers')).not.toBeInTheDocument();
     expect(screen.queryByText('Worker filters, detailed metrics, exports and task queue')).not.toBeInTheDocument();
-  });
-  it('AC2: sorts ties deterministically and leaves N/A last in both directions', () => {
-    const worker = workerSchema.parse(workerFixture()).workers[0];
-    const other = {
-      ...worker,
-      workerId: '77f4568c-89ab-4c12-b321-123456789012',
-      averageCompletionMinutes: 5
-    };
-    for (const desc of [false, true])
-      expect(sortWorkers([worker, other], 'averageCompletionMinutes', desc).at(-1)?.workerId).toBe(workerId);
-    expect(sortWorkers([other, worker], 'completedTaskCount', true)[0].workerId).toBe(workerId);
-    expect(sortWorkers([other, worker], 'fullName', false)[0].workerId).toBe(workerId);
   });
   it('supports historical periods and name search', async () => {
     render(<WorkerAnalytics />);
@@ -203,7 +190,7 @@ describe('DDP-033 worker view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close details' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
-  it('supports stable sorting and paging of zero-task workers', async () => {
+  it('keeps deterministic name order and paging of zero-task workers', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({

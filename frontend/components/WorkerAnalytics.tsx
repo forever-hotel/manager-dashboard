@@ -2,7 +2,7 @@
 import Pagination from './Pagination';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Period } from '@/lib/analytics';
-import { workerSchema, sortWorkers } from '@/lib/operations-analytics';
+import { workerSchema } from '@/lib/operations-analytics';
 import { hotelDate } from '@/lib/analytics-period';
 import { useAnalyticsSnapshot } from './useAnalyticsSnapshot';
 import { AnalyticsFailure } from './AnalyticsControls';
@@ -23,11 +23,12 @@ export default function WorkerAnalytics() {
   );
   const ordered = useMemo(
     () =>
-      sortWorkers(data?.workers ?? [], 'fullName', false).filter(w =>
-        (w.fullName + ' ' + w.role).toLowerCase().includes(search.toLowerCase().trim())
-      ),
+      [...(data?.workers ?? [])]
+        .sort((a, b) => a.fullName.localeCompare(b.fullName) || a.workerId.localeCompare(b.workerId))
+        .filter(w => (w.fullName + ' ' + w.role).toLowerCase().includes(search.toLowerCase().trim())),
     [data, search]
   );
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(ordered.length / 10)));
   useEffect(() => {
     if (!showTasks) return;
     const element = dialog.current;
@@ -47,7 +48,7 @@ export default function WorkerAnalytics() {
     close();
   }
   return (
-    <main className="dashboard-page worker-performance-page">
+    <main className="dashboard-page">
       <PageHeader
         title="Worker Performance"
         period={period}
@@ -120,12 +121,12 @@ export default function WorkerAnalytics() {
               </tr>
             </thead>
             <tbody>
-              {ordered.slice((page - 1) * 10, page * 10).map(w => (
+              {ordered.slice((currentPage - 1) * 10, currentPage * 10).map(w => (
                 <tr key={w.workerId}>
                   <td>{w.fullName}</td>
                   <td>{w.role.toLowerCase().replaceAll('_', ' ')}</td>
                   <td>{w.completedTaskCount}</td>
-                  <td>
+                  <td title="Elapsed time from task submission to completion, including waiting time">
                     {w.averageCompletionMinutes === null ? 'N/A' : w.averageCompletionMinutes.toFixed(1) + ' min'}
                   </td>
                   <td>
@@ -144,7 +145,7 @@ export default function WorkerAnalytics() {
             </tbody>
           </table>
         </div>
-        <Pagination page={page} pageSize={10} total={ordered.length} noun="workers" onChange={setPage} />
+        <Pagination page={currentPage} pageSize={10} total={ordered.length} noun="workers" onChange={setPage} />
       </DataPanel>
       {showTasks && (
         <dialog
