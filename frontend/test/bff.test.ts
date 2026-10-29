@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { GET, POST } from '@/app/api/auth/[action]/route';
+import { POST } from '@/app/api/auth/[action]/route';
 import { backend } from '@/lib/backend';
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const session = {
@@ -105,21 +105,5 @@ describe('BFF cookie/session boundary', () => {
     const failed = await POST(req('logout', { cookie: true }), context('logout'));
     expect(failed.status).toBe(503);
     expect(failed.cookies.get('mad_session')).toBeUndefined();
-  });
-  it('returns a current safe session without exposing bearer tokens', async () => {
-    vi.mocked(backend).mockResolvedValue({ status: 200, data: session });
-    expect(await (await GET(req('session', { method: 'GET', cookie: true }), context('session'))).json()).toEqual(
-      session
-    );
-  });
-  it('rejects unauthenticated/unknown session reads', async () => {
-    expect((await GET(req('session', { method: 'GET' }), context('session'))).status).toBe(401);
-    expect((await GET(req('session', { method: 'GET' }), context('unknown'))).status).toBe(404);
-  });
-  it.each([401, 403, 500, 200])('fails closed for invalid session response %i', async status => {
-    vi.mocked(backend).mockResolvedValue({ status, data: {} });
-    const result = await GET(req('session', { method: 'GET', cookie: true }), context('session'));
-    expect(result.status).toBe(status >= 500 ? 503 : status === 403 ? 403 : 401);
-    expect(result.cookies.get('mad_session')?.value).toBe(status >= 500 ? undefined : '');
   });
 });

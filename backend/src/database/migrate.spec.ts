@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
-import { migrate } from './migrate';
-import { MadFoundation1789600000000 } from './migrations/001-foundation';
+import { migrate } from '../../test/fixtures/migrate';
+import { MadFoundation1789600000000 } from '../../test/fixtures/migrations/001-foundation';
 describe('Migration transaction handling', () => {
   function setup(applied = false) {
     const query = jest.fn((sql: string) =>

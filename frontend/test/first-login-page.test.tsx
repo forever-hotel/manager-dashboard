@@ -8,7 +8,7 @@ vi.mock('next/navigation', () => ({
     throw new Error(path);
   }
 }));
-vi.mock('@/components/AuthForm', () => ({ AuthForm: () => null }));
+vi.mock('@/components/ChangePasswordForm', () => ({ ChangePasswordForm: () => null }));
 
 describe('First-login password page', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -24,7 +24,7 @@ describe('First-login password page', () => {
     const page = await ChangePasswordPage({
       searchParams: Promise.resolve({ next: '/rooms' })
     });
-    expect(page.props).toMatchObject({ changePassword: true, next: '/rooms' });
+    expect(page.props).toMatchObject({ next: '/rooms' });
   });
   it('opens the dashboard after the password has been changed', async () => {
     vi.mocked(requireSession).mockResolvedValue({

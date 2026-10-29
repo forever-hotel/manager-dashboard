@@ -12,7 +12,7 @@ import { AuthModule } from '../src/auth/auth.module';
 import { HealthController } from '../src/health/health.controller';
 import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
 import { configureHttp } from '../src/common/http';
-import { migrate } from '../src/database/migrate';
+import { migrate } from './fixtures/migrate';
 import { seedLocalAuth } from './local-auth-fixture';
 import { RealtimeGateway } from '../src/realtime/realtime.gateway';
 

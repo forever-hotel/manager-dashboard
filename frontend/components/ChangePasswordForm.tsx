@@ -6,52 +6,36 @@ import { z } from 'zod';
 import { safeDestination } from '@/lib/auth';
 import { navigate } from '@/lib/navigation';
 const schema = z.object({
-  username: z.string().trim().min(1, 'Username is required.').max(100),
-  password: z.string().min(1, 'Password is required.').max(1024)
+  currentPassword: z.string().min(1, 'Current password is required.').max(1024),
+  newPassword: z.string().min(12, 'Use at least 12 characters.').max(1024)
 });
 type Values = z.infer<typeof schema>;
-export function AuthForm({
-  next,
-  expired = false,
-  changePassword = false
-}: {
-  next?: string;
-  expired?: boolean;
-  changePassword?: boolean;
-}) {
+export function ChangePasswordForm({ next }: { next?: string }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const locked = useRef(false);
-  const formSchema = changePassword
-    ? schema.extend({
-        username: z.string().min(1).max(1024),
-        password: z.string().min(12, 'Use at least 12 characters.').max(1024)
-      })
-    : schema;
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting }
-  } = useForm<Values>({ resolver: zodResolver(formSchema) });
+  } = useForm<Values>({ resolver: zodResolver(schema) });
   async function submit(data: Values) {
     if (locked.current) return;
     locked.current = true;
     setPending(true);
     setError('');
     try {
-      const response = await fetch('/api/auth/' + (changePassword ? 'change-password' : 'login'), {
+      const response = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(10000),
-        body: JSON.stringify(changePassword ? { currentPassword: data.username, newPassword: data.password } : data)
+        body: JSON.stringify(data)
       });
       if (!response.ok)
         throw new Error(
           response.status >= 500
             ? 'Service unavailable. Please retry.'
-            : changePassword
-              ? 'Unable to change password. Check your current password and use a different new password.'
-              : 'Unable to sign in. Check your details and try again.'
+            : 'Unable to change password. Check your current password and use a different new password.'
         );
       const result: unknown = await response.json();
       if (
@@ -76,58 +60,50 @@ export function AuthForm({
             ? 'Service unavailable. Please retry.'
             : cause instanceof Error
               ? cause.message
-              : 'Unable to sign in. Please retry.'
+              : 'Unable to change password. Please retry.'
       );
     }
   }
   return (
     <main className="flex min-h-screen items-center justify-center bg-canvas p-4">
       <section className="w-full max-w-sm rounded-lg border border-border p-8 bg-surface">
-        <h1 className="font-medium text-[22px] text-brand">
-          {changePassword ? 'Change your password' : 'Manager sign in'}
-        </h1>
+        <h1 className="font-medium text-[22px] text-brand">Change your password</h1>
         <p className="mt-2 text-sm text-muted">
-          {changePassword
-            ? 'This is your first sign-in. Replace your initial password with a new password. Use the new password for future sign-ins.'
-            : 'Sign in to Forever Hotel.'}
+          This is your first sign-in. Replace your initial password with a new password. Use the new password for future
+          sign-ins.
         </p>
-        {expired && (
-          <p role="status" className="mt-3 text-sm">
-            Your session ended. Please sign in again.
-          </p>
-        )}
         <form noValidate onSubmit={event => void handleSubmit(submit)(event)} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="username">{changePassword ? 'Current password' : 'Username'}</label>
+            <label htmlFor="currentPassword">Current password</label>
             <input
-              id="username"
-              type={changePassword ? 'password' : 'text'}
-              autoComplete={changePassword ? 'current-password' : 'username'}
-              aria-invalid={!!errors.username}
-              aria-describedby={errors.username ? 'username-error' : undefined}
+              id="currentPassword"
+              type="password"
+              autoComplete="current-password"
+              aria-invalid={!!errors.currentPassword}
+              aria-describedby={errors.currentPassword ? 'current-password-error' : undefined}
               className="mt-1 w-full rounded border p-2"
-              {...register('username')}
+              {...register('currentPassword')}
             />
-            {errors.username && (
-              <p id="username-error" role="alert">
-                {changePassword ? 'Current password is required.' : errors.username.message}
+            {errors.currentPassword && (
+              <p id="current-password-error" role="alert">
+                {errors.currentPassword.message}
               </p>
             )}
           </div>
           <div>
-            <label htmlFor="password">{changePassword ? 'New password' : 'Password'}</label>
+            <label htmlFor="newPassword">New password</label>
             <input
-              id="password"
+              id="newPassword"
               type="password"
-              autoComplete={changePassword ? 'new-password' : 'current-password'}
-              aria-invalid={!!errors.password}
-              aria-describedby={errors.password ? 'password-error' : undefined}
+              autoComplete="new-password"
+              aria-invalid={!!errors.newPassword}
+              aria-describedby={errors.newPassword ? 'password-error' : undefined}
               className="mt-1 w-full rounded border p-2"
-              {...register('password')}
+              {...register('newPassword')}
             />
-            {errors.password && (
+            {errors.newPassword && (
               <p id="password-error" role="alert">
-                {errors.password.message}
+                {errors.newPassword.message}
               </p>
             )}
           </div>
@@ -140,7 +116,7 @@ export function AuthForm({
             disabled={isSubmitting || pending}
             className="w-full rounded bg-brand px-4 py-2 text-white disabled:opacity-50 button button-primary"
           >
-            {isSubmitting || pending ? 'Please wait…' : changePassword ? 'Change password' : 'Sign in'}
+            {isSubmitting || pending ? 'Please wait…' : 'Change password'}
           </button>
         </form>
       </section>

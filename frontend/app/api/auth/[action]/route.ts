@@ -9,22 +9,6 @@ function reply(data: unknown, status = 200) {
     headers: { 'Cache-Control': 'no-store' }
   });
 }
-export async function GET(request: NextRequest, context: { params: Promise<{ action: string }> }) {
-  if ((await context.params).action !== 'session') return reply({ code: 'NOT_FOUND' }, 404);
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return reply({ code: 'UNAUTHENTICATED' }, 401);
-  const result = await backend('/auth/session', 'GET', token);
-  if (result.status === 200 && isSession(result.data)) return reply(publicSession(result.data));
-  const status = result.status >= 500 ? 503 : result.status === 403 ? 403 : 401;
-  const response = reply(
-    {
-      code: status === 503 ? 'SERVICE_UNAVAILABLE' : status === 403 ? 'FORBIDDEN' : 'UNAUTHENTICATED'
-    },
-    status
-  );
-  if (status === 401 || status === 403) response.cookies.delete(SESSION_COOKIE);
-  return response;
-}
 export async function POST(request: NextRequest, context: { params: Promise<{ action: string }> }) {
   const { origin } = serverConfig();
   if (

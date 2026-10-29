@@ -10,7 +10,7 @@ import { DataSource } from 'typeorm';
 import { AnalyticsModule } from '../src/analytics/analytics.module';
 import { BOOKING_CLOCK, BookingAnalyticsService } from '../src/analytics/booking-analytics.service';
 import { configureHttp } from '../src/common/http';
-import { migrate } from '../src/database/migrate';
+import { migrate } from './fixtures/migrate';
 import { seedLocalAuth } from './local-auth-fixture';
 
 type Summary = Awaited<ReturnType<BookingAnalyticsService['summary']>>;

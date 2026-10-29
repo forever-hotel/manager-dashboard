@@ -22,24 +22,16 @@ export function resource(path: string) {
 }
 
 export class OperationsTelemetry {
-  private readonly started: number;
-  private requests = 0;
-  private failures = 0;
-  private auditFailures = 0;
-  private readonly buckets = [50, 100, 250, 500, 1000, 5000];
-  private readonly durations = Array<number>(7).fill(0);
   constructor(
     private readonly sink: (record: object) => void = record => logger.log(record),
     private readonly clock: () => number = () => performance.now()
-  ) {
-    this.started = this.clock();
-  }
+  ) {}
 
   private emit(record: object) {
     try {
       this.sink(record);
     } catch {
-      this.auditFailures++;
+      // Audit sink failures must not interrupt application requests.
     }
   }
   observe(request: Request, response: Response, next: NextFunction) {
@@ -51,10 +43,6 @@ export class OperationsTelemetry {
       if (recorded) return;
       recorded = true;
       const elapsed = Math.max(0, this.clock() - start);
-      this.requests++;
-      if (aborted || response.statusCode >= 500) this.failures++;
-      const index = this.buckets.findIndex(limit => elapsed <= limit);
-      this.durations[index === -1 ? 6 : index]++;
       if (!aborted && response.statusCode < 400 && ['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
       const suppliedActor: unknown = (request as Request & { user?: { sub?: unknown } }).user?.sub;
       const actor =
@@ -85,18 +73,6 @@ export class OperationsTelemetry {
     response.once('finish', () => complete(false));
     response.once('close', () => complete(!response.writableFinished));
     next();
-  }
-  snapshot() {
-    return {
-      uptimeSeconds: Math.floor((this.clock() - this.started) / 1000),
-      requests: this.requests,
-      serverFailures: this.failures,
-      auditWriteFailures: this.auditFailures,
-      latencyBuckets: [...this.buckets, null].map((upperBoundMs, index) => ({
-        upperBoundMs,
-        count: this.durations[index]
-      }))
-    };
   }
 }
 export const operationsTelemetry = new OperationsTelemetry();

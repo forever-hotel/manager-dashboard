@@ -9,7 +9,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { configureHttp } from '../src/common/http';
-import { migrate } from '../src/database/migrate';
+import { migrate } from './fixtures/migrate';
 import { PromotionsModule } from '../src/promotions/promotions.module';
 import { PROMOTION_CLOCK, promotionView } from '../src/promotions/promotions.service';
 import { seedLocalAuth } from './local-auth-fixture';

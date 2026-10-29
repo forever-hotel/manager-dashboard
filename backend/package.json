@@ -20,7 +20,6 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "lint:fix": "npm run lint -- --fix",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
-    "manager:create": "node --env-file-if-exists=.env dist/auth/provision-manager-cli.js",
     "test:integration": "jest --config ./test/jest-e2e.json --runInBand"
   },
   "dependencies": {
@@ -101,8 +100,6 @@
       "config/**/*.ts",
       "common/**/*.ts",
       "health/**/*.ts",
-      "database/migrate.ts",
-      "database/migrations/*.ts",
       "!**/*.module.ts"
     ],
     "coverageDirectory": "../coverage",
