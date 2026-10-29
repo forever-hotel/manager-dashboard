@@ -1,7 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import ReportDownload from '@/components/ReportDownload';
-import ReportsIndex from '@/components/ReportsIndex';
 import { readReport, reportQuery, reportFilename, MAX_DOWNLOAD_BYTES } from '@/lib/reports';
 import { reportResponse, csv } from './report-fixture';
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -101,36 +100,6 @@ describe('DDP-031 report downloads', () => {
       status === 401 ? 'sign in' : status === 403 ? 'Manager' : 'too large'
     );
     expect(click).not.toHaveBeenCalled();
-  });
-  it('AC3: Reports index chooses report, format and filters through the same flow', async () => {
-    fetchMock.mockResolvedValueOnce(reportResponse('csv', 'occupancy'));
-    render(<ReportsIndex />);
-    const report = screen.getByRole('combobox', { name: /^Report\b/ });
-    expect(report).toHaveValue('bookings');
-    fireEvent.change(report, {
-      target: { value: 'occupancy' }
-    });
-    fireEvent.change(screen.getByLabelText('From date'), {
-      target: { value: '2026-10-01' }
-    });
-    fireEvent.change(screen.getByLabelText('To date'), {
-      target: { value: '2026-10-21' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
-    await waitFor(() => expect(click).toHaveBeenCalledOnce());
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/reports/occupancy?format=csv&from=2026-10-01&to=2026-10-21',
-      expect.any(Object)
-    );
-    expect(report).toHaveValue('occupancy');
-    fireEvent.change(report, {
-      target: { value: 'staff' }
-    });
-    fireEvent.change(screen.getByLabelText('Worker ID (optional)'), {
-      target: { value: 'bad' }
-    });
-    expect(screen.getByRole('alert')).toHaveTextContent('worker ID');
-    expect(screen.getByRole('button', { name: 'Export PDF' })).toBeDisabled();
   });
   it('validates filter contracts and binary size/completeness before download', async () => {
     for (const [type, query] of [

@@ -20,7 +20,6 @@ export function safeDestination(value: string | null | undefined) {
     '/service-requests',
     '/worker-performance',
     '/tasks',
-    '/reports',
     '/settings'
   ].includes(path)
     ? value

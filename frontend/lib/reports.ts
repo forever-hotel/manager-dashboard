@@ -10,16 +10,6 @@ export const reportTypes = [
   'low-booking-alerts'
 ] as const;
 export type ReportType = (typeof reportTypes)[number];
-export const reportLabels: Record<ReportType, string> = {
-  bookings: 'Bookings',
-  revenue: 'Revenue',
-  'worker-performance': 'Worker performance',
-  staff: 'Staff performance',
-  'food-orders': 'Food orders',
-  'service-requests': 'Service requests',
-  occupancy: 'Occupancy',
-  'low-booking-alerts': 'Low-booking alerts'
-};
 export type ReportFilters = {
   period?: string;
   workerId?: string;

@@ -7,12 +7,19 @@ describe('Configuration, redirects and server transport', () => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
-  it.each([undefined, '', '//evil.test', '/\\evil.test', '/login', 'https://evil.test', '/rooms\n'])(
-    'rejects unsafe redirect %s',
-    value => {
-      expect(safeDestination(value)).toBe('/analytics');
-    }
-  );
+  it.each([
+    undefined,
+    '',
+    '//evil.test',
+    '/\\evil.test',
+    '/login',
+    '/reports',
+    '/reports?period=month',
+    'https://evil.test',
+    '/rooms\n'
+  ])('rejects unsafe redirect %s', value => {
+    expect(safeDestination(value)).toBe('/analytics');
+  });
   it('keeps intended dashboard paths and query strings', () => {
     expect(safeDestination('/rooms?view=list')).toBe('/rooms?view=list');
   });
