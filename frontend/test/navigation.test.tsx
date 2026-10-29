@@ -35,13 +35,24 @@ describe('Dashboard shell', () => {
     expect(screen.getByRole('button', { name: 'Close navigation' })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('navigation', { name: 'Dashboard' }).querySelectorAll('a')).toHaveLength(8);
     fireEvent.click(screen.getByRole('button', { name: 'Open account menu' }));
-    for (const name of ['Notifications', 'Task queue', 'Reports', 'Settings'])
-      expect(screen.getByRole('link', { name })).toBeVisible();
+    for (const name of ['Notifications', 'Task queue']) expect(screen.getByRole('link', { name })).toBeVisible();
     const rooms = screen.getByRole('link', { name: 'Room status' });
     expect(rooms).toHaveAttribute('aria-current', 'page');
     fireEvent.click(rooms);
     expect(screen.getByRole('button', { name: 'Open navigation' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#dashboard-content');
+  });
+  it('dismisses account tools on outside interaction and when selecting a destination', () => {
+    render(<Sidebar open close={() => {}} username="manager" />);
+    const trigger = screen.getByRole('button', { name: 'Open account menu' });
+    fireEvent.click(trigger);
+    expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Reports' })).not.toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('navigation', { name: 'Account tools' })).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('link', { name: 'Task queue' }));
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
   it('shows the authenticated username and completes server logout', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response('{}'));

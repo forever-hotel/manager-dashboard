@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import OperationsAnalytics from '@/components/OperationsAnalytics';
 import WorkerAnalytics from '@/components/WorkerAnalytics';
+import TasksPage from '@/app/(dashboard)/tasks/page';
 import { foodFixture, serviceFixture, workerFixture } from './operations-fixture';
 vi.mock('@/components/KitchenQueue', () => ({
   default: () => <div>Live kitchen queue</div>
@@ -182,15 +183,25 @@ describe('DDP-033 worker view', () => {
       )
     );
   });
-  it('opens the live queue only when requested', async () => {
+  it('links to the shared task page instead of mounting a duplicate queue', async () => {
     render(<WorkerAnalytics />);
     await screen.findByText('Worker One');
-    expect(screen.queryByText('Live task queue')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'View task queue' }));
-    expect(screen.getByRole('dialog', { name: 'Worker task queue' })).toBeVisible();
-    expect(screen.getByText('Live task queue')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Close details' }));
+    expect(screen.getByRole('link', { name: 'View task queue' })).toHaveAttribute(
+      'href',
+      '/tasks?from=worker-performance'
+    );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByText('Live task queue')).not.toBeInTheDocument();
+  });
+  it('shows a return link only for the Worker Performance task entry', async () => {
+    const view = render(await TasksPage({ searchParams: Promise.resolve({ from: 'worker-performance' }) }));
+    expect(screen.getByRole('link', { name: 'Back to Worker Performance' })).toHaveAttribute(
+      'href',
+      '/worker-performance'
+    );
+    view.unmount();
+    render(await TasksPage({ searchParams: Promise.resolve({}) }));
+    expect(screen.queryByRole('link', { name: 'Back to Worker Performance' })).not.toBeInTheDocument();
   });
   it('keeps deterministic name order and paging of zero-task workers', async () => {
     fetchMock.mockResolvedValueOnce(

@@ -129,7 +129,7 @@ export default function ReportDownload({
         </p>
       )}
       {active?.error && (
-        <p role="alert" className="text-xs text-ink mt-2">
+        <p role="alert" className="text-xs text-danger mt-2">
           {active.error}{' '}
           <button type="button" className="underline button button-ghost" onClick={() => void download(active.retry!)}>
             Retry download

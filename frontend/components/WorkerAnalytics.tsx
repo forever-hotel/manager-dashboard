@@ -1,6 +1,6 @@
 'use client';
 import Pagination from './Pagination';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Period } from '@/lib/analytics';
 import { workerSchema } from '@/lib/operations-analytics';
 import { hotelDate } from '@/lib/analytics-period';
@@ -9,14 +9,12 @@ import { AnalyticsFailure } from './AnalyticsControls';
 import { PageHeader, SummaryCard, DataPanel, UnavailableRow } from './DashboardVisuals';
 import AnalyticsPeriodNavigation from './AnalyticsPeriodNavigation';
 import { statusColor } from '@/lib/status-color';
-import TaskQueue from './TaskQueue';
+import Link from 'next/link';
 export default function WorkerAnalytics() {
   const [period, setPeriod] = useState<Period>('week');
   const [date, setDate] = useState(hotelDate);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [showTasks, setShowTasks] = useState(false);
-  const dialog = useRef<HTMLDialogElement>(null);
   const { data, error, retry } = useAnalyticsSnapshot(
     '/api/analytics/operations/worker-performance?' + new URLSearchParams({ period, date }),
     workerSchema
@@ -29,23 +27,8 @@ export default function WorkerAnalytics() {
     [data, search]
   );
   const currentPage = Math.min(page, Math.max(1, Math.ceil(ordered.length / 10)));
-  useEffect(() => {
-    if (!showTasks) return;
-    const element = dialog.current;
-    const previous = document.activeElement;
-    element?.showModal();
-    element?.focus();
-    return () => {
-      element?.close();
-      if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
-    };
-  }, [showTasks]);
-  function close() {
-    setShowTasks(false);
-  }
   function reset() {
     setPage(1);
-    close();
   }
   return (
     <main className="dashboard-page">
@@ -97,15 +80,9 @@ export default function WorkerAnalytics() {
             }}
           />
         </label>
-        <button
-          type="button"
-          className="button button-secondary"
-          onClick={() => {
-            setShowTasks(true);
-          }}
-        >
+        <Link href="/tasks?from=worker-performance" className="button button-secondary">
           View task queue
-        </button>
+        </Link>
       </div>
       <DataPanel title="Worker performance" className="worker-design-table">
         <div className="overflow-x-auto">
@@ -148,23 +125,6 @@ export default function WorkerAnalytics() {
         </div>
         <Pagination page={currentPage} pageSize={10} total={ordered.length} noun="workers" onChange={setPage} />
       </DataPanel>
-      {showTasks && (
-        <dialog
-          ref={dialog}
-          tabIndex={-1}
-          className="success-dialog complaint-dialog worker-queue-dialog"
-          aria-labelledby="worker-dialog-title"
-          onCancel={close}
-        >
-          <div className="flex justify-between items-center gap-3 mb-4">
-            <h2 id="worker-dialog-title">Worker task queue</h2>
-            <button type="button" className="button button-secondary" onClick={close}>
-              Close details
-            </button>
-          </div>
-          <TaskQueue />
-        </dialog>
-      )}
     </main>
   );
 }

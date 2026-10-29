@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { replaceLocation } from '@/lib/navigation';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -42,6 +42,19 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
   const [accountOpen, setAccountOpen] = useState(false);
   const [error, setError] = useState('');
   const locked = useRef(false);
+  const account = useRef<HTMLDivElement>(null);
+  function closeMenus() {
+    setAccountOpen(false);
+    close();
+  }
+  useEffect(() => {
+    if (!accountOpen) return;
+    const dismiss = (event: PointerEvent) => {
+      if (!account.current?.contains(event.target as Node)) setAccountOpen(false);
+    };
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [accountOpen]);
   async function logout() {
     if (locked.current) return;
     locked.current = true;
@@ -87,7 +100,7 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
                 key={item.href}
                 href={item.href}
                 prefetch={false}
-                onClick={close}
+                onClick={closeMenus}
                 aria-current={pathname === item.href ? 'page' : undefined}
                 className="sidebar-link"
               >
@@ -103,21 +116,16 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
           </div>
         ))}
       </nav>
-      <div className="sidebar-account">
+      <div ref={account} className="sidebar-account">
         {accountOpen && (
           <nav className="account-menu" aria-label="Account tools">
-            <Link href="/notifications" prefetch={false} onClick={close}>
+            <Link href="/notifications" prefetch={false} onClick={closeMenus}>
               Notifications
             </Link>
-            <Link href="/tasks" prefetch={false} onClick={close}>
+            <Link href="/tasks" prefetch={false} onClick={closeMenus}>
               Task queue
             </Link>
-            <Link href="/reports" prefetch={false} onClick={close}>
-              Reports
-            </Link>
-            <Link href="/settings" prefetch={false} onClick={close}>
-              Settings
-            </Link>
+
             <button type="button" disabled={pending} onClick={() => void logout()}>
               {pending ? 'Signing out...' : 'Logout'}
             </button>
