@@ -1402,3 +1402,7 @@
   color: var(--color-ink);
   font-size: 13px;
 }
+
+.worker-queue-dialog {
+  width: min(1320px, calc(100% - 32px));
+}

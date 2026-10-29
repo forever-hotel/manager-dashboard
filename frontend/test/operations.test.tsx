@@ -125,10 +125,10 @@ describe('DDP-032 operations views', () => {
     expect(await screen.findByText('Worker One')).toBeVisible();
     expect(screen.getAllByText('Unassigned')).toHaveLength(19);
     fireEvent.click(screen.getByRole('button', { name: 'Next requests' }));
-    expect(await screen.findByText('21–21 of 21 requests')).toBeVisible();
+    expect(await screen.findByText('21ï¿½21 of 21 requests')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Next requests' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Active requests' }));
-    expect(await screen.findByText('1–20 of 21 requests')).toBeVisible();
+    expect(await screen.findByText('1ï¿½20 of 21 requests')).toBeVisible();
     expect(screen.getAllByText('Assigned')).toHaveLength(20);
   });
   it('AC3: ignores stale period responses and supports retry', async () => {
@@ -162,13 +162,8 @@ describe('DDP-033 worker view', () => {
     });
     expect(table).toHaveTextContent('Worker One');
     expect(table).toHaveTextContent('N/A');
-    fireEvent.click(screen.getByRole('button', { name: 'Actions for Worker One' }));
-    fireEvent.click(screen.getByRole('button', { name: 'View details' }));
-    expect(screen.getByRole('dialog', { name: 'Worker One' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Submitted complaints' })).toHaveAttribute(
-      'href',
-      '/complaints?workerId=' + workerId + '&status=SUBMITTED'
-    );
+    expect(screen.queryByRole('columnheader', { name: 'Actions' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Sort workers')).not.toBeInTheDocument();
     expect(screen.queryByText('Worker filters, detailed metrics, exports and task queue')).not.toBeInTheDocument();
   });
   it('AC2: sorts ties deterministically and leaves N/A last in both directions', () => {
@@ -223,14 +218,10 @@ describe('DDP-033 worker view', () => {
     );
     render(<WorkerAnalytics />);
     await screen.findByText('Worker 0');
-    fireEvent.change(screen.getByLabelText('Sort workers'), {
-      target: { value: 'openComplaintCount' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Ascending' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next workers' }));
-    expect(screen.getByText('11–11 of 11 workers')).toBeVisible();
+    expect(screen.getByText('11ï¿½11 of 11 workers')).toBeVisible();
     expect(screen.getByText('Worker 10')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Previous workers' }));
-    expect(screen.getByText('1–10 of 11 workers')).toBeVisible();
+    expect(screen.getByText('1ï¿½10 of 11 workers')).toBeVisible();
   });
 });

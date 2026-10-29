@@ -28,6 +28,11 @@ describe('DDP-028 protected task routes', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(backend).toHaveBeenCalledWith('/mad/tasks?page=1&pageSize=20&status=ASSIGNED', 'GET', 'private');
   });
+  it('forwards worker names without requiring an ID', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: tasksSnapshot() });
+    expect((await GET(req('workerName=Worker+One'))).status).toBe(200);
+    expect(backend).toHaveBeenCalledWith('/mad/tasks?page=1&pageSize=20&workerName=Worker+One', 'GET', 'private');
+  });
   it('rejects invalid inputs and absent auth before upstream access', async () => {
     expect((await GET(req('', false))).status).toBe(401);
     for (const query of [

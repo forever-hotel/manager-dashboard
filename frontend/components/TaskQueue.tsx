@@ -1,43 +1,35 @@
 'use client';
 import Pagination from './Pagination';
-import { useState } from 'react';
-import { z } from 'zod';
+import { useEffect, useState } from 'react';
 import { taskLabels, taskStatuses, tasksSnapshotSchema } from '@/lib/tasks';
 import { useOperationsSnapshot } from './useOperationsSnapshot';
+
+const formatTime = (value: string | null) => (value ? value.slice(0, 16).replace('T', ' ') : '\u2014');
 
 export default function TaskQueue() {
   const [status, setStatus] = useState('');
   const [worker, setWorker] = useState('');
   const [draft, setDraft] = useState('');
-  const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const query = new URLSearchParams({ page: String(page), pageSize: '20' });
   if (status) query.set('status', status);
-  if (worker) query.set('worker', worker);
+  if (worker) query.set('workerName', worker);
   const { snapshot, message, retry } = useOperationsSnapshot(
     '/api/tasks?' + query.toString(),
     tasksSnapshotSchema,
     'tasks.transport.status',
     'task.changed'
   );
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setWorker(draft.trim());
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [draft]);
   return (
-    <section className="rounded-lg border border-border p-5 bg-surface">
-      <h2 className="font-medium text-base text-ink">Worker task queue</h2>
-      <p className="mt-2 text-sm text-muted">Read only · WKMS manages task assignment and progress.</p>
-      <form
-        className="flex flex-wrap items-end gap-4 my-4"
-        onSubmit={event => {
-          event.preventDefault();
-          const value = draft.trim();
-          if (value && !z.uuid().safeParse(value).success) {
-            setError('Enter a valid worker ID.');
-            return;
-          }
-          setError('');
-          setWorker(value);
-          setPage(1);
-        }}
-      >
+    <section>
+      <div className="flex flex-wrap items-end gap-4 my-4">
         <label className="font-normal text-xs text-ink">
           Status
           <select
@@ -57,24 +49,15 @@ export default function TaskQueue() {
           </select>
         </label>
         <label className="font-normal text-xs text-ink">
-          Worker ID
+          Worker name
           <input
             className="block border border-border rounded-md p-2 mt-1"
+            maxLength={200}
             value={draft}
             onChange={event => setDraft(event.target.value)}
-            aria-describedby={error ? 'worker-filter-error' : undefined}
-            aria-invalid={!!error}
           />
         </label>
-        <button type="submit" className="font-normal text-xs border border-border rounded-md p-2 button button-primary">
-          Apply worker filter
-        </button>
-      </form>
-      {error && (
-        <p id="worker-filter-error" role="alert" className="text-xs text-danger">
-          {error}
-        </p>
-      )}
+      </div>
       {message && (
         <div role="status" className="font-normal text-xs text-muted mb-3">
           {message}{' '}
@@ -106,12 +89,15 @@ export default function TaskQueue() {
                   task.category.replaceAll('_', ' '),
                   task.priority,
                   taskLabels[task.status],
-                  task.assignee ? `${task.assignee.name} (${task.assignee.id})` : 'Unassigned',
-                  task.submittedAt,
-                  task.updatedAt,
-                  task.completedAt ?? '—'
+                  task.assignee?.name ?? 'Unassigned',
+                  formatTime(task.submittedAt),
+                  formatTime(task.updatedAt),
+                  formatTime(task.completedAt)
                 ].map((value, index) => (
-                  <td key={index} className="font-normal border-b border-border p-2">
+                  <td
+                    key={index}
+                    className={'font-normal border-b border-border p-2' + (index >= 6 ? ' whitespace-nowrap' : '')}
+                  >
                     {value}
                   </td>
                 ))}

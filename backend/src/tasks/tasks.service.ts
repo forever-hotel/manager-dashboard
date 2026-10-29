@@ -33,6 +33,7 @@ export const TASKS_SQL = `WITH filtered AS MATERIALIZED (
  WHERE ($1::text IS NULL OR t.status::text=$1)
  AND ($2::uuid IS NULL OR t.assigned_worker_id=$2)
  AND ($5::uuid IS NULL OR t.task_id=$5)
+ AND ($6::text IS NULL OR strpos(lower(s.full_name),lower($6))>0)
 ), page AS (
  SELECT * FROM filtered ORDER BY submitted_at DESC,task_id LIMIT $3 OFFSET $4
 )
@@ -54,7 +55,8 @@ export class TasksService {
         query.worker ?? null,
         query.pageSize,
         (query.page - 1) * query.pageSize,
-        id ?? null
+        id ?? null,
+        query.workerName || null
       ]);
       if (
         !row ||

@@ -42,10 +42,25 @@ describe('DDP-042 task snapshots', () => {
       readOnly: true,
       page: 1
     });
-    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('SELECT'), ['UNASSIGNED', null, 10, 0, null]);
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('SELECT'), ['UNASSIGNED', null, 10, 0, null, null]);
     expect(await service.find(id)).toEqual(task);
-    expect(query).toHaveBeenLastCalledWith(expect.any(String), [null, null, 20, 0, id]);
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), [null, null, 20, 0, id, null]);
     expect(() => new TasksController(service).denyMutation()).toThrow();
+  });
+  it('filters worker names in SQL before pagination and validates name input', async () => {
+    const query = jest.fn().mockResolvedValue([{ queried_at: new Date(), total: 0, tasks: [] }]);
+    const service = new TasksService({ query } as unknown as DataSource);
+    await service.snapshot(Object.assign(new TasksQueryDto(), { workerName: 'Perera' }));
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('strpos(lower(s.full_name),lower($6))'), [
+      null,
+      null,
+      20,
+      0,
+      null,
+      'Perera'
+    ]);
+    expect(await validate(plainToInstance(TasksQueryDto, { workerName: ' Perera ' }))).toEqual([]);
+    expect((await validate(plainToInstance(TasksQueryDto, { workerName: 'x'.repeat(201) }))).length).toBeGreaterThan(0);
   });
   it('accepts completed tasks and empty sources; rejects malformed sources without disclosing SQL', async () => {
     const query = jest.fn();
