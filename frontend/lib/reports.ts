@@ -1,18 +1,8 @@
 import { z } from 'zod';
-export const reportTypes = [
-  'bookings',
-  'revenue',
-  'worker-performance',
-  'staff',
-  'food-orders',
-  'service-requests',
-  'occupancy',
-  'low-booking-alerts'
-] as const;
+export const reportTypes = ['bookings', 'occupancy'] as const;
 export type ReportType = (typeof reportTypes)[number];
 export type ReportFilters = {
   period?: string;
-  workerId?: string;
   from?: string;
   to?: string;
   date?: string;
@@ -24,15 +14,10 @@ export function reportQuery(type: string, raw: URLSearchParams) {
   const fields =
     type === 'occupancy'
       ? { from: calendarDate, to: calendarDate }
-      : type === 'low-booking-alerts'
-        ? {}
-        : {
-            period: z.enum(['day', 'week', 'month']).default('day'),
-            ...(['bookings', 'revenue', 'food-orders', 'service-requests'].includes(type)
-              ? { date: calendarDate.optional() }
-              : {}),
-            ...(['staff', 'worker-performance'].includes(type) ? { workerId: z.uuid().optional() } : {})
-          };
+      : {
+          period: z.enum(['day', 'week', 'month']).default('day'),
+          date: calendarDate.optional()
+        };
   if ([...raw.keys()].some(k => raw.getAll(k).length !== 1)) throw new Error('Repeated filters');
   const parsed = z
     .object({ format: z.enum(['csv', 'pdf']), ...fields })

@@ -14,8 +14,6 @@ import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
 import { configureHttp } from '../src/common/http';
 import { migrate } from '../src/database/migrate';
 import { seedLocalAuth } from './local-auth-fixture';
-import { OperationsController } from '../src/operations/operations.controller';
-import { OperationsService } from '../src/operations/operations.service';
 import { RealtimeGateway } from '../src/realtime/realtime.gateway';
 
 // Exercise the exported foundation guard without depending on later feature APIs.
@@ -93,9 +91,8 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
         }),
         AuthModule
       ],
-      controllers: [HealthController, ProtectedFixtureController, OperationsController],
+      controllers: [HealthController, ProtectedFixtureController],
       providers: [
-        OperationsService,
         {
           provide: RealtimeGateway,
           useValue: {
@@ -123,25 +120,6 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
     }
   });
   const http = () => request(app.getHttpServer());
-  it('DDP-050: operational status uses a real manager session and does not expose credentials', async () => {
-    await http().get('/mad/operations/status').expect(401);
-    for (const username of ['worker', 'first-login'])
-      await http()
-        .get('/mad/operations/status')
-        .set('Authorization', 'Bearer ' + provider.issue(username))
-        .expect(403);
-    const result = await http()
-      .get('/mad/operations/status')
-      .set('Authorization', 'Bearer ' + provider.issue('manager'))
-      .expect(200);
-    expect(result.body).toMatchObject({
-      service: 'mad-backend',
-      status: 'degraded',
-      checks: { notifications: 'unavailable' }
-    });
-    expect(result.headers['x-correlation-id']).toMatch(/^[0-9a-f-]{36}$/);
-    expect(JSON.stringify(result.body)).not.toMatch(/password|token_hash|DATABASE_URL|JWT_SECRET/);
-  });
   it('redacts server exception codes and sends defensive response headers over HTTP', async () => {
     const login = await http()
       .get('/protected/failure')

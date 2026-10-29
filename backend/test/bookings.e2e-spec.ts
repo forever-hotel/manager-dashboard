@@ -116,8 +116,11 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
   }
   function get(query = '?period=day', token = provider.issue('manager')) {
     return request(app.getHttpServer())
-      .get('/mad/analytics/bookings' + query)
-      .set('Authorization', 'Bearer ' + token);
+      .get('/mad/analytics/overview' + query)
+      .set('Authorization', 'Bearer ' + token)
+      .on('response', (response: { body: Record<string, unknown> }) => {
+        if (response.body.bookings) response.body = response.body.bookings as Record<string, unknown>;
+      });
   }
   async function summary(period: string): Promise<Summary> {
     return (await get('?period=' + period).expect(200)).body as Summary;
@@ -224,7 +227,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
   });
 
   it('enforces authentication, manager permission and first-password-change gating', async () => {
-    expect((await request(app.getHttpServer()).get('/mad/analytics/bookings').expect(401)).body).toMatchObject({
+    expect((await request(app.getHttpServer()).get('/mad/analytics/overview').expect(401)).body).toMatchObject({
       code: 'UNAUTHENTICATED'
     });
     await get('', 'malformed').expect(401);

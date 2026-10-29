@@ -4,7 +4,7 @@ import { BookingDetailsService } from './booking-details.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RevenueAnalyticsService } from './revenue-analytics.service';
 import { BOOKING_CLOCK, BookingAnalyticsService } from './booking-analytics.service';
-import { BookingQueryDto, BookingOverviewQueryDto } from './booking-query.dto';
+import { BookingOverviewQueryDto } from './booking-query.dto';
 import { OccupancyAnalyticsService } from './occupancy-analytics.service';
 import { OccupancyQueryDto } from './occupancy-query.dto';
 
@@ -19,11 +19,6 @@ export class AnalyticsController {
     @Inject(BOOKING_CLOCK) private readonly now: () => Date,
     private readonly details: BookingDetailsService
   ) {}
-
-  @Get('revenue')
-  revenueSummary(@Query() query: BookingQueryDto) {
-    return this.revenue.summary(query.period, undefined, query.date);
-  }
 
   @Get('overview')
   async overview(@Query() query: BookingOverviewQueryDto) {
@@ -59,11 +54,6 @@ export class AnalyticsController {
         roomsUsingCreationDate: calendar.roomsUsingCreationDate
       }
     };
-  }
-
-  @Get('bookings')
-  bookingsSummary(@Query() query: BookingQueryDto) {
-    return this.bookings.summary(query.period, undefined, query.date);
   }
 
   @Get('occupancy')

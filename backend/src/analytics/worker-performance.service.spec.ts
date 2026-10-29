@@ -166,16 +166,4 @@ describe('DDP-025 worker performance', () => {
       '2026-09-01'
     ]);
   });
-  it('bounds the export worker cohort in SQL without changing normal analytics requests', async () => {
-    const { service, query } = setup();
-    await service.summary({ period: 'day' }, 201);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('ORDER BY worker_id LIMIT $6'), [
-      'day',
-      'Asia/Colombo',
-      now.toISOString(),
-      null,
-      null,
-      201
-    ]);
-  });
 });

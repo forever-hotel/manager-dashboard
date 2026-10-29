@@ -86,7 +86,6 @@
     },
     "collectCoverageFrom": [
       "operations/**/*.ts",
-      "settings/**/*.ts",
       "notifications/**/*.ts",
       "rooms/**/*.ts",
       "stock/**/*.ts",
@@ -115,9 +114,6 @@
     ],
     "coverageThreshold": {
       "./src/operations/operations.telemetry.ts": {
-        "branches": 90
-      },
-      "./src/settings/task-limit.service.ts": {
         "branches": 90
       },
       "./src/staff/staff-directory.service.ts": {

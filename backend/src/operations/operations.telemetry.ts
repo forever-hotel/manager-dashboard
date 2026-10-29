@@ -3,13 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import type { Request, Response, NextFunction } from 'express';
 
-export type DependencyState = 'healthy' | 'unavailable' | 'disabled';
 const logger = new Logger('Operations');
 const resources = [
   'staff',
   'promotions',
   'complaints',
-  'settings',
   'notifications',
   'analytics',
   'reports',
@@ -30,7 +28,6 @@ export class OperationsTelemetry {
   private auditFailures = 0;
   private readonly buckets = [50, 100, 250, 500, 1000, 5000];
   private readonly durations = Array<number>(7).fill(0);
-  private previous = '';
   constructor(
     private readonly sink: (record: object) => void = record => logger.log(record),
     private readonly clock: () => number = () => performance.now()
@@ -88,20 +85,6 @@ export class OperationsTelemetry {
     response.once('finish', () => complete(false));
     response.once('close', () => complete(!response.writableFinished));
     next();
-  }
-  dependencies(checks: Record<string, DependencyState>) {
-    const fingerprint = JSON.stringify(checks);
-    if (fingerprint === this.previous) return;
-    this.previous = fingerprint;
-    this.emit({
-      timestamp: new Date().toISOString(),
-      service: 'mad-backend',
-      event: 'dependencies.changed',
-      actorId: 'system',
-      correlationId: randomUUID(),
-      outcome: Object.values(checks).includes('unavailable') ? 'DEGRADED' : 'HEALTHY',
-      checks
-    });
   }
   snapshot() {
     return {

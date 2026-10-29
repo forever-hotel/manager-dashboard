@@ -19,8 +19,7 @@ export function safeDestination(value: string | null | undefined) {
     '/food-orders',
     '/service-requests',
     '/worker-performance',
-    '/tasks',
-    '/settings'
+    '/tasks'
   ].includes(path)
     ? value
     : '/analytics';

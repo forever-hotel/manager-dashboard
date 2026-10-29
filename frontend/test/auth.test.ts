@@ -14,6 +14,7 @@ describe('Configuration, redirects and server transport', () => {
     '/\\evil.test',
     '/login',
     '/reports',
+    '/settings',
     '/reports?period=month',
     'https://evil.test',
     '/rooms\n'
@@ -93,7 +94,7 @@ describe('Configuration, redirects and server transport', () => {
       ['/auth/logout', '/mad/auth/logout'],
       ['/auth/change-password', '/mad/auth/change-password'],
       ['/health/ready', '/mad/health/ready'],
-      ['/mad/analytics/bookings?period=week', '/mad/analytics/bookings?period=week']
+      ['/mad/analytics/overview?period=week', '/mad/analytics/overview?period=week']
     ]) {
       await backend(path, 'GET', 'token');
       expect(fetcher).toHaveBeenLastCalledWith(

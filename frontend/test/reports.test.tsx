@@ -104,6 +104,9 @@ describe('DDP-031 report downloads', () => {
   it('validates filter contracts and binary size/completeness before download', async () => {
     for (const [type, query] of [
       ['bad', 'format=csv'],
+      ...['revenue', 'worker-performance', 'staff', 'food-orders', 'service-requests', 'low-booking-alerts'].map(
+        type => [type, 'format=csv']
+      ),
       ['bookings', 'format=csv&format=pdf'],
       ['occupancy', 'format=pdf&from=2020-01-01&to=2026-10-21'],
       ['occupancy', 'format=pdf&from=2026-10-21&to=2026-10-01']

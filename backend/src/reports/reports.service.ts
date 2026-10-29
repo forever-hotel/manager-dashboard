@@ -1,12 +1,7 @@
 import { Injectable, ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
 import { BookingAnalyticsService } from '../analytics/booking-analytics.service';
 import { BookingDetailsService } from '../analytics/booking-details.service';
-import { RevenueAnalyticsService } from '../analytics/revenue-analytics.service';
-import { WorkerPerformanceService } from '../analytics/worker-performance.service';
-import { FoodAnalyticsService } from '../analytics/food-analytics.service';
-import { ServiceRequestAnalyticsService } from '../analytics/service-request-analytics.service';
 import { OccupancyAnalyticsService } from '../analytics/occupancy-analytics.service';
-import { LowBookingAlertsService } from '../analytics/low-booking-alerts.service';
 import { ReportQuery, ReportType } from './report-query';
 import { flattenReport, renderCsv, renderPdf } from './report-renderer';
 import { bookingReportPdf, bookingTrendCsv, type BookingReport } from './booking-report';
@@ -15,12 +10,7 @@ export class ReportsService {
   private active = 0;
   constructor(
     private readonly bookings: BookingAnalyticsService,
-    private readonly revenue: RevenueAnalyticsService,
-    private readonly workers: WorkerPerformanceService,
-    private readonly food: FoodAnalyticsService,
-    private readonly requests: ServiceRequestAnalyticsService,
     private readonly occupancy: OccupancyAnalyticsService,
-    private readonly alerts: LowBookingAlertsService,
     private readonly bookingDetails: BookingDetailsService
   ) {}
   async download(type: ReportType, query: ReportQuery) {
@@ -46,35 +36,11 @@ export class ReportsService {
           data = bookingReport;
           break;
         }
-        case 'revenue':
-          data = query.date
-            ? await this.revenue.summary(query.period, undefined, query.date)
-            : await this.revenue.summary(query.period);
-          break;
-        case 'staff':
-        case 'worker-performance': {
-          const result = await this.workers.summary({ period: query.period, workerId: query.workerId }, 201);
-          if (result.workers.length > 200)
-            throw new UnprocessableEntityException('Limit the report to a worker: at most 200 workers per export.');
-          data = result;
-          break;
-        }
-        case 'food-orders':
-          data = query.date ? await this.food.summary(query.period, query.date) : await this.food.summary(query.period);
-          break;
-        case 'service-requests':
-          data = query.date
-            ? await this.requests.summary(query.period, query.date)
-            : await this.requests.summary(query.period);
-          break;
         case 'occupancy':
           data = await this.occupancy.calendar({
             from: query.from!,
             to: query.to!
           });
-          break;
-        case 'low-booking-alerts':
-          data = await this.alerts.alerts();
           break;
       }
       const rows = flattenReport({
@@ -82,13 +48,7 @@ export class ReportsService {
         requestedFilters:
           type === 'occupancy'
             ? { from: query.from, to: query.to }
-            : type === 'low-booking-alerts'
-              ? {}
-              : {
-                  period: query.period,
-                  ...(query.date ? { date: query.date } : {}),
-                  ...(query.workerId ? { workerId: query.workerId } : {})
-                }
+            : { period: query.period, ...(query.date ? { date: query.date } : {}) }
       });
       const title = type.replaceAll('-', ' ') + ' report';
       const period = `${String(data.start ?? data.from)} to ${String(data.end ?? data.to)} (${data.rangeEndInclusive ? 'inclusive dates' : 'exclusive end'})`;
