@@ -1,3 +1,4 @@
+import { startAuthFixture } from './local-auth-fixture';
 import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -23,6 +24,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
   let database: DataSource;
   let runtime: DataSource;
   let app: INestApplication<App>;
+  let closeAuth: (() => Promise<void>) | undefined;
   const suffix = randomUUID().replace(/-/g, '').slice(0, 12);
   const name = 'ddp_staff_test_' + suffix;
   const role = 'ddp_staff_app_' + suffix;
@@ -104,6 +106,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       );
     owner.username = role;
     owner.password = 'integration-only';
+    closeAuth = await startAuthFixture(database, secret);
     const module = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -130,6 +133,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
   });
   afterAll(async () => {
     await app?.close();
+    await closeAuth?.();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
       await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);

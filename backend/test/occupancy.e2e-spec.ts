@@ -85,6 +85,7 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
 
   afterAll(async () => {
     await app?.close();
+    await provider?.close();
     if (runtime?.isInitialized) await runtime.destroy();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {

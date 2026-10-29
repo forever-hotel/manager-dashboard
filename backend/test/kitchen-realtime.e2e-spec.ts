@@ -94,6 +94,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
   afterAll(async () => {
     await shared?.close();
     await app?.close();
+    await provider?.close();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
       await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);

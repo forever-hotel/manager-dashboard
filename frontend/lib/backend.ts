@@ -10,7 +10,7 @@ export async function backend(path: string, method = 'GET', token?: string, body
       method,
       cache: 'no-store',
       redirect: 'error',
-      signal: AbortSignal.timeout(7000),
+      signal: AbortSignal.timeout(path.startsWith('/auth/') ? 12000 : 7000),
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {})

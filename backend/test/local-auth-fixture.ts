@@ -1,3 +1,7 @@
+import { createServer } from 'node:http';
+import { AuthService } from './fixtures/auth-provider';
+import { TokenService } from './fixtures/token-service';
+import { ConfigService } from '@nestjs/config';
 // TEST ONLY: real local account rows; no external Auth server.
 import { randomUUID } from 'node:crypto';
 import { JwtService } from '@nestjs/jwt';
@@ -33,7 +37,9 @@ export async function seedLocalAuth(database: DataSource, secret: string, role: 
       [id, username, passwordHash, username === 'first-login', username === 'worker' ? 'WORKER' : 'MANAGER']
     );
   }
+  const close = await startAuthFixture(database, secret);
   return {
+    close,
     ids,
     issue(username: string) {
       const sub = ids.get(username);
@@ -48,5 +54,59 @@ export async function seedLocalAuth(database: DataSource, secret: string, role: 
         { issuer: 'mad', audience: 'mad', expiresIn: '8h' }
       );
     }
+  };
+}
+
+export async function startAuthFixture(database: DataSource, secret: string) {
+  const service = new AuthService(
+    new TokenService(new JwtService({ secret }), new ConfigService({ JWT_SECRET: secret, JWT_ISSUER: 'mad' })),
+    database
+  );
+  const server = createServer((request, response) => {
+    void (async () => {
+      try {
+        const parts: Buffer[] = [];
+        for await (const part of request) {
+          const chunk: unknown = part;
+          if (Buffer.isBuffer(chunk)) parts.push(chunk);
+        }
+        const body = (parts.length ? JSON.parse(Buffer.concat(parts).toString()) : {}) as {
+          username: string;
+          password: string;
+          currentPassword: string;
+          newPassword: string;
+        };
+        const token = request.headers.authorization?.slice(7) ?? '';
+        const action = request.url?.split('/').at(-1);
+        const result =
+          action === 'session'
+            ? await service.session(token, true)
+            : action === 'login'
+              ? await service.login(body)
+              : action === 'change-password'
+                ? await service.changePassword(token, body)
+                : action === 'logout'
+                  ? await service.logout(token)
+                  : null;
+        response.writeHead(result ? 200 : 404, { 'content-type': 'application/json' });
+        response.end(JSON.stringify(result));
+      } catch (error) {
+        const failure = error as { getStatus?: () => number; getResponse?: () => unknown };
+        response.writeHead(failure.getStatus?.() ?? 503, { 'content-type': 'application/json' });
+        response.end(JSON.stringify(failure.getResponse?.() ?? {}));
+      }
+    })();
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  server.unref();
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Auth fixture unavailable');
+  const previous = process.env.AUTH_SERVICE_URL;
+  process.env.AUTH_SERVICE_URL = 'http://127.0.0.1:' + address.port;
+  return async () => {
+    if (previous === undefined) delete process.env.AUTH_SERVICE_URL;
+    else process.env.AUTH_SERVICE_URL = previous;
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
   };
 }

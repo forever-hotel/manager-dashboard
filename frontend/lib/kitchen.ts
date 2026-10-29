@@ -28,8 +28,9 @@ export const kitchenSnapshotSchema = z
   .refine(s => new Set(s.orders.map(o => o.id)).size === s.orders.length);
 export type KitchenSnapshot = z.infer<typeof kitchenSnapshotSchema>;
 export type KitchenStatus = (typeof kitchenStatuses)[number];
-export const kitchenLabels: Record<Exclude<KitchenStatus, 'DELIVERED'>, string> = {
+export const kitchenLabels: Record<KitchenStatus, string> = {
   PLACED: 'Pending',
   IN_PREPARATION: 'In Preparation',
-  READY: 'Ready for Delivery'
+  READY: 'Ready for Delivery',
+  DELIVERED: 'Delivered today'
 };

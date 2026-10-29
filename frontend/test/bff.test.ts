@@ -106,4 +106,26 @@ describe('BFF cookie/session boundary', () => {
     expect(failed.status).toBe(503);
     expect(failed.cookies.get('mad_session')).toBeUndefined();
   });
+  it('requests a reset without requiring a login cookie and never returns credentials', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: { status: 'code_requested', code: 'private' } });
+    const response = await POST(
+      req('request-password-reset', { body: JSON.stringify({ email: 'manager@example.invalid' }) }),
+      context('request-password-reset')
+    );
+    expect(response.status).toBe(200);
+    expect(await response.text()).not.toContain('private');
+    expect(response.cookies.get('mad_session')).toBeUndefined();
+  });
+  it('clears the old cookie only after successful password recovery', async () => {
+    vi.mocked(backend).mockResolvedValue({
+      status: 400,
+      data: { message: 'Choose a different password from your current password.' }
+    });
+    const failed = await POST(req('reset-password'), context('reset-password'));
+    expect(failed.status).toBe(400);
+    expect(failed.cookies.get('mad_session')).toBeUndefined();
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: { status: 'password_reset' } });
+    const success = await POST(req('reset-password'), context('reset-password'));
+    expect(success.cookies.get('mad_session')?.value).toBe('');
+  });
 });

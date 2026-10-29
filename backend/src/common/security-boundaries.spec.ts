@@ -3,11 +3,9 @@ import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AuthService } from '../auth/auth.service';
-import { TokenService } from '../auth/token.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { configureHttp } from './http';
 import { AnalyticsController } from '../analytics/analytics.controller';
@@ -23,7 +21,7 @@ import { RoomsController } from '../rooms/rooms.controller';
 import { StaffController } from '../staff/staff.controller';
 import { TasksController } from '../tasks/tasks.controller';
 import { NotificationsController } from '../notifications/notifications.controller';
-// Real JWT/guard/session logic with isolated storage; feature e2e suites cover PostgreSQL.
+// Real backend guard/adapter with a gateway session contract fixture.
 const controllers = [
   AnalyticsController,
   FoodAnalyticsController,
@@ -70,22 +68,37 @@ describe('DDP-035 protected REST boundaries', () => {
     is_active: true,
     session_version: 0
   };
+  const originalFetch = global.fetch;
   beforeAll(async () => {
+    global.fetch = jest.fn((_url, init) => {
+      const authorization = new Headers(init?.headers).get('authorization');
+      try {
+        jwt.verify(authorization?.slice(7) ?? '', { secret, issuer: 'mad', audience: 'mad', algorithms: ['HS256'] });
+      } catch {
+        return Promise.resolve(new Response('{}', { status: 401 }));
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            sub: account.worker_id,
+            username: 'worker',
+            role: 'WORKER',
+            expiresAt: 4102444800,
+            passwordChangeRequired: false
+          }),
+          { status: 200 }
+        )
+      );
+    });
     const module = await Test.createTestingModule({
       controllers,
       providers: [
         AuthService,
-        TokenService,
         JwtAuthGuard,
-        {
-          provide: DataSource,
-          useValue: { query: jest.fn().mockResolvedValue([account]) }
-        },
-        { provide: JwtService, useValue: jwt },
         {
           provide: ConfigService,
           useValue: {
-            getOrThrow: (name: string) => (name === 'JWT_SECRET' ? secret : 'mad')
+            getOrThrow: () => 'http://gateway.test'
           }
         }
       ]
@@ -98,6 +111,7 @@ describe('DDP-035 protected REST boundaries', () => {
   });
   afterAll(async () => {
     await app?.close();
+    global.fetch = originalFetch;
   });
   function token(expired = false) {
     const now = Math.floor(Date.now() / 1000) - (expired ? 30000 : 0);

@@ -35,8 +35,7 @@ services:
       DB_SSL: "true"
       DB_SYNCHRONIZE: "false"
       DB_LOGGING: ${DB_LOGGING:-false}
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
-      JWT_ISSUER: ${JWT_ISSUER:?Set JWT_ISSUER}
+      AUTH_SERVICE_URL: http://api-gateway:8080
       LOW_BOOKING_THRESHOLD: ${LOW_BOOKING_THRESHOLD-0.40}
       STAFF_CREDENTIALS_KEY: ${STAFF_CREDENTIALS_KEY:-}
       STAFF_EMAIL_ENABLED: ${STAFF_EMAIL_ENABLED:-false}
@@ -63,7 +62,7 @@ services:
       PORT: 4700
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://mad:mad-local-only@mad-rabbitmq:5672}
       WEBSOCKET_SUBSYSTEMS_JSON: |
-        {"mad":{"authUrl":"http://mad-backend:4000/auth/session","relayKey":"${MAD_WEBSOCKET_RELAY_KEY:?Set MAD_WEBSOCKET_RELAY_KEY}","origins":["${APP_ORIGIN:-http://localhost:3000}"],"roles":{"MANAGER":["analytics","rooms","kitchen","tasks","stock","notifications"]}}}
+        {"mad":{"authUrl":"http://api-gateway:8080/mad/auth/session","relayKey":"${MAD_WEBSOCKET_RELAY_KEY:?Set MAD_WEBSOCKET_RELAY_KEY}","origins":["${APP_ORIGIN:-http://localhost:3000}"],"roles":{"MANAGER":["analytics","rooms","kitchen","tasks","stock","notifications"]}}}
     depends_on:
       mad-rabbitmq:
         condition: service_healthy
@@ -81,6 +80,18 @@ services:
       NODE_ENV: development
       HOST: 0.0.0.0
       PORT: 8080
+      STAFF_AUTH_ENABLED: "true"
+      DB_HOST: ${DB_HOST:?Set DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USERNAME: ${DB_USERNAME:?Set DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      DB_NAME: ${DB_NAME:?Set DB_NAME}
+      DB_SSL: "true"
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:?Set JWT_ISSUER}
+      STAFF_EMAIL_ENABLED: ${STAFF_EMAIL_ENABLED:-false}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-}
       MAD_SERVICE_URL: http://mad-backend:4000
       WEBSOCKET_SERVICE_URL: http://shared-websocket:4700
       ALLOWED_ORIGINS: ${APP_ORIGIN:-http://localhost:3000}

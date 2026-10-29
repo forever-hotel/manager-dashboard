@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -145,7 +146,7 @@ export function LoginForm({ next, expired = false }: { next?: string; expired?: 
                 autoComplete="current-password"
                 aria-invalid={!!errors.password}
                 aria-describedby={errors.password ? 'password-error' : undefined}
-                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                placeholder="••••••••"
                 className="w-full border border-border rounded-md pl-9 pr-3 py-2 text-[13px] text-ink placeholder:text-muted/70 focus:outline-none focus:border-brand"
                 {...register('password')}
               />
@@ -175,6 +176,9 @@ export function LoginForm({ next, expired = false }: { next?: string; expired?: 
             )}
           </button>
         </form>
+        <Link href="/reset-password" className="mt-4 block text-center text-sm text-brand underline" prefetch={false}>
+          Reset manager password
+        </Link>
       </div>
     </div>
   );

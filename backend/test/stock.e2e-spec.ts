@@ -96,6 +96,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
   afterAll(async () => {
     await shared?.close();
     await app?.close();
+    await provider?.close();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
       await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);

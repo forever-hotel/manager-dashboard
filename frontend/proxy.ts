@@ -4,7 +4,7 @@ import { isSession, SESSION_COOKIE } from './lib/auth';
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  if (['/', '/login', '/unavailable'].includes(path)) return NextResponse.next();
+  if (['/', '/login', '/reset-password', '/unavailable'].includes(path)) return NextResponse.next();
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const result = token ? await backend('/auth/session', 'GET', token) : null;
   let target: string | undefined;

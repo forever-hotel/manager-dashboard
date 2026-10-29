@@ -84,6 +84,7 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
   });
   afterAll(async () => {
     await app?.close();
+    await provider?.close();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
       await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);

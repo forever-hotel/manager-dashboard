@@ -37,7 +37,7 @@ class ProtectedFixtureController {
   }
 }
 
-describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
+describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
   let admin: DataSource;
   let database: DataSource;
   let runtime: DataSource;
@@ -111,6 +111,7 @@ describe('DDP-001â€“008 disposable PostgreSQL/API acceptance', () => {
   }, 60000);
   afterAll(async () => {
     await app?.close();
+    await provider?.close();
     if (runtime?.isInitialized) await runtime.destroy();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {

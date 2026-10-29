@@ -87,9 +87,20 @@ export function validateEnvironment(env: Record<string, unknown>) {
       );
     }
   }
-  if (required('JWT_SECRET').length < 32)
-    throw new Error('Configuration: JWT_SECRET must contain at least 32 characters');
-  required('JWT_ISSUER');
+  try {
+    const authUrl = new URL(required('AUTH_SERVICE_URL'));
+    if (
+      !['http:', 'https:'].includes(authUrl.protocol) ||
+      authUrl.username ||
+      authUrl.password ||
+      authUrl.pathname !== '/' ||
+      authUrl.search ||
+      authUrl.hash
+    )
+      throw new Error();
+  } catch {
+    throw new Error('Configuration: AUTH_SERVICE_URL must be the gateway HTTP(S) origin');
+  }
   const port = Number(env.PORT ?? 4000);
   if (!Number.isInteger(port) || port < 1 || port > 65535)
     throw new Error('Configuration: PORT must be an integer from 1 to 65535');

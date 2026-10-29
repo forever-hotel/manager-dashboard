@@ -40,16 +40,18 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe('DDP-026 live kitchen', () => {
-  it('shows only the three active groups without obsolete queue controls', async () => {
+  it('shows all four statuses within the existing three-column layout', async () => {
     render(<KitchenQueue />);
     expect(await screen.findByText('Room 101')).toBeVisible();
     for (const label of ['New', 'Preparing', 'Ready']) expect(screen.getByText(label)).toBeVisible();
-    expect(screen.queryByText(/Delivered/)).not.toBeInTheDocument();
+    expect(screen.getByText('Delivered today')).toBeInTheDocument();
     expect(screen.queryByLabelText('Kitchen connection and paging')).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/kitchen/orders?activeOnly=true&page=1&pageSize=100',
-      expect.anything()
-    );
+    expect(fetchMock).toHaveBeenCalledWith('/api/kitchen/orders?page=1&pageSize=100', expect.anything());
+  });
+  it('shows delivered orders from the authoritative snapshot', async () => {
+    data = kitchenSnapshot('DELIVERED');
+    render(<KitchenQueue />);
+    expect(await within(screen.getByLabelText('Delivered today')).findByText('Room 101')).toBeVisible();
   });
   it('TC-MAD-026-AC2: rereads authoritative snapshots on kitchen events', async () => {
     render(<KitchenQueue />);

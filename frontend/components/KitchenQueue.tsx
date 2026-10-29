@@ -6,7 +6,7 @@ import { useOperationsSnapshot } from './useOperationsSnapshot';
 export default function KitchenQueue({ onSnapshot }: { onSnapshot?: (snapshot: KitchenSnapshot | null) => void } = {}) {
   const [page, setPage] = useState(1);
   const { snapshot, message, retry } = useOperationsSnapshot(
-    '/api/kitchen/orders?activeOnly=true&page=' + page + '&pageSize=100',
+    '/api/kitchen/orders?page=' + page + '&pageSize=100',
     kitchenSnapshotSchema,
     'transport.status',
     'kitchen.order.changed'
@@ -14,10 +14,12 @@ export default function KitchenQueue({ onSnapshot }: { onSnapshot?: (snapshot: K
   useEffect(() => {
     onSnapshot?.(snapshot);
   }, [snapshot, onSnapshot]);
-  const group = (status: Exclude<KitchenStatus, 'DELIVERED'>) => (
+  const group = (status: KitchenStatus) => (
     <div aria-label={kitchenLabels[status]}>
       <div className="kitchen-column-heading">
-        <span>{{ PLACED: 'New', IN_PREPARATION: 'Preparing', READY: 'Ready' }[status]}</span>
+        <span>
+          {{ PLACED: 'New', IN_PREPARATION: 'Preparing', READY: 'Ready', DELIVERED: 'Delivered today' }[status]}
+        </span>
         <span
           className={
             'status-badge ' +
@@ -67,7 +69,10 @@ export default function KitchenQueue({ onSnapshot }: { onSnapshot?: (snapshot: K
       <div className="kitchen-columns">
         <div className="kitchen-column">{group('PLACED')}</div>
         <div className="kitchen-column">{group('IN_PREPARATION')}</div>
-        <div className="kitchen-column kitchen-ready">{group('READY')}</div>
+        <div className="kitchen-column kitchen-ready">
+          {group('READY')}
+          {group('DELIVERED')}
+        </div>
       </div>
       {snapshot && (page > 1 || snapshot.total > 100) && (
         <Pagination page={page} pageSize={100} total={snapshot.total} noun="orders" onChange={setPage} />

@@ -3,8 +3,7 @@ describe('Startup configuration', () => {
   const valid = {
     DATABASE_URL: 'postgresql://mad:password@localhost:5432/mad',
     FRONTEND_URL: 'http://localhost:3000',
-    JWT_SECRET: 'test-secret-with-at-least-32-characters',
-    JWT_ISSUER: 'mad',
+    AUTH_SERVICE_URL: 'http://localhost:8080',
     SHARED_WEBSOCKET_URL: 'http://localhost:4100',
     MAD_WEBSOCKET_RELAY_KEY: 'shared-socket-test-key-at-least-32-characters'
   };
@@ -72,13 +71,10 @@ describe('Startup configuration', () => {
         })
       ).toThrow('RABBITMQ_URL must be an AMQP URL');
   });
-  it.each(['DATABASE_URL', 'FRONTEND_URL', 'JWT_SECRET', 'JWT_ISSUER'])(
-    'names missing %s without exposing values',
-    key => {
-      expect(() => validateEnvironment({ ...valid, [key]: undefined })).toThrow(key);
-    }
-  );
-  it.each(['DATABASE_URL', 'FRONTEND_URL'])('redacts invalid %s', key => {
+  it.each(['DATABASE_URL', 'FRONTEND_URL', 'AUTH_SERVICE_URL'])('names missing %s without exposing values', key => {
+    expect(() => validateEnvironment({ ...valid, [key]: undefined })).toThrow(key);
+  });
+  it.each(['DATABASE_URL', 'FRONTEND_URL', 'AUTH_SERVICE_URL'])('redacts invalid %s', key => {
     try {
       validateEnvironment({ ...valid, [key]: 'secret-value' });
       throw new Error('expected validation failure');
@@ -93,9 +89,11 @@ describe('Startup configuration', () => {
       expect(() => validateEnvironment({ ...valid, FRONTEND_URL: url })).toThrow('FRONTEND_URL');
     }
   );
-  it('rejects insecure production service URLs and short signing secrets', () => {
+  it('rejects insecure production frontend URLs and unsafe auth origins', () => {
     expect(() => validateEnvironment({ ...valid, NODE_ENV: 'production' })).toThrow('FRONTEND_URL');
-    expect(() => validateEnvironment({ ...valid, JWT_SECRET: 'short' })).toThrow('JWT_SECRET');
+    expect(() => validateEnvironment({ ...valid, AUTH_SERVICE_URL: 'http://user:password@test' })).toThrow(
+      'AUTH_SERVICE_URL'
+    );
   });
   it.each([0, 65536, 'bad', 1.5])('rejects invalid port %s', PORT => {
     expect(() => validateEnvironment({ ...valid, PORT })).toThrow('PORT');
