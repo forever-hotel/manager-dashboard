@@ -1,6 +1,4 @@
 import { ReportsModule } from './reports/reports.module';
-import { OperationsModule } from './operations/operations.module';
-import { SettingsModule } from './settings/settings.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { Module } from '@nestjs/common';
@@ -28,8 +26,6 @@ import { RealtimeModule } from './realtime/realtime.module';
     AuthModule,
     AnalyticsModule,
     ReportsModule,
-    OperationsModule,
-    SettingsModule,
     NotificationsModule,
     StaffModule,
     PromotionsModule,

@@ -21,6 +21,7 @@ export function evaluateAudit(report, lock, now = Date.now()) {
   const findings = report.vulnerabilities;
   function exempt(name, visited = new Set()) {
     const finding = findings[name];
+
     if (
       now >= expires ||
       visited.has(name) ||
@@ -35,6 +36,7 @@ export function evaluateAudit(report, lock, now = Date.now()) {
     )
       return false;
     const path = new Set([...visited, name]);
+
     return finding.via.every(via =>
       typeof via === 'string'
         ? exempt(via, path)
@@ -43,6 +45,7 @@ export function evaluateAudit(report, lock, now = Date.now()) {
   }
   const blocked = [];
   const allowed = [];
+
   for (const [name, finding] of Object.entries(findings)) {
     if (!['info', 'low', 'moderate', 'high', 'critical'].includes(finding.severity)) {
       throw new Error(`Invalid audit severity: ${name}`);
@@ -56,6 +59,7 @@ export function evaluateAudit(report, lock, now = Date.now()) {
 
 function main() {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
   if (!process.env.npm_execpath) throw new Error('Run through npm run audit:ci');
   const result = spawnSync(
     process.execPath,
@@ -67,12 +71,14 @@ function main() {
       maxBuffer: 10 * 1024 * 1024
     }
   );
+
   if (result.error || result.signal || ![0, 1].includes(result.status)) {
     throw new Error('npm audit could not complete', { cause: result.error });
   }
   const report = JSON.parse(result.stdout);
   const lock = JSON.parse(readFileSync(resolve(root, 'package-lock.json'), 'utf8'));
   const { blocked, allowed } = evaluateAudit(report, lock);
+
   if (allowed.length)
     console.warn(`Temporary dev-only exception (${advisory}), expires 2026-11-14: ${allowed.join(', ')}`);
   if (blocked.length)

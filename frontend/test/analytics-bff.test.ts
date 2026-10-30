@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/analytics/route';
 import { backend } from '@/lib/backend';
 import { overview } from './analytics-fixture';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const req = (query = 'period=week', cookie = true) =>
   new NextRequest('http://localhost/api/analytics?' + query, {
@@ -17,6 +18,7 @@ describe('DDP-015 protected analytics BFF', () => {
       data: { ...overview(), private: 'secret' }
     });
     const result = await GET(req());
+
     expect(result.status).toBe(200);
     expect(await result.json()).toEqual(overview());
     expect(result.headers.get('cache-control')).toBe('no-store');
@@ -34,6 +36,7 @@ describe('DDP-015 protected analytics BFF', () => {
       data: { private: 'secret' }
     });
     const result = await GET(req());
+
     expect(result.status).toBe([401, 403].includes(status) ? status : 503);
     expect(JSON.stringify(await result.json())).not.toContain('secret');
   });
@@ -42,5 +45,27 @@ describe('DDP-015 protected analytics BFF', () => {
       vi.mocked(backend).mockResolvedValue({ status: 200, data });
       expect((await GET(req())).status).toBe(503);
     }
+  });
+  it('forwards validated historical dates and pagination and rejects malformed filters', async () => {
+    const data = overview();
+
+    data.bookingList = { total: 9, page: 2, pageSize: 5 };
+    vi.mocked(backend).mockResolvedValue({ status: 200, data });
+    expect((await GET(req('period=month&date=2026-09-01&page=2'))).status).toBe(503);
+    data.bookings.period = 'month';
+    data.revenue.period = 'month';
+    expect((await GET(req('period=month&date=2026-09-01&page=2'))).status).toBe(200);
+    expect(backend).toHaveBeenCalledWith(
+      '/mad/analytics/overview?period=month&date=2026-09-01&page=2',
+      'GET',
+      'private-token'
+    );
+    for (const query of [
+      'period=week&date=2026-02-30',
+      'period=week&page=0',
+      'period=week&pageSize=51',
+      'period=week&date=2026-09-01&date=2026-08-01'
+    ])
+      expect((await GET(req(query))).status).toBe(400);
   });
 });

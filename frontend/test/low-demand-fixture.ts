@@ -1,4 +1,5 @@
 import type { LowDemand } from '@/lib/low-demand';
+
 export const lowDemand = (): LowDemand => ({
   from: '2028-02-20',
   to: '2028-03-04',

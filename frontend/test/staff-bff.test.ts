@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { GET, POST, PATCH } from '@/app/api/staff/[[...path]]/route';
 import { backend } from '@/lib/backend';
 import { staffFixture, staffPageFixture, staffId, staffInputFixture } from './staff-fixture';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const context = (path: string[] = []) => ({
   params: Promise.resolve({ path })
@@ -31,6 +32,7 @@ describe('DDP-029 staff proxy', () => {
       data: { ...staffPageFixture(), password: 'secret' }
     });
     const response = await GET(req(), context());
+
     expect(await response.json()).toEqual(staffPageFixture());
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(backend).toHaveBeenCalledWith('/mad/staff?page=1&pageSize=20', 'GET', 'private', undefined);
@@ -51,6 +53,7 @@ describe('DDP-029 staff proxy', () => {
       }
     });
     const response = await POST(req('POST', staffInputFixture()), context());
+
     expect(response.status).toBe(201);
     expect(JSON.stringify(await response.json())).not.toContain('secret');
     vi.mocked(backend).mockResolvedValue({ status: 200, data: staffFixture() });
@@ -59,7 +62,7 @@ describe('DDP-029 staff proxy', () => {
       status: 200,
       data: { staffId, deliveryId: staffId, deliveryStatus: 'pending' }
     });
-    expect((await POST(req('POST', { version: 0 }), context([staffId, 'reset-password']))).status).toBe(200);
+    expect((await POST(req('POST', { version: 0 }), context([staffId, 'reset-password']))).status).toBe(404);
   });
   it('rejects missing sessions, cross-origin writes, invalid paths and malformed payloads', async () => {
     expect((await GET(req('GET', undefined, '', false), context())).status).toBe(401);
@@ -78,8 +81,8 @@ describe('DDP-029 staff proxy', () => {
       expect((await GET(req('GET', undefined, query), context())).status).toBe(400);
     expect((await GET(req('GET', undefined, '?page=1'), context([staffId]))).status).toBe(400);
     expect((await POST(req('POST', {}), context())).status).toBe(400);
-    expect((await POST(req('POST', {}), context([staffId, 'reset-password']))).status).toBe(400);
-    expect((await PATCH(req('PATCH', { version: 0, isActive: true }), context([staffId]))).status).toBe(400);
+    expect((await POST(req('POST', {}), context([staffId, 'reset-password']))).status).toBe(404);
+    expect((await PATCH(req('PATCH', { version: 0, isActive: 'true' }), context([staffId]))).status).toBe(400);
     expect((await POST(req('POST', { name: 'x'.repeat(17000) }), context())).status).toBe(413);
     expect(backend).not.toHaveBeenCalled();
   });
@@ -89,6 +92,7 @@ describe('DDP-029 staff proxy', () => {
       data: { password: 'secret' }
     });
     const response = await GET(req(), context());
+
     expect(response.status).toBe(status === 500 ? 503 : status);
     expect(JSON.stringify(await response.json())).not.toContain('secret');
   });

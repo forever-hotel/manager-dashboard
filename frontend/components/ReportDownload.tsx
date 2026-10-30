@@ -1,4 +1,5 @@
 'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import {
   reportQuery,
@@ -8,14 +9,17 @@ import {
   type ReportType,
   type ReportFilters
 } from '@/lib/reports';
+
 export default function ReportDownload({
   type,
   filters = {},
-  disabled = false
+  disabled = false,
+  formats = ['pdf', 'csv']
 }: {
   type: ReportType;
   filters?: ReportFilters;
   disabled?: boolean;
+  formats?: readonly ('csv' | 'pdf')[];
 }) {
   const key =
     type +
@@ -32,8 +36,10 @@ export default function ReportDownload({
   const request = useRef<AbortController | null>(null);
   const lock = useRef(false);
   const urls = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
   useEffect(() => {
     const pending = urls.current;
+
     return () => {
       request.current?.abort();
       for (const [url, timer] of pending) {
@@ -47,9 +53,11 @@ export default function ReportDownload({
     if (lock.current || disabled) return;
     lock.current = true;
     const controller = new AbortController();
+
     request.current = controller;
     setState({ key, busy: format });
     let response: Response | undefined;
+
     try {
       const query = reportQuery(
         type,
@@ -58,6 +66,7 @@ export default function ReportDownload({
           ['format', format]
         ])
       );
+
       response = await fetch('/api/reports/' + type + '?' + query.toString(), {
         cache: 'no-store',
         credentials: 'same-origin',
@@ -65,13 +74,15 @@ export default function ReportDownload({
       });
       if (!response.ok) throw new Error(exportError(response.status));
       const filename = reportFilename(type, format, response.headers.get('content-disposition'));
-      const bytes = await readReport(response, format);
+      const bytes = await readReport(response, format, type);
+
       if (controller.signal.aborted) return;
       const blob = new Blob([bytes], {
         type: format === 'pdf' ? 'application/pdf' : 'text/csv; charset=utf-8'
       });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
+
       anchor.href = url;
       anchor.download = filename;
       document.body.appendChild(anchor);
@@ -83,6 +94,7 @@ export default function ReportDownload({
           URL.revokeObjectURL(url);
           urls.current.delete(url);
         }, 1000);
+
         urls.current.set(url, timer);
       }
       setState({ key });
@@ -102,18 +114,20 @@ export default function ReportDownload({
     }
   }
   const active = state.key === key ? state : undefined;
+
   return (
     <div className="mt-3" role="group" aria-label={type + ' report downloads'} aria-busy={!!active?.busy}>
       <div className="flex gap-3">
-        {(['pdf', 'csv'] as const).map(format => (
+        {formats.map(format => (
           <button
             key={format}
             type="button"
             disabled={disabled || !!active?.busy}
             onClick={() => void download(format)}
             className={
-              'font-normal text-[10.5px] text-black rounded-md px-4 py-2 ' +
-              (format === 'pdf' ? 'bg-gray-100' : 'border border-gray-200')
+              'font-normal text-xs text-ink rounded-md px-4 py-2 ' +
+              (format === 'pdf' ? 'bg-brand-light' : 'border border-border') +
+              ' button button-secondary'
             }
           >
             Export {format.toUpperCase()}
@@ -121,14 +135,14 @@ export default function ReportDownload({
         ))}
       </div>
       {active?.busy && (
-        <p role="status" className="text-[10.5px] text-black/60 mt-2">
+        <p role="status" className="text-xs text-muted mt-2">
           Preparing {active.busy.toUpperCase()} report...
         </p>
       )}
       {active?.error && (
-        <p role="alert" className="text-[10.5px] text-black mt-2">
+        <p role="alert" className="text-xs text-danger mt-2">
           {active.error}{' '}
-          <button type="button" className="underline" onClick={() => void download(active.retry!)}>
+          <button type="button" className="underline button button-ghost" onClick={() => void download(active.retry!)}>
             Retry download
           </button>
         </p>

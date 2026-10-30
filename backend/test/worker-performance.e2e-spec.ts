@@ -13,6 +13,7 @@ import { BOOKING_CLOCK } from '../src/analytics/booking-analytics.service';
 import { WorkerPerformanceController } from '../src/analytics/worker-performance.controller';
 import { WorkerPerformanceService } from '../src/analytics/worker-performance.service';
 import { seedLocalAuth } from './local-auth-fixture';
+
 type Summary = Awaited<ReturnType<WorkerPerformanceService['summary']>>;
 describe('DDP-025 worker performance with disposable PostgreSQL', () => {
   let admin: DataSource,
@@ -24,8 +25,10 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
     role = 'ddp_worker_app_' + suffix;
   const secret = 'worker-integration-only-secret-at-least-32-characters';
   let clock = new Date('2026-10-19T06:00:00Z');
+
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
@@ -33,6 +36,7 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
+
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
@@ -73,6 +77,7 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
       controllers: [WorkerPerformanceController],
       providers: [WorkerPerformanceService, { provide: BOOKING_CLOCK, useValue: () => clock }]
     }).compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.init();
@@ -84,6 +89,7 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
   });
   afterAll(async () => {
     await app?.close();
+    await provider?.close();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
       await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
@@ -93,11 +99,13 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
   });
   function get(query = 'period=day', token: string | null = provider.issue('manager')) {
     const req = request(app.getHttpServer()).get('/mad/analytics/worker-performance?' + query);
+
     if (token) req.set('Authorization', 'Bearer ' + token);
     return req;
   }
   async function worker(active = true, staffRole = 'WORKER') {
     const id = randomUUID();
+
     await database.query(
       "INSERT INTO staff_users(worker_id,username,password_hash,role,is_active) VALUES ($1,$2,'fixture',$3,$4)",
       [id, 'report-' + id, staffRole, active]
@@ -118,6 +126,7 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
   }
   it('TC-MAD-025-AC1/AC3: independently aggregates historical completions and current referenced complaints', async () => {
     const id = await worker();
+
     await task(id, '2026-10-18T23:00:00+05:30', '2026-10-19T01:00:00+05:30');
     await task(id, '2026-10-19T08:00:00+05:30', '2026-10-19T09:00:00+05:30');
     await task(id, '2026-09-01T08:00:00Z', '2026-09-01T09:00:00Z');
@@ -127,6 +136,7 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
     await complaint(id, 'SUBMITTED', '2026-10-20T00:00:00Z');
     const response = await get('period=day&workerId=' + id).expect(200);
     const body = response.body as Summary;
+
     expect(body.workers).toHaveLength(1);
     expect(body.workers[0]).toMatchObject({
       workerId: id,
@@ -143,8 +153,10 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
     const inactive = await worker(false),
       promoted = await worker(true, 'RECEPTIONIST'),
       other = await worker(true, 'MANAGER');
+
     await task(promoted, '2026-09-01T00:00:00Z', '2026-09-01T01:00:00Z');
     const body = (await get().expect(200)).body as Summary;
+
     expect(body.workers.find(w => w.workerId === inactive)).toMatchObject({
       isActive: false,
       completedTaskCount: 0,
@@ -161,10 +173,12 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
   });
   it('uses local completion bounds and Monday weeks; handles leap months and invalid durations', async () => {
     const id = await worker();
+
     await task(id, '2026-10-18T23:00:00+05:30', '2026-10-19T00:00:00+05:30');
     await task(id, '2026-10-19T23:00:00+05:30', '2026-10-20T00:00:00+05:30');
     await task(id, '2026-10-18T20:00:00+05:30', '2026-10-18T23:59:59+05:30');
     let body = (await get('workerId=' + id).expect(200)).body as Summary;
+
     expect(body.start).toBe('2026-10-18T18:30:00.000Z');
     expect(body.end).toBe('2026-10-19T18:30:00.000Z');
     expect(body.workers[0].completedTaskCount).toBe(1);
@@ -195,8 +209,10 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
   });
   it('TC-MAD-025-AC3: rejects invalid filters and unauthorized callers without changing source records', async () => {
     const id = await worker();
+
     await task(id, '2026-10-19T00:00:00Z', '2026-10-19T00:00:00Z');
     const before = await database.query<unknown[]>('SELECT * FROM wkms_tasks');
+
     for (const query of [
       'period=year',
       'period=',
@@ -216,6 +232,13 @@ describe('DDP-025 worker performance with disposable PostgreSQL', () => {
       await get('', token).expect(status);
     expect(((await get('workerId=' + id).expect(200)).body as Summary).workers[0].averageCompletionMinutes).toBe(0);
     expect(await database.query('SELECT * FROM wkms_tasks')).toEqual(before);
+  });
+  it('uses the requested historical month while retaining the current freshness clock', async () => {
+    const result = (await get('period=month&date=2026-09-01').expect(200)).body as Summary;
+
+    expect(result.start).toBe('2026-08-31T18:30:00.000Z');
+    expect(result.end).toBe('2026-09-30T18:30:00.000Z');
+    expect(Date.parse(result.freshness.queriedAt)).toBeGreaterThanOrEqual(Date.now() - 10000);
   });
   it('returns a safe failure when WKMS reporting access is unavailable', async () => {
     await database.query(

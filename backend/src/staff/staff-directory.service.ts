@@ -4,18 +4,22 @@ import { isUUID } from 'class-validator';
 import { STAFF_ROLES } from './create-staff.dto';
 import { StaffDirectoryDto } from './staff-directory.dto';
 import { StaffProfile } from './staff-profiles.service';
+
 const projection = `s.worker_id AS "staffId",s.full_name AS name,s.vocation,s.email,s.age,s.phone,s.nic,s.username,s.role,
 s.is_active AS "isActive",s.password_change_required AS "passwordChangeRequired",s.session_version AS version,
 coalesce(d.status,'none') AS "deliveryStatus"`;
+
 function text(value: unknown, max: number, nullable = false) {
   return (
     (nullable && value === null) ||
     (typeof value === 'string' && (nullable || Boolean(value.trim())) && value.length <= max && !/\p{Cc}/u.test(value))
   );
 }
+
 @Injectable()
 export class StaffDirectoryService {
   constructor(private readonly database: DataSource) {}
+
   async list(query: StaffDirectoryDto, id?: string) {
     try {
       const [row] = await this.database.query<
@@ -40,6 +44,7 @@ SELECT (SELECT count(*)::integer FROM filtered) AS total,coalesce((SELECT jsonb_
           id ?? null
         ]
       );
+
       if (
         !row ||
         !Array.isArray(row.items) ||
@@ -93,6 +98,7 @@ SELECT (SELECT count(*)::integer FROM filtered) AS total,coalesce((SELECT jsonb_
           deliveryStatus: item.deliveryStatus
         };
       });
+
       return {
         items,
         total: row.total,
@@ -103,8 +109,10 @@ SELECT (SELECT count(*)::integer FROM filtered) AS total,coalesce((SELECT jsonb_
       throw new ServiceUnavailableException();
     }
   }
+
   async get(id: string) {
     const row = (await this.list(new StaffDirectoryDto(), id)).items[0];
+
     if (!row) throw new NotFoundException('Staff account not found.');
     return row;
   }

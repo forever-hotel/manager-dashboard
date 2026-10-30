@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import StaffAccounts from '@/components/StaffAccounts';
 import { staffFixture, staffPageFixture, staffInputFixture } from './staff-fixture';
+
 let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   fetchMock = vi.fn(
@@ -9,14 +10,24 @@ beforeEach(() => {
       new Response(JSON.stringify(options?.method ? {} : url.includes('?') ? staffPageFixture() : staffFixture()))
   );
   vi.stubGlobal('fetch', fetchMock);
+  Element.prototype.scrollIntoView = vi.fn();
+  vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  });
+  vi.spyOn(HTMLDialogElement.prototype, 'close').mockImplementation(function (this: HTMLDialogElement) {
+    this.removeAttribute('open');
+  });
 });
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
+
 function fill() {
   const values = staffInputFixture();
+
   for (const [label, key] of [
     ['Full name', 'name'],
     ['Vocation', 'vocation'],
@@ -31,10 +42,13 @@ function fill() {
     });
 }
 describe('DDP-029 staff management', () => {
-  it('AC1: supports all roles and required fields and displays queued delivery', async () => {
+  it('AC1: supports all roles and required fields and queues credential delivery', async () => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
-    expect(screen.getByText('Queued for delivery')).toBeVisible();
+    expect(screen.queryByText('Staff credential delivery status')).not.toBeInTheDocument();
+    expect(screen.queryByText('Staff filters and refresh')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '+ Add new' })).not.toBeInTheDocument();
+    for (const name of ['Day', 'Week', 'Month']) expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     for (const name of ['Receptionist', 'Worker', 'Kitchen Staff', 'Kitchen Manager'])
       expect(within(screen.getByLabelText('Role')).getByRole('option', { name })).toBeInTheDocument();
     fill();
@@ -55,6 +69,7 @@ describe('DDP-029 staff management', () => {
   it('AC2: edits fields and roles with the current version then refreshes', async () => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     await waitFor(() => expect(screen.getByLabelText('Full name')).toHaveValue('Test Worker'));
     fireEvent.change(screen.getByLabelText('Role'), {
@@ -63,45 +78,53 @@ describe('DDP-029 staff management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await screen.findByText('Profile saved. Existing sessions were invalidated.');
     const call = fetchMock.mock.calls.find(([, o]) => o?.method === 'PATCH');
+
     expect(JSON.parse(call![1]!.body as string)).toMatchObject({
       role: 'KITCHEN_MANAGER',
       version: 0
     });
   });
-  it.each(['Reset pwd', 'Deactivate'])('AC2: requires confirmation for %s', async name => {
+  it.each(['Deactivate', 'Delete account'])('AC2: requires confirmation for %s', async name => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
     fireEvent.click(screen.getByRole('button', { name }));
     expect(screen.getByRole('alertdialog')).toBeVisible();
     expect(fetchMock.mock.calls.some(([, o]) => o?.method)).toBe(false);
     fireEvent.click(
       screen.getByRole('button', {
-        name: name === 'Reset pwd' ? 'Confirm reset' : 'Confirm deactivation'
+        name: name === 'Delete account' ? 'Confirm deletion' : 'Confirm deactivation'
       })
     );
     await waitFor(() => expect(fetchMock.mock.calls.some(([, o]) => o?.method)).toBe(true));
     const call = fetchMock.mock.calls.find(([, o]) => o?.method);
+
+    expect(call![1]!.method).toBe(name === 'Delete account' ? 'DELETE' : 'PATCH');
     expect(JSON.parse(call![1]!.body as string)).toEqual(
-      name === 'Reset pwd' ? { version: 0 } : { version: 0, isActive: false }
+      name === 'Delete account' ? { version: 0 } : { version: 0, isActive: false }
     );
   });
   it('DDP-048: focuses confirmation and returns focus to its opener on Escape', async () => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
-    const trigger = screen.getByRole('button', { name: 'Reset pwd' });
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
+    const trigger = screen.getByRole('button', { name: 'Deactivate' });
+
     trigger.focus();
     fireEvent.click(trigger);
     const confirmation = screen.getByRole('alertdialog');
+
     expect(confirmation).toHaveFocus();
     expect(confirmation).toHaveAccessibleDescription(/invalidates existing sessions/);
     fireEvent.keyDown(confirmation, { key: 'Escape' });
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Actions for Test Worker' })).toHaveFocus();
     expect(fetchMock.mock.calls.some(([, options]) => options?.method)).toBe(false);
   });
   it('AC3: retains form input on conflicts and supports deliberate version reload', async () => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     await waitFor(() => expect(screen.getByLabelText('Full name')).toHaveValue('Test Worker'));
     fireEvent.change(screen.getByLabelText('Full name'), {
@@ -120,7 +143,7 @@ describe('DDP-029 staff management', () => {
     await screen.findByText(/Current version loaded/);
     expect(screen.getByLabelText('Full name')).toHaveValue('My draft');
   });
-  it('searches and filters the directory and leaves inactive accounts read-only for reset/deactivate', async () => {
+  it('lists inactive accounts without reset or deactivate actions', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -130,31 +153,30 @@ describe('DDP-029 staff management', () => {
       )
     );
     render(<StaffAccounts />);
-    await screen.findByText(/Delivery failed/);
+    await screen.findByText('Test Worker');
     expect(screen.queryByRole('button', { name: 'Reset pwd' })).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Search'), {
-      target: { value: 'Worker' }
-    });
-    fireEvent.change(screen.getByLabelText('Filter role'), {
-      target: { value: 'WORKER' }
-    });
-    fireEvent.change(screen.getByLabelText('Filter status'), {
-      target: { value: 'inactive' }
-    });
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Activate' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm activation' }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/staff?page=1&pageSize=20&search=Worker&role=WORKER&status=inactive',
-        expect.any(Object)
+        '/api/staff/' + staffFixture().staffId,
+        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ version: 0, isActive: true }) })
       )
     );
+    await screen.findByText('Staff account activated.');
   });
   it('reports service failures and allows directory retry', async () => {
     fetchMock.mockResolvedValueOnce(new Response('{}', { status: 503 }));
     render(<StaffAccounts />);
-    await screen.findByText(/Use Refresh directory/);
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh directory' }));
+    await screen.findByText(/Service unavailable/);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await screen.findByText('Test Worker');
-    fireEvent.click(screen.getByRole('button', { name: 'Reset pwd' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
     fireEvent.click(screen.getByRole('button', { name: 'Keep account unchanged' }));
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
@@ -166,13 +188,13 @@ describe('DDP-029 staff management', () => {
       target: { value: 'invalid' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('phone (7?15 digits, optional +)');
+    expect(await screen.findByRole('alert')).toHaveTextContent('phone (7-15 digits, optional +)');
     expect(screen.getByLabelText('Full name')).toHaveValue('New Worker');
     expect(fetchMock.mock.calls.some(([, o]) => o?.method)).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getByLabelText('Full name')).toHaveValue('');
   });
-  it('paginates and refreshes delivery status without changing a draft', async () => {
+  it('paginates without changing a draft', async () => {
     fetchMock.mockImplementation(
       async (url: string) =>
         new Response(
@@ -191,11 +213,11 @@ describe('DDP-029 staff management', () => {
     render(<StaffAccounts />);
     await screen.findByText('Test Worker');
     fill();
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next accounts' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/staff?page=2&pageSize=20', expect.any(Object)));
     expect(screen.getByLabelText('Full name')).toHaveValue('New Worker');
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Previous' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
-    await waitFor(() => expect(screen.getByText(/Page 1/)).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Previous accounts' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Previous accounts' }));
+    await waitFor(() => expect(screen.getByText('1–20 of 21 accounts')).toBeVisible());
   });
 });

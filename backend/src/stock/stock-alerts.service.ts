@@ -9,10 +9,13 @@ import {
   type StockAlert,
   type StockUpdate
 } from './stock-event';
+
 export const STOCK_ALERT_COLUMNS = `alert_id AS "alertId",menu_item_id AS "menuItemId",item_name AS name,stock_status AS "stockStatus",active,version::float8 AS version,source_updated_at AS "sourceUpdatedAt",raised_at AS "raisedAt",cleared_at AS "clearedAt"`;
+
 @Injectable()
 export class StockAlertsService {
   constructor(private readonly database: DataSource) {}
+
   async accept(event: StockEvent) {
     await this.database.transaction(async manager => {
       await manager.query("SELECT pg_advisory_xact_lock(hashtextextended('stock:'||$1,0))", [event.menuItemId]);
@@ -20,6 +23,7 @@ export class StockAlertsService {
         'SELECT received_payload=$2::jsonb AS same FROM mad_stock_events WHERE event_id=$1',
         [event.eventId, JSON.stringify(event)]
       );
+
       if (seen) {
         if (!seen.same) throw new InvalidStockEvent('Stock event identity reused');
         return;
@@ -36,6 +40,7 @@ export class StockAlertsService {
         [event.menuItemId]
       );
       const version = Number(source?.version);
+
       if (
         !source ||
         typeof source.name !== 'string' ||
@@ -56,6 +61,7 @@ export class StockAlertsService {
       );
       const stale = Boolean(last && Number(last.version) >= version);
       let payload: StockUpdate | null = null;
+
       if (!stale) {
         const [saved] = await manager.query<
           (Omit<StockAlert, 'sourceUpdatedAt' | 'raisedAt' | 'clearedAt'> & {
@@ -80,6 +86,7 @@ export class StockAlertsService {
             source.updated_at
           ]
         );
+
         if (!saved) throw new Error('Missing persisted stock alert');
         const alert: StockAlert = {
           ...saved,
@@ -87,6 +94,7 @@ export class StockAlertsService {
           raisedAt: saved.raisedAt?.toISOString() ?? null,
           clearedAt: saved.clearedAt?.toISOString() ?? null
         };
+
         payload = {
           eventId: event.eventId,
           type: 'stock.alert.changed',

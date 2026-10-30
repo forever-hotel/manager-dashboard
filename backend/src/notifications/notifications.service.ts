@@ -52,12 +52,15 @@ interface Row {
   invalid: boolean;
   items: NotificationItem[];
 }
+
 function count(value: number) {
   return Number.isSafeInteger(value) && value >= 0;
 }
+
 @Injectable()
 export class NotificationsService {
   constructor(private readonly database: DataSource) {}
+
   async snapshot(manager: string, page: NotificationPageDto) {
     try {
       const [row] = await this.database.query<Row[]>(SNAPSHOT_SQL, [
@@ -65,6 +68,7 @@ export class NotificationsService {
         page.pageSize,
         (page.page - 1) * page.pageSize
       ]);
+
       if (
         !row ||
         row.invalid !== false ||
@@ -80,6 +84,7 @@ export class NotificationsService {
       const seen = new Set<string>();
       const items = row.items.map(item => {
         const key = item?.type + ':' + item?.sourceId;
+
         if (
           !item ||
           !['COMPLAINT', 'STOCK'].includes(item.type) ||
@@ -119,6 +124,7 @@ export class NotificationsService {
               : '/notifications?page=' + page.page + '#stock-' + item.sourceId
         };
       });
+
       return {
         items,
         total: row.total,
@@ -132,6 +138,7 @@ export class NotificationsService {
       throw new ServiceUnavailableException();
     }
   }
+
   async markRead(manager: string, identity: NotificationIdentityDto, revision: string) {
     try {
       await this.database.transaction(async db => {
@@ -142,11 +149,13 @@ export class NotificationsService {
  ON CONFLICT(manager_id,type,entity_id) DO UPDATE SET revision=EXCLUDED.revision,read_at=EXCLUDED.read_at RETURNING entity_id`,
           [manager, identity.type, identity.id, revision]
         );
+
         if (!rows.length) {
           const current = await db.query<{ id: string }[]>(
             `${ACTIVE_NOTIFICATIONS} SELECT id FROM active WHERE type=$1 AND id=$2`,
             [identity.type, identity.id]
           );
+
           if (!current.length) throw new NotFoundException('The alert is no longer active.');
           throw new ConflictException('The alert changed. Reload before marking it read.');
         }
@@ -157,10 +166,12 @@ export class NotificationsService {
       throw new ServiceUnavailableException();
     }
   }
+
   async fingerprint() {
     const [row] = await this.database.query<{ revision: string }[]>(`${ACTIVE_NOTIFICATIONS}
  SELECT md5(COALESCE((SELECT string_agg(type||id::text||revision,'|' ORDER BY type,id) FROM active),'')||
  COALESCE((SELECT max(read_at)::text||count(*)::text FROM public.mad_notification_reads),'')) AS revision`);
+
     if (!row || !/^[a-f0-9]{32}$/.test(row.revision)) throw new Error('Notification source unavailable');
     return row.revision;
   }

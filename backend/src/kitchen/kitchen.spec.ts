@@ -4,6 +4,7 @@ import { KitchenController } from './kitchen.controller';
 import { KitchenQueryDto } from './kitchen-query.dto';
 import { Test } from '@nestjs/testing';
 import { getDataSourceToken } from '@nestjs/typeorm';
+
 const now = new Date('2026-10-19T06:00:00Z');
 const updatedAt = '2026-10-19T01:00:00.123456Z';
 const order = {
@@ -30,8 +31,10 @@ const populated = {
   total: 1,
   counts: { ...empty.counts, PLACED: 1 }
 };
+
 function setup(source: unknown = empty) {
   const query = jest.fn().mockResolvedValue([{ snapshot: source }]);
+
   return {
     query,
     service: new KitchenService({ query } as unknown as DataSource, () => now)
@@ -47,10 +50,12 @@ describe('DDP-041 kitchen snapshot', () => {
         { provide: 'KITCHEN_CLOCK', useValue: () => now }
       ]
     }).compile();
+
     try {
       const response = await module.get(KitchenService).snapshot(new KitchenQueryDto());
+
       expect(response.asOf).toBe(now.toISOString());
-      expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString()]);
+      expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString(), false]);
     } finally {
       await module.close();
     }
@@ -66,7 +71,7 @@ describe('DDP-041 kitchen snapshot', () => {
 
       expect(response.asOf).toBe(now.toISOString());
       expect(response.orders).toEqual([]);
-      expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString()]);
+      expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString(), false]);
     } finally {
       jest.useRealTimers();
     }
@@ -74,6 +79,7 @@ describe('DDP-041 kitchen snapshot', () => {
   it('returns valid empty pages with parameterized filters and a consistent clock', async () => {
     const { service, query } = setup();
     const response = await new KitchenController(service).orders(new KitchenQueryDto());
+
     expect(response).toMatchObject({
       orders: [],
       total: 0,
@@ -81,9 +87,9 @@ describe('DDP-041 kitchen snapshot', () => {
       pageSize: 20
     });
     expect(response).not.toHaveProperty('invalidSource');
-    expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString()]);
+    expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString(), false]);
     await service.snapshot({ status: 'READY', page: 2, pageSize: 5 });
-    expect(query).toHaveBeenLastCalledWith(expect.any(String), ['READY', 5, 5, now.toISOString()]);
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), ['READY', 5, 5, now.toISOString(), false]);
   });
   it.each(['PLACED', 'IN_PREPARATION', 'READY', 'DELIVERED'])(
     'preserves exact identity/revision and counts for %s',
@@ -99,6 +105,7 @@ describe('DDP-041 kitchen snapshot', () => {
         page: 1,
         pageSize: 20
       });
+
       expect(response.orders).toEqual([{ ...order, status }]);
       expect(response.orders[0].version).toBe(Date.parse(updatedAt) * 1000 + 456);
       expect(JSON.stringify(response)).not.toContain('private');
@@ -106,6 +113,7 @@ describe('DDP-041 kitchen snapshot', () => {
   );
   it('allows an out-of-range empty page without discarding global counts', async () => {
     const { service } = setup({ ...populated, orders: [] });
+
     expect(await service.snapshot({ page: 2, pageSize: 20 })).toMatchObject({
       orders: [],
       total: 1,
@@ -138,6 +146,7 @@ describe('DDP-041 kitchen snapshot', () => {
         orders: [order, order]
       }
     ];
+
     for (const patch of [
       { id: 'bad' },
       { status: 'UNKNOWN' },
@@ -163,6 +172,21 @@ describe('DDP-041 kitchen snapshot', () => {
     await expect(service.snapshot(new KitchenQueryDto())).rejects.toMatchObject({
       status: 503,
       message: 'Service Unavailable'
+    });
+  });
+  it('binds the active-only filter and rejects delivered rows returned for that cohort', async () => {
+    const { service, query } = setup();
+
+    await service.snapshot({ page: 1, pageSize: 100, activeOnly: 'true' });
+    expect(query).toHaveBeenCalledWith(expect.any(String), [null, 100, 0, now.toISOString(), true]);
+    const delivered = setup({
+      ...populated,
+      counts: { ...empty.counts, DELIVERED: 1 },
+      orders: [{ ...order, status: 'DELIVERED' }]
+    });
+
+    await expect(delivered.service.snapshot({ page: 1, pageSize: 100, activeOnly: 'true' })).rejects.toMatchObject({
+      status: 503
     });
   });
 });

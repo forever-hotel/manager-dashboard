@@ -3,6 +3,7 @@ import {
   referenceDiscount,
   ReferencePromotionConsumer
 } from '../../test/fixtures/hw-promotion-contract';
+
 const offer: CheckoutOffer = {
   id: '67f4568c-89ab-4c12-b321-123456789012',
   version: 0,
@@ -18,6 +19,7 @@ const offer: CheckoutOffer = {
 };
 describe('DDP-040 proposed HW consumer contract (test oracle, not actual HW)', () => {
   const now = new Date('2026-10-16T00:00:00Z');
+
   it('AC1: limits discounts to eligible room types and inclusive-start/exclusive-end redemption dates', () => {
     expect(referenceDiscount(offer, 'suite', 10000, now)).toBe(2500);
     expect(referenceDiscount(offer, 'other', 10000, now)).toBeNull();
@@ -39,6 +41,7 @@ describe('DDP-040 proposed HW consumer contract (test oracle, not actual HW)', (
   it('AC3: duplicate/out-of-order delivery cannot resurrect a withdrawn offer', () => {
     const consumer = new ReferencePromotionConsumer();
     const withdrawn = { ...offer, version: 1, status: 'INACTIVE' as const };
+
     consumer.apply('latest', withdrawn);
     consumer.apply('latest', withdrawn);
     consumer.apply('older', offer);

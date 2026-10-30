@@ -20,7 +20,6 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "lint:fix": "npm run lint -- --fix",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
-    "manager:create": "node --env-file-if-exists=.env dist/auth/provision-manager-cli.js",
     "test:integration": "jest --config ./test/jest-e2e.json --runInBand"
   },
   "dependencies": {
@@ -30,7 +29,6 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
-    "@nestjs/jwt": "^11.0.2",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/platform-socket.io": "^11.2.7",
     "@nestjs/typeorm": "^11.0.3",
@@ -50,6 +48,7 @@
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",
+    "@nestjs/jwt": "^11.0.2",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
     "@types/express": "^5.0.0",
@@ -85,8 +84,8 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
+      "shared-websocket/**/*.ts",
       "operations/**/*.ts",
-      "settings/**/*.ts",
       "notifications/**/*.ts",
       "rooms/**/*.ts",
       "stock/**/*.ts",
@@ -102,9 +101,8 @@
       "config/**/*.ts",
       "common/**/*.ts",
       "health/**/*.ts",
-      "database/migrate.ts",
-      "database/migrations/*.ts",
-      "!**/*.module.ts"
+      "!**/*.module.ts",
+      "!shared-websocket/main.ts"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
@@ -117,9 +115,6 @@
       "./src/operations/operations.telemetry.ts": {
         "branches": 90
       },
-      "./src/settings/task-limit.service.ts": {
-        "branches": 90
-      },
       "./src/staff/staff-directory.service.ts": {
         "branches": 90
       },
@@ -129,9 +124,6 @@
       "global": {
         "lines": 80,
         "branches": 80
-      },
-      "./src/auth/token.service.ts": {
-        "branches": 90
       },
       "./src/auth/auth.service.ts": {
         "branches": 90
@@ -182,7 +174,10 @@
         "branches": 90
       }
     },
-    "coverageProvider": "v8"
+    "coverageProvider": "v8",
+    "setupFiles": [
+      "reflect-metadata"
+    ]
   },
   "engines": {
     "node": ">=22.14 <23",

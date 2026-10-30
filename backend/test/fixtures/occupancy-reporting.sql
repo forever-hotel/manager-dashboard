@@ -1,8 +1,9 @@
+CREATE TABLE rooms(room_number text PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now());
 -- Test-only stand-ins for current-state views owned by room/booking providers.
 -- Duplicate rows deliberately model joins/replay without duplicating room nights.
 CREATE TABLE hw_occupancy_rooms (
   room_id uuid NOT NULL,
-  active_from date NOT NULL,
+  active_from date,
   active_to date,
   updated_at timestamptz NOT NULL DEFAULT '2026-09-26T12:00:00Z',
   CHECK (active_to IS NULL OR active_to > active_from)

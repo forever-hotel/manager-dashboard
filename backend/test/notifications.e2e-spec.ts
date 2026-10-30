@@ -1,3 +1,4 @@
+import { sharedSocketFixture } from './shared-socket-fixture';
 import { readSchemaSection } from './schema-section';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -14,11 +15,13 @@ import { NotificationsService } from '../src/notifications/notifications.service
 import { NotificationsWorker } from '../src/notifications/notifications.worker';
 import { RealtimeGateway } from '../src/realtime/realtime.gateway';
 import { seedLocalAuth } from './local-auth-fixture';
+
 type Snapshot = Awaited<ReturnType<NotificationsService['snapshot']>>;
 describe('DDP-043 notifications with disposable PostgreSQL and authenticated sockets', () => {
   let admin: DataSource,
     database: DataSource,
     app: INestApplication<App>,
+    shared: INestApplication<App>,
     provider: Awaited<ReturnType<typeof seedLocalAuth>>;
   const suffix = randomUUID().replaceAll('-', '').slice(0, 12),
     name = 'ddp_notifications_test_' + suffix,
@@ -26,8 +29,10 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
   const complaint = randomUUID(),
     stock = randomUUID(),
     secret = 'notifications-test-only-secret-at-least-32-characters';
+
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('Use a disposable TEST_DATABASE_URL containing test');
     admin = new DataSource({ type: 'postgres', url });
@@ -35,6 +40,7 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
+
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
@@ -79,15 +85,18 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
       .useFactory({
         factory: (service: NotificationsService, gateway: RealtimeGateway) => {
           const worker = new NotificationsWorker(service, gateway);
+
           worker.onApplicationBootstrap = () => {};
           return worker;
         },
         inject: [NotificationsService, RealtimeGateway]
       })
       .compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.listen(0, '127.0.0.1');
+    shared = await sharedSocketFixture(app);
   }, 60000);
   beforeEach(async () => {
     await database.query('TRUNCATE mad_notification_reads,foss_complaints,mad_complaint_state,kms_menu_items');
@@ -100,7 +109,9 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
     ]);
   });
   afterAll(async () => {
+    await shared?.close();
     await app?.close();
+    await provider?.close();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
       await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
@@ -110,6 +121,7 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
   });
   function get(query = '', token: string | null = provider.issue('manager')) {
     const req = request(app.getHttpServer()).get('/mad/notifications?' + query);
+
     if (token) req.set('Authorization', 'Bearer ' + token);
     return req;
   }
@@ -117,6 +129,7 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
     const req = request(app.getHttpServer())
       .patch('/mad/notifications/COMPLAINT/' + complaint + '/read')
       .send({ revision });
+
     if (token) req.set('Authorization', 'Bearer ' + token);
     return req;
   }
@@ -125,13 +138,14 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
       .post('/mad/realtime/ticket')
       .set('Authorization', 'Bearer ' + provider.issue('manager'))
       .expect(201);
-    const client = io(await app.getUrl(), {
-      path: '/mad/socket.io',
+    const client = io(await shared.getUrl(), {
+      path: '/socket.io',
       transports: ['websocket'],
       auth: { ticket: (response.body as { ticket: string }).ticket },
       extraHeaders: { Origin: 'http://localhost:3000' },
       reconnection: false
     });
+
     await new Promise<void>((resolve, reject) => {
       client.once('connect', resolve);
       client.once('connect_error', reject);
@@ -141,6 +155,7 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
   it('TC-MAD-043-AC1: returns authoritative counts, safe detail links and stable paginated identities', async () => {
     const response = await get().expect(200);
     const body = response.body as Snapshot;
+
     expect(body).toMatchObject({
       total: 2,
       unread: 2,
@@ -151,6 +166,7 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
     expect(body.items.find(i => i.type === 'COMPLAINT')?.href).toBe('/complaints?complaintId=' + complaint);
     const first = (await get('pageSize=1').expect(200)).body as Snapshot;
     const second = (await get('pageSize=1&page=2').expect(200)).body as Snapshot;
+
     expect(new Set([...first.items, ...second.items].map(i => i.id)).size).toBe(2);
     expect(second.total).toBe(2);
   });
@@ -164,6 +180,7 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
     expect(((await get().expect(200)).body as Snapshot).unread).toBe(1);
     expect(((await get().expect(200)).body as Snapshot).total).toBe(2);
     const other = randomUUID();
+
     await database.query(
       "INSERT INTO staff_users(worker_id,username,role,is_active,password_change_required,session_version) VALUES($1,$2,'MANAGER',true,false,0)",
       [other, 'second-manager']
@@ -189,6 +206,7 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
   });
   it('persists stock read state without changing KMS or hiding the active issue', async () => {
     const item = ((await get().expect(200)).body as Snapshot).items.find(i => i.type === 'STOCK')!;
+
     await request(app.getHttpServer())
       .patch('/mad/notifications/STOCK/' + stock + '/read')
       .set('Authorization', 'Bearer ' + provider.issue('manager'))
@@ -206,17 +224,21 @@ describe('DDP-043 notifications with disposable PostgreSQL and authenticated soc
   });
   it('TC-MAD-043-AC3: source invalidation and reconnect retrieve current state without duplicate alerts', async () => {
     const worker = app.get(NotificationsWorker);
+
     await worker.tick();
     let client: Socket | undefined;
+
     try {
       client = await socket();
       const update = new Promise<void>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('No invalidation')), 5000);
+
         client!.once('notifications.changed', () => {
           clearTimeout(timer);
           resolve();
         });
       });
+
       await database.query("UPDATE foss_complaints SET status='RESOLVED'");
       await worker.tick();
       await update;

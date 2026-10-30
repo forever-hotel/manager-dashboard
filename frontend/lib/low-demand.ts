@@ -20,6 +20,7 @@ export const lowDemandSchema = z
   })
   .superRefine((data, ctx) => {
     const days = [...data.alerts, ...data.unavailableDates];
+
     if (
       Date.parse(data.to) - Date.parse(data.from) !== 13 * 86400000 ||
       new Set(days.map(day => day.date)).size !== days.length ||
@@ -33,22 +34,27 @@ export const lowDemandSchema = z
       });
   });
 export type LowDemand = z.infer<typeof lowDemandSchema>;
+
 export async function loadLowDemand(signal: AbortSignal) {
   const response = await fetch('/api/analytics/low-booking-alerts', {
     signal,
     cache: 'no-store',
     credentials: 'same-origin'
   });
+
   if (!response.ok) throw new AnalyticsError(response.status);
   return lowDemandSchema.parse(await response.json());
 }
+
 export function promotionDates(value: unknown) {
   const parsed = z.iso.date().safeParse(value);
+
   if (!parsed.success || parsed.data.startsWith('0000')) return undefined;
   const next = new Date(Date.parse(parsed.data) + 86400000).toISOString();
+
   if (next.length !== 24) return undefined;
   return {
-    validFrom: parsed.data + 'T00:00',
-    validUntil: next.slice(0, 10) + 'T00:00'
+    validFrom: parsed.data,
+    validUntil: parsed.data
   };
 }

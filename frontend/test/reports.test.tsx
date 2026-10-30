@@ -1,9 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import ReportDownload from '@/components/ReportDownload';
-import ReportsIndex from '@/components/ReportsIndex';
 import { readReport, reportQuery, reportFilename, MAX_DOWNLOAD_BYTES } from '@/lib/reports';
 import { reportResponse, csv } from './report-fixture';
+
 let fetchMock: ReturnType<typeof vi.fn>;
 let click: ReturnType<typeof vi.spyOn>;
 const originalCreate = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
@@ -34,6 +34,7 @@ afterEach(() => {
 describe('DDP-031 report downloads', () => {
   it('AC1: sends current filters, names the file and revokes temporary URLs', async () => {
     const view = render(<ReportDownload type="bookings" filters={{ period: 'month' }} />);
+
     fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
     await waitFor(() => expect(click).toHaveBeenCalledOnce());
     expect(fetchMock).toHaveBeenCalledWith(
@@ -41,6 +42,7 @@ describe('DDP-031 report downloads', () => {
       expect.objectContaining({ credentials: 'same-origin' })
     );
     const anchor = click.mock.contexts[0] as unknown as HTMLAnchorElement;
+
     expect(anchor.download).toBe('bookings-2026-10-21.csv');
     expect(anchor.href).toBe('blob:report');
     expect(document.querySelector('a[download]')).toBeNull();
@@ -49,6 +51,7 @@ describe('DDP-031 report downloads', () => {
   });
   it('AC2: prevents duplicate work while slow, reports errors and retries the chosen format', async () => {
     let finish!: (response: Response) => void;
+
     fetchMock.mockImplementationOnce(
       () =>
         new Promise<Response>(resolve => {
@@ -78,10 +81,12 @@ describe('DDP-031 report downloads', () => {
       })
     );
     const view = render(<ReportDownload type="bookings" />);
+
     fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
     await screen.findByRole('alert');
     expect(click).not.toHaveBeenCalled();
     let finish!: (response: Response) => void;
+
     fetchMock.mockImplementationOnce(
       () =>
         new Promise<Response>(resolve => {
@@ -102,39 +107,12 @@ describe('DDP-031 report downloads', () => {
     );
     expect(click).not.toHaveBeenCalled();
   });
-  it('AC3: Reports index chooses report, format and filters through the same flow', async () => {
-    fetchMock.mockResolvedValueOnce(reportResponse('csv', 'occupancy'));
-    render(<ReportsIndex />);
-    const report = screen.getByRole('combobox', { name: /^Report\b/ });
-    expect(report).toHaveValue('bookings');
-    fireEvent.change(report, {
-      target: { value: 'occupancy' }
-    });
-    fireEvent.change(screen.getByLabelText('From date'), {
-      target: { value: '2026-10-01' }
-    });
-    fireEvent.change(screen.getByLabelText('To date'), {
-      target: { value: '2026-10-21' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
-    await waitFor(() => expect(click).toHaveBeenCalledOnce());
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/reports/occupancy?format=csv&from=2026-10-01&to=2026-10-21',
-      expect.any(Object)
-    );
-    expect(report).toHaveValue('occupancy');
-    fireEvent.change(report, {
-      target: { value: 'staff' }
-    });
-    fireEvent.change(screen.getByLabelText('Worker ID (optional)'), {
-      target: { value: 'bad' }
-    });
-    expect(screen.getByRole('alert')).toHaveTextContent('worker ID');
-    expect(screen.getByRole('button', { name: 'Export PDF' })).toBeDisabled();
-  });
   it('validates filter contracts and binary size/completeness before download', async () => {
     for (const [type, query] of [
       ['bad', 'format=csv'],
+      ...['revenue', 'worker-performance', 'staff', 'food-orders', 'service-requests', 'low-booking-alerts'].map(
+        type => [type, 'format=csv']
+      ),
       ['bookings', 'format=csv&format=pdf'],
       ['occupancy', 'format=pdf&from=2020-01-01&to=2026-10-21'],
       ['occupancy', 'format=pdf&from=2026-10-21&to=2026-10-01']

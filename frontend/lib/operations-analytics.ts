@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { periodSchema } from './analytics';
+
 const count = z.number().int().nonnegative().safe();
 const duration = z.number().nonnegative().nullable();
 const date = z.iso.datetime({ offset: true });
@@ -25,6 +26,27 @@ export const foodSchema = z
   .object({
     ...base,
     total: count,
+    delivery: z
+      .object({
+        averageMinutes: duration,
+        deliveredCount: count,
+        validDurationCount: count,
+        excludedDurationCount: count,
+        cohort: z.literal('delivered_at_in_period'),
+        durationStart: z.literal('placed_at')
+      })
+      .refine(
+        value =>
+          value.validDurationCount + value.excludedDurationCount === value.deliveredCount &&
+          (value.validDurationCount === 0 ? value.averageMinutes === null : value.averageMinutes !== null)
+      ),
+    revenue: z.object({
+      amountMinor: count,
+      currency: z.literal('LKR'),
+      metric: z.literal('delivered_order_sales'),
+      recognition: z.literal('delivered_at'),
+      orderCount: count
+    }),
     trend,
     hours: z.array(z.object({ hour: z.number().int().min(0).max(23), count })).length(24),
     peakHours: z.array(z.number().int().min(0).max(23)).max(24),
@@ -42,6 +64,7 @@ export const foodSchema = z
   .refine(
     s =>
       s.trend.reduce((n, r) => n + r.count, 0) === s.total &&
+      s.revenue.orderCount === s.delivery.deliveredCount &&
       s.hours.reduce((n, r) => n + r.count, 0) === s.total &&
       s.hours.every((r, i) => r.hour === i)
   );
@@ -108,19 +131,7 @@ export const workerSchema = z
     freshness
   })
   .refine(s => new Set(s.workers.map(w => w.workerId)).size === s.workers.length);
-export type Worker = z.infer<typeof workerSchema>['workers'][number];
-export type SortKey = 'fullName' | 'completedTaskCount' | 'averageCompletionMinutes' | 'openComplaintCount';
-export function sortWorkers(workers: Worker[], key: SortKey, descending: boolean) {
-  return [...workers].sort((a, b) => {
-    const x = a[key],
-      y = b[key];
-    if (x === null && y !== null) return 1;
-    if (y === null && x !== null) return -1;
-    const result =
-      typeof x === 'string' && typeof y === 'string' ? x.localeCompare(y) : Number(x ?? 0) - Number(y ?? 0);
-    return result ? (descending ? -result : result) : a.workerId.localeCompare(b.workerId);
-  });
-}
+
 export function localBoundary(value: string) {
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Colombo',

@@ -7,6 +7,7 @@ import { TasksController } from './tasks.controller';
 import { TasksQueryDto } from './tasks-query.dto';
 import { parseTaskEvent, TaskEventsConsumer } from '../realtime/task-events.consumer';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+
 const id = '67f4568c-89ab-4c12-b321-123456789012';
 const task = {
   id,
@@ -36,20 +37,38 @@ describe('DDP-042 task snapshots', () => {
       page: 1,
       pageSize: 10
     });
+
     expect(await new TasksController(service).list(dto)).toMatchObject({
       tasks: [task],
       source: 'WKMS',
       readOnly: true,
       page: 1
     });
-    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('SELECT'), ['UNASSIGNED', null, 10, 0, null]);
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('SELECT'), ['UNASSIGNED', null, 10, 0, null, null]);
     expect(await service.find(id)).toEqual(task);
-    expect(query).toHaveBeenLastCalledWith(expect.any(String), [null, null, 20, 0, id]);
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), [null, null, 20, 0, id, null]);
     expect(() => new TasksController(service).denyMutation()).toThrow();
+  });
+  it('filters worker names in SQL before pagination and validates name input', async () => {
+    const query = jest.fn().mockResolvedValue([{ queried_at: new Date(), total: 0, tasks: [] }]);
+    const service = new TasksService({ query } as unknown as DataSource);
+
+    await service.snapshot(Object.assign(new TasksQueryDto(), { workerName: 'Perera' }));
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('strpos(lower(s.full_name),lower($6))'), [
+      null,
+      null,
+      20,
+      0,
+      null,
+      'Perera'
+    ]);
+    expect(await validate(plainToInstance(TasksQueryDto, { workerName: ' Perera ' }))).toEqual([]);
+    expect((await validate(plainToInstance(TasksQueryDto, { workerName: 'x'.repeat(201) }))).length).toBeGreaterThan(0);
   });
   it('accepts completed tasks and empty sources; rejects malformed sources without disclosing SQL', async () => {
     const query = jest.fn();
     const service = new TasksService({ query } as unknown as DataSource);
+
     for (const tasks of [
       [],
       [task],
@@ -134,6 +153,7 @@ describe('DDP-042 task snapshots', () => {
       total: 1,
       tasks: [task]
     };
+
     query.mockResolvedValueOnce([{ ...row, tasks: [{ ...task, password: 'private' }] }]);
     expect((await service.snapshot(new TasksQueryDto())).tasks).toEqual([task]);
     for (const source of [
@@ -188,6 +208,7 @@ describe('DDP-042 task snapshots', () => {
       {} as RealtimeGateway,
       { find } as unknown as TasksService
     );
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: false }])
@@ -226,6 +247,7 @@ describe('DDP-042 task snapshots', () => {
       { publishTask } as unknown as RealtimeGateway,
       {} as TasksService
     );
+
     await expect(consumer.dispatch()).rejects.toThrow();
     expect(query).toHaveBeenCalledTimes(1);
     await consumer.dispatch();

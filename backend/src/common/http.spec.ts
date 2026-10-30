@@ -6,12 +6,14 @@ import {
   INestApplication
 } from '@nestjs/common';
 import { ApiExceptionFilter, configureHttp } from './http';
+
 describe('Stable error envelope', () => {
   const json = jest.fn();
   const status = jest.fn(() => ({ json }));
   const host = {
     switchToHttp: () => ({ getResponse: () => ({ status }) })
   } as unknown as ArgumentsHost;
+
   beforeEach(() => jest.clearAllMocks());
   it.each([
     [new Error('private secret'), 500, 'INTERNAL_ERROR'],
@@ -50,9 +52,11 @@ describe('Stable error envelope', () => {
       enableCors: jest.fn(),
       enableShutdownHooks: jest.fn()
     };
+
     configureHttp(app as unknown as INestApplication);
     const response = { setHeader: jest.fn() };
     const next = jest.fn();
+
     app.use.mock.calls[0][0]({}, response, next);
     expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     expect(next).toHaveBeenCalledTimes(1);

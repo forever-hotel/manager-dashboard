@@ -26,6 +26,7 @@ export interface WorkerPerformanceRow {
 
 function count(raw: string) {
   const value = Number(raw);
+
   if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value)) throw new Error('Invalid count');
   return value;
 }
@@ -37,26 +38,23 @@ export class WorkerPerformanceService {
     @Inject(BOOKING_CLOCK) private readonly now: () => Date
   ) {}
 
-  async summary(query: WorkerPerformanceQueryDto, exportLimit?: number) {
+  async summary(query: WorkerPerformanceQueryDto) {
     try {
       const asOf = this.now().toISOString();
-      const [row] = await this.database.query<WorkerPerformanceRow[]>(
-        exportLimit === undefined
-          ? WORKER_PERFORMANCE_SQL
-          : WORKER_PERFORMANCE_SQL.replace('), completions AS (', 'ORDER BY worker_id LIMIT $5\n), completions AS ('),
-        [
-          query.period,
-          BOOKING_TIMEZONE,
-          asOf,
-          query.workerId ?? null,
-          ...(exportLimit === undefined ? [] : [exportLimit])
-        ]
-      );
+      const [row] = await this.database.query<WorkerPerformanceRow[]>(WORKER_PERFORMANCE_SQL, [
+        query.period,
+        BOOKING_TIMEZONE,
+        asOf,
+        query.workerId ?? null,
+        query.date ?? null
+      ]);
+
       if (!row || !Array.isArray(row.workers)) throw new Error('Missing report');
       const workers = row.workers.map(w => {
         const completedCount = count(w.completedCount),
           validDurationCount = count(w.validDurationCount);
         const average = w.averageMinutes === null ? null : Number(w.averageMinutes);
+
         if (
           validDurationCount > completedCount ||
           (validDurationCount === 0
@@ -69,6 +67,7 @@ export class WorkerPerformanceService {
           missingCompletionCount: count(w.missingCompletionCount),
           unexpectedCompletionCount: count(w.unexpectedCompletionCount)
         };
+
         return {
           workerId: w.workerId,
           fullName: w.fullName,
@@ -85,6 +84,7 @@ export class WorkerPerformanceService {
           }
         };
       });
+
       return {
         period: query.period,
         timezone: BOOKING_TIMEZONE,

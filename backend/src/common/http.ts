@@ -27,6 +27,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
           : typeof custom?.message === 'string'
             ? custom.message
             : 'The request could not be processed.';
+
     host
       .switchToHttp()
       .getResponse<Response>()

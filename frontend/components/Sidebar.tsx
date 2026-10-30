@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { replaceLocation } from '@/lib/navigation';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -30,11 +30,7 @@ const groups: {
     items: [
       { name: 'Promotions', href: '/promotions' },
       { name: 'Staff accounts', href: '/staff' },
-      { name: 'Worker performance', href: '/worker-performance' },
-      { name: 'Notifications', href: '/notifications' },
-      { name: 'Tasks', href: '/tasks' },
-      { name: 'Reports', href: '/reports' },
-      { name: 'Settings', href: '/settings' }
+      { name: 'Worker performance', href: '/worker-performance' }
     ]
   }
 ];
@@ -43,8 +39,23 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
   const pathname = usePathname();
   const notifications = useNotifications();
   const [pending, setPending] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [error, setError] = useState('');
   const locked = useRef(false);
+  const account = useRef<HTMLDivElement>(null);
+  function closeMenus() {
+    setAccountOpen(false);
+    close();
+  }
+  useEffect(() => {
+    if (!accountOpen) return;
+    const dismiss = (event: PointerEvent) => {
+      if (!account.current?.contains(event.target as Node)) setAccountOpen(false);
+    };
+
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [accountOpen]);
   async function logout() {
     if (locked.current) return;
     locked.current = true;
@@ -57,6 +68,7 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
         body: '{}',
         signal: AbortSignal.timeout(10000)
       });
+
       if (!response.ok) throw new Error();
       replaceLocation('/login');
     } catch {
@@ -69,92 +81,76 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
   return (
     <aside
       id="dashboard-navigation"
-      className={`${open ? 'flex' : 'hidden'} fixed bottom-0 left-0 top-16 z-40 w-[min(280px,85vw)] shrink-0 flex-col justify-between overflow-y-auto overscroll-contain border-r border-gray-200 bg-white shadow-xl md:top-0 md:flex md:h-screen md:w-[220px] md:shadow-none`}
+      className={`${open ? 'flex' : 'hidden'} dashboard-sidebar`}
+      onKeyDown={event => {
+        if (event.key === 'Escape' && accountOpen) {
+          setAccountOpen(false);
+          event.currentTarget.querySelector<HTMLButtonElement>('.account-trigger')?.focus();
+        }
+      }}
     >
-      <div>
-        {/* Logo */}
-        <div className="hidden px-5 pt-6 pb-6 border-b border-gray-100 md:block">
-          <div className="font-medium text-[13px] text-black">Forever Hotel</div>
-          <div className="font-normal text-[10px] text-black/60">Manager Dashboard</div>
-        </div>
-
-        {/* Navigation */}
-        <nav aria-label="Dashboard" className="px-3 pt-5 space-y-6">
-          {groups.map(group => (
-            <div key={group.label}>
-              <div className="font-medium text-[10px] underline text-black px-2 mb-2">{group.label}</div>
-              <div className="space-y-1">
-                {group.items.map(item => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      prefetch={false}
-                      onClick={close}
-                      aria-current={isActive ? 'page' : undefined}
-                      aria-label={
-                        item.href === '/notifications' && notifications
-                          ? 'Notifications ' + (notifications.snapshot?.total ?? '?')
-                          : undefined
-                      }
-                      className={`flex items-center justify-between w-full h-9 rounded-md px-2 transition-colors ${
-                        isActive ? 'bg-gray-100' : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-black" />
-                        <span className={`text-[11px] text-black ${isActive ? 'font-medium' : 'font-normal'}`}>
-                          {item.name}
-                        </span>
-                      </div>
-                      {((item.href === '/notifications' && notifications) ||
-                        ('badge' in item && item.badge != null)) && (
-                        <span
-                          className={`text-[10px] text-black rounded-full w-5 h-5 flex items-center justify-center ${
-                            isActive ? 'font-medium bg-white border border-gray-200' : 'font-normal bg-gray-100'
-                          }`}
-                        >
-                          {item.href === '/notifications' && notifications
-                            ? (notifications.snapshot?.total ?? '?')
-                            : item.badge}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
+      <div className="sidebar-brand">
+        <div>Forever Hotel</div>
+        <span>Manager Dashboard</span>
       </div>
+      <nav aria-label="Dashboard" className="sidebar-groups">
+        {groups.map(group => (
+          <div key={group.label} className="sidebar-group">
+            <div className="sidebar-group-label">{group.label}</div>
+            {group.items.map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch={false}
+                onClick={closeMenus}
+                aria-current={pathname === item.href ? 'page' : undefined}
+                className="sidebar-link"
+              >
+                <span className="sidebar-dot" />
+                <span>{item.name}</span>
+                {item.href === '/complaints' && !!notifications?.snapshot?.counts.complaints && (
+                  <span className="complaint-count" title="Unresolved complaints across all dates">
+                    {notifications.snapshot.counts.complaints}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </div>
+        ))}
+      </nav>
+      <div ref={account} className="sidebar-account">
+        {accountOpen && (
+          <nav className="account-menu" aria-label="Account tools">
+            <Link href="/notifications" prefetch={false} onClick={closeMenus}>
+              Notifications
+            </Link>
+            <Link href="/tasks" prefetch={false} onClick={closeMenus}>
+              Task queue
+            </Link>
 
-      {/* User footer */}
-      <div>
-        <div className="flex items-center gap-2 px-5 py-4 border-t border-gray-100">
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-            <span className="font-medium text-[10px] text-black">{username.slice(0, 2).toUpperCase()}</span>
-          </div>
-          <div className="leading-tight">
-            <div className="text-[10.5px] text-black">{username}</div>
-            <div className="text-[9.5px] text-black/60">Manager</div>
-          </div>
-        </div>
-        <div className="px-5 pb-4">
-          <button
-            type="button"
-            onClick={() => void logout()}
-            disabled={pending}
-            className="w-full border border-gray-200 rounded-md py-2 text-[11px] text-black hover:bg-gray-50 disabled:opacity-50"
-          >
-            {pending ? 'Signing out...' : 'Logout'}
-          </button>
-          {error && (
-            <p role="alert" className="text-[10px] text-red-600 mt-2">
-              {error}
-            </p>
-          )}
-        </div>
+            <button type="button" disabled={pending} onClick={() => void logout()}>
+              {pending ? 'Signing out...' : 'Logout'}
+            </button>
+          </nav>
+        )}
+        <button
+          type="button"
+          className="account-trigger"
+          aria-expanded={accountOpen}
+          onClick={() => setAccountOpen(value => !value)}
+        >
+          <span className="sr-only">Open account menu</span>
+          <span className="account-avatar">{username.slice(0, 2).toUpperCase()}</span>
+          <span className="account-copy">
+            <span>{username}</span>
+            <small>Manager</small>
+          </span>
+        </button>
+        {error && (
+          <p role="alert" className="sidebar-error">
+            {error}
+          </p>
+        )}
       </div>
     </aside>
   );

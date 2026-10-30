@@ -1,4 +1,5 @@
 import { RevenueAnalyticsService } from './revenue-analytics.service';
+import { BookingDetailsService } from './booking-details.service';
 import { Module } from '@nestjs/common';
 import { LowBookingAlertsService } from './low-booking-alerts.service';
 import { AuthModule } from '../auth/auth.module';
@@ -21,6 +22,7 @@ import { BOOKING_CLOCK, BookingAnalyticsService } from './booking-analytics.serv
     ServiceRequestAnalyticsController
   ],
   exports: [
+    BookingDetailsService,
     WorkerPerformanceService,
     ServiceRequestAnalyticsService,
     FoodAnalyticsService,
@@ -30,6 +32,7 @@ import { BOOKING_CLOCK, BookingAnalyticsService } from './booking-analytics.serv
     OccupancyAnalyticsService
   ],
   providers: [
+    BookingDetailsService,
     WorkerPerformanceService,
     ServiceRequestAnalyticsService,
     FoodAnalyticsService,

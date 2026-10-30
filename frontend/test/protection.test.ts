@@ -5,6 +5,7 @@ import { proxy } from '@/proxy';
 import { backend } from '@/lib/backend';
 import { requireSession } from '@/lib/session';
 import { cookies } from 'next/headers';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 vi.mock('next/headers', () => ({ cookies: vi.fn() }));
 vi.mock('next/navigation', () => ({
@@ -31,11 +32,13 @@ describe('Protected navigation', () => {
   });
   it('redirects direct links without a session and preserves the destination', async () => {
     const result = await proxy(request('/rooms?view=list', false));
+
     expect(result.headers.get('location')).toContain('/login?next=%2Frooms%3Fview%3Dlist');
   });
   it.each([401, 403, 200])('clears rejected/invalid sessions (%i)', async status => {
     vi.mocked(backend).mockResolvedValue({ status, data: {} });
     const result = await proxy(request());
+
     expect(result.headers.get('location')).toContain('reason=expired');
     expect(result.cookies.get('mad_session')?.value).toBe('');
   });

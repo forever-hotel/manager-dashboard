@@ -8,6 +8,9 @@ const id = '11111111-1111-4111-8111-111111111111';
 const now = new Date('2026-10-16T00:00:00Z');
 const row: ComplaintRow = {
   id,
+  roomNumber: '204',
+  severity: 'HIGH',
+  workerName: null,
   category: 'Room',
   description: 'Guest description',
   referencedWorkerId: null,
@@ -21,12 +24,15 @@ const input: ResolveComplaintDto = {
   status: 'UNDER_REVIEW',
   note: 'Internal note'
 };
+
 function setup() {
   const query = jest.fn<Promise<unknown[]>, [string, unknown[]?]>();
   const transaction = jest.fn((first: unknown, second?: (m: EntityManager) => Promise<unknown>) => {
     const work = (second ?? first) as (m: EntityManager) => Promise<unknown>;
+
     return work({ query } as unknown as EntityManager);
   });
+
   return {
     query,
     transaction,
@@ -39,6 +45,7 @@ describe('DDP-021 validation and transition rules', () => {
       ...input,
       note: '  private\n note  '
     });
+
     expect(patch.note).toBe('private\n note');
     expect(await validate(patch)).toHaveLength(0);
     const query = plainToInstance(ComplaintQueryDto, {
@@ -48,6 +55,7 @@ describe('DDP-021 validation and transition rules', () => {
       category: ' Room ',
       workerId: id
     });
+
     expect(await validate(query)).toHaveLength(0);
     expect(query.page).toBe(2);
     expect(query.category).toBe('Room');
@@ -76,7 +84,9 @@ describe('DDP-021 validation and transition rules', () => {
     { pageSize: '101' },
     { status: 'bad' },
     { category: '' },
-    { workerId: 'bad' }
+    { workerId: 'bad' },
+    { period: 'year' },
+    { period: 'month', date: '2026-02-30' }
   ])('rejects invalid filter %j', async change => {
     expect((await validate(plainToInstance(ComplaintQueryDto, change))).length).toBeGreaterThan(0);
   });
@@ -94,14 +104,35 @@ describe('DDP-021 validation and transition rules', () => {
       note: 'private',
       resolution_notes: 'private'
     } as ComplaintRow);
+
     expect(JSON.stringify(view)).not.toContain('private');
     expect(view.resolvedAt).toBeNull();
     expect(complaintView({ ...row, resolvedAt: now }).resolvedAt).toBe(now.toISOString());
   });
 });
 describe('DDP-021 complaint service', () => {
+  it('returns period metrics and applies matching submission bounds to list pagination', async () => {
+    const { service, query } = setup();
+    const end = new Date('2026-11-01T00:00:00Z');
+
+    query
+      .mockResolvedValueOnce([{ start: now, end }])
+      .mockResolvedValueOnce([{ open: '1', review: '2', resolved: '3', average: '35' }])
+      .mockResolvedValueOnce([{ total: '1' }])
+      .mockResolvedValueOnce([row]);
+    const result = await service.list({ ...new ComplaintQueryDto(), period: 'month', date: '2026-10-01' });
+
+    expect(result.summary).toEqual({ open: 1, review: 2, resolved: 3, averageMinutes: 35 });
+    expect(query.mock.calls[0][1]).toEqual(['month', '2026-10-01T12:00:00.000Z']);
+    expect(query.mock.calls[3][1]).toEqual([now, end, 20, 0]);
+    expect(query.mock.calls[3][0]).toContain('c.submitted_at >= $1 AND c.submitted_at < $2');
+  });
+  it('rejects an unscoped date', () => {
+    expect(() => setup().service.list({ ...new ComplaintQueryDto(), date: '2026-10-01' })).toThrow();
+  });
   it('lists a stable paginated snapshot with parameterized filters and no notes', async () => {
     const { service, query, transaction } = setup();
+
     query.mockResolvedValueOnce([{ total: '1' }]).mockResolvedValueOnce([row]);
     expect(
       await service.list({
@@ -118,11 +149,13 @@ describe('DDP-021 complaint service', () => {
   });
   it('returns an empty unfiltered page', async () => {
     const { service, query } = setup();
+
     query.mockResolvedValueOnce([{ total: '0' }]).mockResolvedValueOnce([]);
     expect((await service.list(new ComplaintQueryDto())).items).toEqual([]);
   });
   it('reads manager-only history with timestamps', async () => {
     const { service, query } = setup();
+
     query.mockResolvedValueOnce([row]).mockResolvedValueOnce([
       {
         version: 1,
@@ -140,6 +173,7 @@ describe('DDP-021 complaint service', () => {
   });
   it('rejects unknown details and sanitizes storage errors', async () => {
     const { service, query } = setup();
+
     query.mockResolvedValueOnce([]);
     await expect(service.detail(id)).rejects.toMatchObject({ status: 404 });
     query.mockRejectedValue(new Error('secret'));
@@ -153,6 +187,7 @@ describe('DDP-021 complaint service', () => {
         ...row,
         status: status === 'RESOLVED' ? 'UNDER_REVIEW' : 'SUBMITTED'
       };
+
       query
         .mockResolvedValueOnce([current])
         .mockResolvedValueOnce(status === 'RESOLVED' ? [{ version: 1 }] : [])
@@ -163,6 +198,7 @@ describe('DDP-021 complaint service', () => {
         version,
         status
       });
+
       expect(result).toMatchObject({
         status,
         version: version + 1,
@@ -177,6 +213,7 @@ describe('DDP-021 complaint service', () => {
   );
   it('rejects unknown, stale and illegal changes before writes', async () => {
     const { service, query } = setup();
+
     query.mockResolvedValueOnce([]);
     await expect(service.update(id, id, input)).rejects.toMatchObject({
       status: 404
@@ -200,6 +237,7 @@ describe('DDP-021 complaint service', () => {
   });
   it('propagates an outbox failure for transactional rollback without exposing notes', async () => {
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([row])
       .mockResolvedValueOnce([])

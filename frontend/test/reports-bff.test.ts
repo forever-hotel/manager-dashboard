@@ -3,6 +3,7 @@ import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/reports/[type]/route';
 import { reportResponse, csv } from './report-fixture';
+
 const ctx = (type = 'bookings') => ({ params: Promise.resolve({ type }) });
 const req = (query = 'format=csv&period=week', cookie = true, origin?: string) =>
   new NextRequest('http://localhost:3000/api/reports/bookings?' + query, {
@@ -25,6 +26,7 @@ afterEach(() => {
 describe('DDP-031 binary report proxy', () => {
   it('keeps authentication server-side and forwards validated filters and binary headers', async () => {
     const response = await GET(req(), ctx());
+
     expect(response.status).toBe(200);
     expect(await response.text()).toBe(csv.replace(/^\ufeff/, ''));
     expect(response.headers.get('content-disposition')).toBe('attachment; filename="bookings-2026-10-21.csv"');
@@ -40,6 +42,7 @@ describe('DDP-031 binary report proxy', () => {
   it('returns valid PDF data', async () => {
     upstream.mockResolvedValueOnce(reportResponse('pdf'));
     const response = await GET(req('format=pdf'), ctx());
+
     expect(response.status).toBe(200);
     expect((await response.text()).startsWith('%PDF-')).toBe(true);
   });
@@ -54,6 +57,7 @@ describe('DDP-031 binary report proxy', () => {
   it.each([400, 401, 403, 404, 422, 429, 500])('sanitizes upstream status %s', async status => {
     upstream.mockResolvedValueOnce(new Response('private SQL', { status }));
     const response = await GET(req(), ctx());
+
     expect(response.status).toBe([429, 500].includes(status) ? 503 : status);
     expect(await response.text()).not.toContain('private');
   });

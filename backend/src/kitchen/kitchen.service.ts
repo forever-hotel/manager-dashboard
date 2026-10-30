@@ -28,8 +28,9 @@ export const KITCHEN_SQL = `WITH bounds AS (
  date_trunc('day',$4::timestamptz AT TIME ZONE 'Asia/Colombo') AT TIME ZONE 'Asia/Colombo' AS delivered_since
 ), eligible AS MATERIALIZED (
  SELECT o.order_id,o.room_number,o.meal_period,o.status,o.placed_at,o.updated_at FROM public.kms_food_orders o,bounds
- WHERE o.status IN ('PLACED','IN_PREPARATION','READY')
- OR (o.status='DELIVERED' AND o.delivered_at>=delivered_since AND o.delivered_at<=as_of)
+ WHERE (o.status IN ('PLACED','IN_PREPARATION','READY')
+ OR (o.status='DELIVERED' AND o.delivered_at>=delivered_since AND o.delivered_at<=as_of))
+ AND (NOT $5::boolean OR o.status<>'DELIVERED')
 ), filtered AS (SELECT * FROM eligible WHERE $1::text IS NULL OR status::text=$1),
  page AS (SELECT * FROM filtered ORDER BY placed_at,order_id LIMIT $2 OFFSET $3)
 SELECT jsonb_build_object('asOf',as_of,'deliveredSince',delivered_since,
@@ -58,6 +59,7 @@ export class KitchenService {
     @Inject('KITCHEN_CLOCK')
     private readonly now: () => Date = () => new Date()
   ) {}
+
   async snapshot(query: KitchenQueryDto): Promise<KitchenSnapshot> {
     try {
       const asOf = this.now().toISOString();
@@ -65,8 +67,10 @@ export class KitchenService {
         query.status ?? null,
         query.pageSize,
         (query.page - 1) * query.pageSize,
-        asOf
+        asOf,
+        query.activeOnly === 'true'
       ]);
+
       return parseKitchenSnapshot(row?.snapshot, query, asOf);
     } catch {
       throw new ServiceUnavailableException();

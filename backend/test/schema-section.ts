@@ -11,6 +11,7 @@ export function readSchemaSection(name: string): string {
   const normalized = sql.replace(/\r\n/g, '\n');
   const offset = normalized.indexOf(start);
   const finish = normalized.indexOf(end, offset + start.length);
+
   if (offset < 0 || finish < 0) throw new Error('Required schema section is missing');
   return `BEGIN;\n${normalized.slice(offset + start.length, finish)}\nCOMMIT;`;
 }

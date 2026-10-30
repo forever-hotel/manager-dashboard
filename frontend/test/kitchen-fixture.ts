@@ -1,5 +1,7 @@
 import type { KitchenSnapshot, KitchenStatus } from '@/lib/kitchen';
+
 export const kitchenOrderId = '67f4568c-89ab-4c12-b321-123456789012';
+
 export function kitchenSnapshot(status: KitchenStatus = 'PLACED'): KitchenSnapshot {
   return {
     orders: [

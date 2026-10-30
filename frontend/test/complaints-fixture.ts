@@ -1,6 +1,10 @@
 import type { ComplaintDetail } from '@/lib/complaints';
+
 export const complaint = (changes: Partial<ComplaintDetail> = {}): ComplaintDetail => ({
   id: '11111111-1111-4111-8111-111111111111',
+  roomNumber: '204',
+  severity: 'HIGH',
+  workerName: null,
   category: 'Room',
   description: 'The room needs attention.',
   referencedWorkerId: null,
@@ -15,5 +19,11 @@ export const complaintPage = (items = [complaint()], total = items.length) => ({
   items,
   total,
   page: 1,
-  pageSize: 20
+  pageSize: 20,
+  summary: {
+    open: items.filter(item => item.status === 'SUBMITTED').length,
+    review: items.filter(item => item.status === 'UNDER_REVIEW').length,
+    resolved: items.filter(item => item.status === 'RESOLVED').length,
+    averageMinutes: null as number | null
+  }
 });

@@ -14,6 +14,21 @@ const quality = {
   unexpectedCompletionCount: 0
 };
 export const foodFixture = () => ({
+  delivery: {
+    averageMinutes: null as number | null,
+    deliveredCount: 0,
+    validDurationCount: 0,
+    excludedDurationCount: 0,
+    cohort: 'delivered_at_in_period',
+    durationStart: 'placed_at'
+  },
+  revenue: {
+    amountMinor: 0,
+    currency: 'LKR',
+    metric: 'delivered_order_sales',
+    recognition: 'delivered_at',
+    orderCount: 0
+  },
   ...base,
   total: 0,
   trend: [{ date: '2026-10-21', count: 0 }],

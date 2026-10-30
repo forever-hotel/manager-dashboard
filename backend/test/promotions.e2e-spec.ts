@@ -9,7 +9,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { configureHttp } from '../src/common/http';
-import { migrate } from '../src/database/migrate';
+import { migrate } from './fixtures/migrate';
 import { PromotionsModule } from '../src/promotions/promotions.module';
 import { PROMOTION_CLOCK, promotionView } from '../src/promotions/promotions.service';
 import { seedLocalAuth } from './local-auth-fixture';
@@ -37,8 +37,10 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
     roomTypeIds: [roomId],
     maxRedemptions: 10
   };
+
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
@@ -46,6 +48,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
+
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
@@ -86,6 +89,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
       .overrideProvider(PROMOTION_CLOCK)
       .useValue(() => new Date('2026-10-16T00:00:00Z'))
       .compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.init();
@@ -101,6 +105,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   });
   afterAll(async () => {
     await app?.close();
+    await provider?.close();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
       await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
@@ -117,8 +122,10 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   it('TC-MAD-040-AC2/AC3: reference atomic HW checkout admits only one final redemption and retains history', async () => {
     // This SQL is a contract fixture, not a production HW checkout endpoint.
     const created = (await post({ ...payload, maxRedemptions: 2 }).expect(201)).body as Promotion;
+
     await database.query('UPDATE mad_promotion_codes SET current_redemptions=1 WHERE promo_id=$1', [created.id]);
     const historicalBooking = randomUUID();
+
     await database.query('INSERT INTO bookings VALUES ($1,$2,7500)', [historicalBooking, created.id]);
     const reserveAndBook = `WITH reserved AS (
       UPDATE mad_promotion_codes SET current_redemptions=current_redemptions+1
@@ -134,6 +141,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         database.query<{ booking_id: string }[]>(reserveAndBook, [created.id, id, '2026-10-16T00:00:00Z', roomId])
       )
     );
+
     expect(results.map(rows => rows.length).sort()).toEqual([0, 1]);
     expect(
       await database.query('SELECT current_redemptions FROM mad_promotion_codes WHERE promo_id=$1', [created.id])
@@ -156,6 +164,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
     const worker = new PromotionPublicationWorker(config, runtime, {
       publish: failed
     } as unknown as PromotionBroker);
+
     await worker.processOnce();
     const [pending] = await database.query<
       {
@@ -165,6 +174,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         last_error: string;
       }[]
     >('SELECT event_id,published_at,attempts,last_error FROM mad_promotion_outbox');
+
     expect(pending).toMatchObject({
       published_at: null,
       attempts: 1,
@@ -174,6 +184,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
     const restarted = new PromotionPublicationWorker(config, runtime, {
       publish
     } as unknown as PromotionBroker);
+
     await database.query("UPDATE mad_promotion_outbox SET next_attempt_at=now()+interval '1 hour'");
     await restarted.processOnce();
     expect(publish).not.toHaveBeenCalled(); // Durable backoff survives restart.
@@ -181,6 +192,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
     const other = new PromotionPublicationWorker(config, runtime, {
       publish
     } as unknown as PromotionBroker);
+
     await Promise.all([restarted.processOnce(), other.processOnce()]);
     expect(publish).toHaveBeenCalledTimes(1);
     expect(publish).toHaveBeenCalledWith(expect.objectContaining({ eventId: pending.event_id }));
@@ -188,13 +200,16 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   });
   it('TC-MAD-040-AC1: routes a committed publication through a real confirmed broker contract queue', async () => {
     const url = process.env.TEST_RABBITMQ_URL;
+
     if (!url || new URL(url).pathname !== '/mad_test')
       throw new Error('TEST_RABBITMQ_URL must use disposable mad_test vhost');
     const connection = await connect(url);
     const channel = await connection.createChannel();
+
     try {
       await channel.assertExchange('hotel.events', 'topic', { durable: true });
       const queue = await channel.assertQueue('', { exclusive: true });
+
       await channel.bindQueue(queue.queue, 'hotel.events', 'promotion.*');
       const created = (await post().expect(201)).body as Promotion;
       const config = new ConfigService({
@@ -202,11 +217,14 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         RABBITMQ_URL: url
       });
       const publisher = new PromotionPublicationWorker(config, app.get(DataSource), new PromotionBroker(config));
+
       await publisher.processOnce();
       const delivery = await channel.get(queue.queue, { noAck: false });
+
       expect(delivery).not.toBe(false);
       if (!delivery) throw new Error('Missing committed event');
       const event = JSON.parse(delivery.content.toString()) as PromotionMessage;
+
       expect(event).toMatchObject({
         type: 'promotion.upsert',
         promotionId: created.id,
@@ -227,8 +245,10 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         await action(created.id, version, kind).expect(200);
         await publisher.processOnce();
         const next = await channel.get(queue.queue, { noAck: false });
+
         if (!next) throw new Error('Missing lifecycle publication');
         const update = JSON.parse(next.content.toString()) as PromotionMessage;
+
         expect(update.version).toBe(version + 1);
         expect(update.type).toBe(kind === 'delete' ? 'promotion.deleted' : 'promotion.upsert');
         expect(update.promotion.status).toBe('INACTIVE');
@@ -249,11 +269,13 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
     const [result] = await database.query<{ promotions: number; links: number }[]>(
       `SELECT (SELECT count(*)::int FROM mad_promotion_codes) promotions,(SELECT count(*)::int FROM mad_promotion_room_types) links`
     );
+
     return result;
   }
   it('TC-MAD-020-AC1: saves a draft inactive atomically and exposes publication failure safely', async () => {
     const created = await post({ ...payload, status: 'INACTIVE' }).expect(201);
     const body = created.body as Promotion;
+
     expect(body).toMatchObject({
       status: 'INACTIVE',
       lifecycleState: 'INACTIVE',
@@ -264,6 +286,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
       'SELECT payload FROM mad_promotion_outbox WHERE promo_id=$1',
       [body.id]
     );
+
     expect(outbox).toHaveLength(1);
     expect(outbox[0].payload.status).toBe('INACTIVE');
     await database.query(
@@ -271,6 +294,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
       [body.id]
     );
     const detail = await get('/mad/promotions/' + body.id).expect(200);
+
     expect((detail.body as Promotion).publicationStatus).toBe('FAILED');
     expect(JSON.stringify(detail.body)).not.toContain('private');
     await post({ ...payload, code: 'INVALID', status: 'DRAFT' }).expect(400);
@@ -286,6 +310,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         roomTypeIds: [roomId, otherRoomId]
       }).expect(201);
       const body = result.body as Promotion;
+
       expect(body).toMatchObject({
         code: 'AUTUMN_26',
         discountType,
@@ -299,6 +324,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
       expect(body.roomTypeIds.sort()).toEqual([roomId, otherRoomId].sort());
       expect(await counts()).toEqual({ promotions: 1, links: 2 });
       const detail = await get('/mad/promotions/' + body.id).expect(200);
+
       expect(detail.body as Promotion).toEqual(body);
     }
   );
@@ -316,6 +342,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
     { extra: true }
   ])('TC-MAD-018-AC2: rejects invalid request %j without writes', async change => {
     const response = await post({ ...payload, ...change }).expect(400);
+
     expect(response.body as { code: string }).toMatchObject({
       code: 'VALIDATION_ERROR'
     });
@@ -330,6 +357,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   });
   it('TC-MAD-018-AC3: concurrent normalized codes commit exactly once', async () => {
     const results = await Promise.all([post(), post({ ...payload, code: 'AUTUMN_26' })]);
+
     expect(results.map(response => response.status).sort()).toEqual([201, 409]);
     expect(await counts()).toEqual({ promotions: 1, links: 1 });
     // Database enforcement also covers other services that bypass API normalization.
@@ -342,16 +370,19 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   it('TC-MAD-018-AC4: paginates promotions and room choices and returns 404 for unknown IDs', async () => {
     const created = await post().expect(201);
     const first = await get('/mad/promotions?page=1&pageSize=1').expect(200);
+
     expect(first.body as { items: Promotion[]; total: number }).toMatchObject({
       total: 1,
       items: [created.body as Promotion]
     });
     const empty = await get('/mad/promotions?page=2&pageSize=1').expect(200);
+
     expect(empty.body as { items: Promotion[]; total: number }).toMatchObject({
       total: 1,
       items: []
     });
     const choices = await get('/mad/promotions/room-types?pageSize=1').expect(200);
+
     expect(choices.body as { items: { id: string; name: string }[]; total: number }).toMatchObject({
       total: 2,
       items: [{ id: otherRoomId, name: 'Double' }]
@@ -363,6 +394,37 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         await get(path + '?' + query).expect(400);
     }
   });
+  it('filters lifecycle views before pagination and hides promotions at their exclusive expiry', async () => {
+    await post().expect(201);
+    await post({ ...payload, code: 'INACTIVE', status: 'INACTIVE' }).expect(201);
+    await post({ ...payload, code: 'FUTURE', validFrom: '2026-10-20T00:00:00+05:30' }).expect(201);
+    await post({ ...payload, code: 'EXPIRED' }).expect(201);
+    await post({ ...payload, code: 'EXHAUSTED' }).expect(201);
+    await database.query(
+      "UPDATE mad_promotion_codes SET valid_until='2026-10-16T00:00:00Z' WHERE code_string='EXPIRED'"
+    );
+    await database.query(
+      "UPDATE mad_promotion_codes SET current_redemptions=max_redemptions WHERE code_string='EXHAUSTED'"
+    );
+    expect((await get('/mad/promotions?view=active&pageSize=1').expect(200)).body as unknown).toMatchObject({
+      total: 1,
+      items: [{ code: 'AUTUMN_26', lifecycleState: 'ACTIVE' }]
+    });
+    expect((await get('/mad/promotions?view=inactive').expect(200)).body as unknown).toMatchObject({
+      total: 1,
+      items: [{ code: 'INACTIVE', status: 'INACTIVE' }]
+    });
+    expect((await get('/mad/promotions?view=scheduled').expect(200)).body as unknown).toMatchObject({
+      total: 1,
+      items: [{ code: 'FUTURE', lifecycleState: 'SCHEDULED' }]
+    });
+
+    expect((await get('/mad/promotions?view=active&page=2&pageSize=1').expect(200)).body as unknown).toMatchObject({
+      total: 1,
+      items: []
+    });
+    await get('/mad/promotions?view=invalid').expect(400);
+  });
   it('TC-DDP-018-AUTH: every endpoint rejects absent/invalid sessions and disallowed roles without writes', async () => {
     for (const endpoint of ['/mad/promotions', '/mad/promotions/room-types', '/mad/promotions/' + randomUUID()]) {
       for (const [token, status] of [
@@ -372,6 +434,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         [provider.issue('first-login'), 403]
       ] as const) {
         let req = request(app.getHttpServer()).get(endpoint);
+
         if (token) req = req.set('Authorization', 'Bearer ' + token);
         await req.expect(status);
       }
@@ -383,6 +446,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
       [provider.issue('first-login'), 403]
     ] as const) {
       let req = request(app.getHttpServer()).post('/mad/promotions');
+
       if (token) req = req.set('Authorization', 'Bearer ' + token);
       await req.send(payload).expect(status);
     }
@@ -392,6 +456,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
     await database.query(`REVOKE INSERT ON mad_promotion_room_types FROM "${role}"`);
     try {
       const response = await post().expect(503);
+
       expect(response.body as { code: string }).toMatchObject({
         code: 'SERVICE_UNAVAILABLE'
       });
@@ -406,6 +471,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
       kind === 'delete'
         ? request(app.getHttpServer()).delete('/mad/promotions/' + id)
         : request(app.getHttpServer()).post(`/mad/promotions/${id}/${kind}`);
+
     return req.set('Authorization', 'Bearer ' + provider.issue('manager')).send({ version });
   }
   function edit(id: string, body: object) {
@@ -422,6 +488,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   }
   it('TC-MAD-019-AC1: edits and toggles activation with monotonic versions and durable events', async () => {
     const created = (await post().expect(201)).body as Promotion;
+
     expect(created.version).toBe(0);
     const updated = (
       await edit(created.id, {
@@ -431,6 +498,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         version: 0
       }).expect(200)
     ).body as Promotion;
+
     expect(updated).toMatchObject({
       code: 'REVISED',
       roomTypeIds: [otherRoomId],
@@ -445,6 +513,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   it('TC-MAD-019-AC2: concurrent same-version changes produce one winner and one conflict', async () => {
     const created = (await post().expect(201)).body as Promotion;
     const results = await Promise.all([action(created.id, 0, 'activate'), action(created.id, 0, 'deactivate')]);
+
     expect(results.map(result => result.status).sort()).toEqual([200, 409]);
     expect((await events(created.id)).map(event => event.promotion_version)).toEqual([0, 1]);
     await edit(created.id, { ...payload, version: 0 }).expect(409);
@@ -452,6 +521,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   });
   it('TC-MAD-019-AC2: rejects invalid edits and unknown/stale targets without changing state', async () => {
     const created = (await post().expect(201)).body as Promotion;
+
     for (const change of [
       { discountValue: 101 },
       { maxRedemptions: 0 },
@@ -476,11 +546,13 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   it('TC-MAD-019-AC3: logical deletion retains booking history and associations, blocks reuse/reactivation and queues removal', async () => {
     const created = (await post().expect(201)).body as Promotion;
     const bookingId = randomUUID();
+
     await database.query('INSERT INTO bookings(booking_id,promo_id,total_amount) VALUES ($1,$2,7500)', [
       bookingId,
       created.id
     ]);
     const removed = (await action(created.id, 0, 'delete').expect(200)).body as Promotion;
+
     expect(removed).toMatchObject({
       status: 'INACTIVE',
       lifecycleState: 'DELETED',
@@ -492,6 +564,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
       'SELECT promo_id,total_amount FROM bookings WHERE booking_id=$1',
       [bookingId]
     );
+
     expect(history).toEqual([{ promo_id: created.id, total_amount: 7500 }]);
     expect(await counts()).toEqual({ promotions: 1, links: 1 });
     expect(
@@ -519,6 +592,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   });
   it('TC-DDP-019-ATOMIC: an outbox failure rolls back edit, deletion and creation', async () => {
     const created = (await post().expect(201)).body as Promotion;
+
     await database.query(`REVOKE INSERT ON mad_promotion_outbox FROM "${role}"`);
     try {
       await edit(created.id, {
@@ -543,6 +617,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   });
   it('TC-DDP-019-AUTH: all mutation endpoints enforce auth, version validation and preserve rows', async () => {
     const created = (await post().expect(201)).body as Promotion;
+
     for (const method of ['edit', 'activate', 'deactivate', 'delete'] as const) {
       const make = () =>
         method === 'edit'
@@ -550,6 +625,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
           : method === 'delete'
             ? request(app.getHttpServer()).delete('/mad/promotions/' + created.id)
             : request(app.getHttpServer()).post(`/mad/promotions/${created.id}/${method}`);
+
       for (const [token, status] of [
         [null, 401],
         ['invalid', 401],
@@ -557,6 +633,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
         [provider.issue('first-login'), 403]
       ] as const) {
         let req = make();
+
         if (token) req = req.set('Authorization', 'Bearer ' + token);
         await req.send(method === 'edit' ? { ...payload, version: 0 } : { version: 0 }).expect(status);
       }
@@ -570,6 +647,7 @@ describe('DDP-018 protected promotions with disposable PostgreSQL', () => {
   });
   it('TC-DDP-019-ELIGIBILITY: refuses expired/exhausted activation and preserves redeemed capacity on edit', async () => {
     const created = (await post().expect(201)).body as Promotion;
+
     await database.query('UPDATE mad_promotion_codes SET current_redemptions=10 WHERE promo_id=$1', [created.id]);
     await action(created.id, 0, 'activate').expect(409);
     await edit(created.id, {

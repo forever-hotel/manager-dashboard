@@ -43,6 +43,7 @@ describe('DDP-012 validation and encrypted credentials', () => {
       email: ' STAFF@EXAMPLE.COM ',
       name: ' Test Staff '
     });
+
     expect(await validate(dto)).toEqual([]);
     expect(dto.email).toBe(profile.email);
     expect(dto.name).toBe(profile.name);
@@ -65,6 +66,7 @@ describe('DDP-012 validation and encrypted credentials', () => {
   it('authenticates ciphertext and delivery identity without storing plaintext', () => {
     const cipher = new CredentialCipher(config());
     const encrypted = cipher.encrypt('one', credentials);
+
     expect(encrypted).not.toContain(credentials.password);
     expect(cipher.decrypt('one', encrypted)).toEqual(credentials);
     expect(cipher.encrypt('one', credentials)).not.toBe(encrypted);
@@ -105,6 +107,7 @@ describe('DDP-012 transactional creation', () => {
       { transaction } as unknown as DataSource,
       new CredentialCipher(new ConfigService())
     );
+
     await expect(service.create(profile)).rejects.toMatchObject({
       status: 503
     });
@@ -115,6 +118,7 @@ describe('DDP-012 transactional creation', () => {
     async error => {
       const transaction = jest.fn().mockRejectedValue(error);
       const service = new StaffService({ transaction } as unknown as DataSource, new CredentialCipher(config()));
+
       await expect(service.create(profile)).rejects.toMatchObject({
         status: error && 'code' in error ? 409 : 503
       });
@@ -127,6 +131,7 @@ describe('DDP-012 transactional creation', () => {
     };
     const service = new StaffService(database as unknown as DataSource, new CredentialCipher(config()));
     const result = await service.create(profile);
+
     expect(result).toEqual({
       staffId: result.staffId,
       deliveryId: result.deliveryId,
@@ -135,6 +140,7 @@ describe('DDP-012 transactional creation', () => {
     const staffParams = query.mock.calls[0][1];
     const deliveryParams = query.mock.calls[1][1] as string[];
     const payload = new CredentialCipher(config()).decrypt(result.deliveryId, deliveryParams[2]);
+
     expect(getRounds(staffParams[8] as string)).toBe(12);
     expect(await compare(payload.password, staffParams[8] as string)).toBe(true);
     expect(payload.username).toBe(staffParams[7]);
@@ -147,6 +153,7 @@ describe('DDP-012 transactional creation', () => {
     const database = {
       transaction: jest.fn().mockRejectedValue({ driverError: { code }, detail: 'private data' })
     };
+
     await expect(
       new StaffService(database as unknown as DataSource, new CredentialCipher(config())).create(profile)
     ).rejects.toMatchObject({ status });
@@ -161,6 +168,7 @@ describe('DDP-012 SendGrid delivery', () => {
   });
   it('sends via SendGrid and accepts only HTTP 202', async () => {
     const fetchMock = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 202 }));
+
     await new SendGridService(config()).send(credentials);
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.sendgrid.com/v3/mail/send',
@@ -170,6 +178,7 @@ describe('DDP-012 SendGrid delivery', () => {
       personalizations: unknown;
       content: { value: string }[];
     };
+
     expect(body.personalizations).toEqual([{ to: [{ email: credentials.email }] }]);
     expect(body.content[0].value).toContain(credentials.username);
   });
@@ -184,6 +193,7 @@ describe('DDP-012 retry worker', () => {
     const query = jest.fn().mockResolvedValue([]);
     const send = jest.fn();
     const worker = new StaffDeliveryWorker({ query }, config(), new CredentialCipher(config()), { send });
+
     await worker.processOnce();
     expect(query).toHaveBeenCalledTimes(1);
     expect(send).not.toHaveBeenCalled();
@@ -203,6 +213,7 @@ describe('DDP-012 retry worker', () => {
           finish = resolve;
         })
     );
+
     try {
       worker.onApplicationBootstrap();
       jest.advanceTimersByTime(30000);
@@ -242,10 +253,12 @@ describe('DDP-012 retry worker', () => {
       .mockResolvedValue([]);
     const send = jest.fn().mockResolvedValue(undefined);
     const worker = new StaffDeliveryWorker({ query } as unknown as DataSource, config(), cipher, { send });
+
     return { worker, query, send };
   }
   it('sends existing credentials then clears ciphertext', async () => {
     const { worker, query, send } = setup();
+
     await worker.processOnce();
     expect(send).toHaveBeenCalledWith(credentials);
     expect(query.mock.calls[2][0]).toContain('encrypted_credentials=NULL');
@@ -253,6 +266,7 @@ describe('DDP-012 retry worker', () => {
   });
   it('retains credentials and schedules failed delivery without creating an account', async () => {
     const { worker, query, send } = setup();
+
     send.mockRejectedValue(new Error('sensitive provider error'));
     await worker.processOnce();
     expect(query.mock.calls[2][0]).toContain("status='failed'");
@@ -262,6 +276,7 @@ describe('DDP-012 retry worker', () => {
   });
   it('TC-MAD-055-AC2: purges credentials on the fifth failed attempt without resetting the account', async () => {
     const { worker, query, send } = setup(undefined, 5);
+
     send.mockRejectedValue(new Error('private provider response'));
     await worker.processOnce();
     expect(query.mock.calls[2][0]).toContain('EMAIL_RETRY_EXHAUSTED');
@@ -276,6 +291,7 @@ describe('DDP-012 retry worker', () => {
     { is_active: true, password_change_required: true, session_version: 1 }
   ])('discards obsolete credentials %j', async account => {
     const { worker, query, send } = setup(account);
+
     await worker.processOnce();
     expect(send).not.toHaveBeenCalled();
     expect(query.mock.calls[2][1][2]).toBe('cancelled');
@@ -288,6 +304,7 @@ describe('DDP-012 retry worker', () => {
       .spyOn(worker, 'processOnce')
       .mockRejectedValueOnce(new Error('private database details'))
       .mockResolvedValue(undefined);
+
     try {
       worker.onApplicationBootstrap();
       await jest.advanceTimersByTimeAsync(15000);
@@ -307,6 +324,7 @@ describe('DDP-012 retry worker', () => {
       new CredentialCipher(config()),
       new SendGridService(config())
     );
+
     await worker.processOnce();
     await worker.onApplicationShutdown();
     expect(query).toHaveBeenCalledWith(expect.stringContaining('EMAIL_PAYLOAD_EXPIRED'), [expect.any(String), false]);

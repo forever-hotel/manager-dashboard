@@ -34,6 +34,7 @@ const mutable = ['name', 'vocation', 'email', 'age', 'phone', 'nic', 'role', 'is
 @Injectable()
 export class StaffProfilesService {
   private readonly logger = new Logger(StaffProfilesService.name);
+
   constructor(
     private readonly database: DataSource,
     private readonly cipher: CredentialCipher
@@ -43,29 +44,35 @@ export class StaffProfilesService {
     if (!profile || !STAFF_ROLES.includes(profile.role)) throw new NotFoundException('Staff account not found.');
     return profile;
   }
+
   private fail(error: unknown): never {
     if (error instanceof HttpException) throw error;
     const storage = error as {
       code?: string;
       driverError?: { code?: string };
     } | null;
+
     if (storage?.code === '23505' || storage?.driverError?.code === '23505')
       throw new ConflictException('A staff account with these unique details already exists.');
     throw new ServiceUnavailableException();
   }
+
   async get(staffId: string) {
     try {
       const rows = await this.database.query<StaffProfile[]>(
         `SELECT ${columns} FROM public.staff_users WHERE worker_id=$1`,
         [staffId]
       );
+
       return this.requireStaff(rows[0]);
     } catch (error: unknown) {
       this.fail(error);
     }
   }
+
   async update(staffId: string, actorId: string, patch: UpdateStaffDto) {
     const fields = mutable.filter(field => patch[field] !== undefined);
+
     try {
       if (!fields.length) throw new BadRequestException('Supply at least one mutable profile field.');
       const result = await this.database.transaction(async manager => {
@@ -74,9 +81,11 @@ export class StaffProfilesService {
           [staffId]
         );
         const current = this.requireStaff(rows[0]);
+
         if (current.version !== patch.version)
           throw new ConflictException('The staff account changed. Reload it before editing.');
         const next = { ...current, version: current.version + 1 };
+
         for (const field of fields) Object.assign(next, { [field]: patch[field] });
         // PostgreSQL UPDATE returns [rows, affectedCount], unlike SELECT.
         const [saved] = await manager.query<[StaffProfile[], number]>(
@@ -96,9 +105,11 @@ export class StaffProfilesService {
           ]
         );
         const profile = this.requireStaff(saved[0]);
+
         await this.reconcileDelivery(manager, current, profile);
         return profile;
       });
+
       this.logger.log({
         event: 'staff.profile_updated',
         actorId,
@@ -119,6 +130,53 @@ export class StaffProfilesService {
       this.fail(error);
     }
   }
+
+  async remove(staffId: string, actorId: string, version: number) {
+    try {
+      await this.database.transaction(async manager => {
+        const [row] = await manager.query<StaffProfile[]>(
+          `SELECT ${columns} FROM public.staff_users WHERE worker_id=$1 FOR UPDATE`,
+          [staffId]
+        );
+        const current = this.requireStaff(row);
+
+        if (staffId === actorId) throw new BadRequestException('You cannot delete your own account.');
+        if (current.version !== version)
+          throw new ConflictException('The staff account changed. Reload it before deleting.');
+        // Check every incoming foreign key, including cascading and SET NULL links,
+        // so deletion cannot silently erase or detach operational history.
+        const checks = await manager.query<{ statement: string }[]>(`
+          SELECT format('SELECT EXISTS (SELECT 1 FROM %s WHERE %I=$1) AS linked',
+            c.conrelid::regclass, a.attname) AS statement
+          FROM pg_constraint c
+          JOIN unnest(c.conkey) WITH ORDINALITY k(attnum,ord) ON true
+          JOIN unnest(c.confkey) WITH ORDINALITY f(attnum,ord) ON f.ord=k.ord
+          JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.attnum
+          JOIN pg_attribute target ON target.attrelid=c.confrelid AND target.attnum=f.attnum
+          WHERE c.contype='f' AND c.confrelid='public.staff_users'::regclass
+            AND target.attname='worker_id'
+            AND c.conrelid <> 'public.mad_staff_deliveries'::regclass
+        `);
+
+        for (const check of checks) {
+          const [result] = await manager.query<{ linked: boolean }[]>(check.statement, [staffId]);
+
+          if (result.linked) throw new ConflictException('This account has linked history. Deactivate it instead.');
+        }
+        await manager.query('DELETE FROM public.mad_staff_deliveries WHERE worker_id=$1', [staffId]);
+        await manager.query('DELETE FROM public.staff_users WHERE worker_id=$1', [staffId]);
+      });
+      this.logger.log({ event: 'staff.account_deleted', actorId, staffId, outcome: 'deleted' });
+      return { deleted: true };
+    } catch (error: unknown) {
+      const storage = error as { code?: string; driverError?: { code?: string } };
+
+      if (storage?.code === '23503' || storage?.driverError?.code === '23503')
+        throw new ConflictException('This account has linked history. Deactivate it instead.');
+      this.fail(error);
+    }
+  }
+
   private async reconcileDelivery(manager: EntityManager, before: StaffProfile, after: StaffProfile) {
     const rows = await manager.query<
       {
@@ -132,6 +190,7 @@ export class StaffProfilesService {
       [before.staffId]
     );
     const delivery = rows[0];
+
     if (!delivery) return;
     if (!after.isActive || !after.passwordChangeRequired || delivery.credential_version !== before.version) {
       await manager.query(
@@ -151,6 +210,7 @@ export class StaffProfilesService {
       role: after.role,
       username: after.username
     });
+
     await manager.query(
       `UPDATE public.mad_staff_deliveries SET delivery_id=$2,encrypted_credentials=$3,
       credential_version=$4,status='pending',attempts=0,next_attempt_at=now(),lease_token=NULL,

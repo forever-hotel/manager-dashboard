@@ -5,6 +5,7 @@ import type { StaffCredentials } from './credential-cipher';
 @Injectable()
 export class SendGridService {
   constructor(private readonly config: ConfigService) {}
+
   async send(credentials: StaffCredentials): Promise<void> {
     const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',

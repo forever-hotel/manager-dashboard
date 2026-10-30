@@ -7,6 +7,7 @@ import { lowBookingThreshold } from './low-booking-config';
 @Injectable()
 export class LowBookingAlertsService {
   private readonly threshold: number;
+
   constructor(
     private readonly occupancy: OccupancyAnalyticsService,
     config: ConfigService,
@@ -26,6 +27,7 @@ export class LowBookingAlertsService {
     const from = `${part('year')}-${part('month')}-${part('day')}`;
     const to = new Date(Date.parse(from) + 13 * 86400000).toISOString().slice(0, 10);
     const calendar = await this.occupancy.calendar({ from, to });
+
     return {
       from,
       to,

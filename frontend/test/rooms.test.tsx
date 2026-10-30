@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { io } from 'socket.io-client';
 import RoomsPage from '@/app/(dashboard)/rooms/page';
 import { roomsSnapshot } from './rooms-fixture';
+
 vi.mock('socket.io-client', () => ({ io: vi.fn() }));
 let handlers: Record<string, (value?: unknown) => void>;
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -39,7 +40,8 @@ describe('DDP-028 room board', () => {
     for (const room of data.rooms)
       expect(screen.getByLabelText(`Room ${room.number}, ${room.label}, Deluxe`)).toBeVisible();
     expect(screen.queryByRole('button', { name: /edit|claim|assign/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Week' })).toBeDisabled();
+    for (const name of ['Day', 'Week', 'Month']) expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    expect(screen.queryByText('Room connection details')).not.toBeInTheDocument();
   });
   it('AC2: rereads authoritative data on events and reconnect', async () => {
     render(<RoomsPage />);
@@ -53,6 +55,7 @@ describe('DDP-028 room board', () => {
     expect(screen.getByLabelText('Room 101, Occupied, Deluxe')).toBeVisible();
     expect(screen.queryByText('forged')).not.toBeInTheDocument();
     const count = fetchMock.mock.calls.length;
+
     await act(async () => {
       handlers.connect();
       handlers['rooms.transport.status']({ healthy: true });
@@ -101,6 +104,7 @@ describe('DDP-028 room board', () => {
     expect(screen.getByRole('status')).toHaveTextContent('five attempts');
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
     const ticketCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).includes('ticket')).length;
+
     expect(ticketCalls()).toBe(6);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60000);
@@ -114,6 +118,7 @@ describe('DDP-028 room board', () => {
   });
   it('does not restore protected data when a late snapshot follows ticket rejection', async () => {
     let finish!: (response: Response) => void;
+
     fetchMock.mockImplementation((url: string) =>
       url.includes('ticket')
         ? Promise.resolve(new Response('{}', { status: 401 }))
@@ -135,6 +140,7 @@ describe('DDP-028 room board', () => {
       await vi.advanceTimersByTimeAsync(1);
     });
     const calls = fetchMock.mock.calls.length;
+
     act(() => {
       handlers.disconnect();
       handlers.connect_error();

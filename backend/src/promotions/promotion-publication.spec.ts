@@ -5,6 +5,7 @@ import { connect } from 'amqplib';
 import type { ChannelModel } from 'amqplib';
 import { PromotionBroker, PromotionMessage } from './promotion-broker';
 import { PromotionPublicationWorker } from './promotion-publication.worker';
+
 jest.mock('amqplib', () => ({ connect: jest.fn() }));
 const row = {
   event_id: '67f4568c-89ab-4c12-b321-123456789012',
@@ -41,11 +42,13 @@ describe('DDP-040 durable publication worker', () => {
       } as unknown as DataSource,
       { publish } as unknown as PromotionBroker
     );
+
     return { query, publish, config, worker };
   }
   it('locks pending work and marks published only after confirmation', async () => {
     const { query, publish, worker } = setup();
     let confirm!: () => void;
+
     publish.mockImplementationOnce(
       () =>
         new Promise<void>(resolve => {
@@ -53,6 +56,7 @@ describe('DDP-040 durable publication worker', () => {
         })
     );
     const pending = worker.processOnce();
+
     await Promise.resolve();
     expect(query).toHaveBeenCalledTimes(1);
     expect(query).toHaveBeenNthCalledWith(1, expect.stringContaining('FOR UPDATE OF o SKIP LOCKED'));
@@ -63,6 +67,7 @@ describe('DDP-040 durable publication worker', () => {
   });
   it('retains failed work with capped exponential retry and a fixed safe error', async () => {
     const { query, publish, worker } = setup();
+
     publish.mockRejectedValue(new Error('private broker credentials'));
     await worker.processOnce();
     expect(query).toHaveBeenLastCalledWith(expect.stringContaining("last_error='PROMOTION_PUBLICATION_FAILED'"), [
@@ -71,6 +76,7 @@ describe('DDP-040 durable publication worker', () => {
     ]);
     expect(JSON.stringify(query.mock.calls)).not.toContain('private');
     const later = setup();
+
     later.query
       .mockReset()
       .mockResolvedValueOnce([{ ...row, attempts: 100 }])
@@ -81,6 +87,7 @@ describe('DDP-040 durable publication worker', () => {
   });
   it('does not swallow a failed confirmation mark, enabling rollback/redelivery', async () => {
     const { worker, query, publish } = setup();
+
     query.mockReset().mockResolvedValueOnce([row]).mockRejectedValueOnce(new Error('mark failed'));
     await expect(worker.processOnce()).rejects.toThrow('mark failed');
     expect(publish).toHaveBeenCalledWith(event);
@@ -88,6 +95,7 @@ describe('DDP-040 durable publication worker', () => {
   });
   it('leaves malformed private outbox data pending and does not publish it', async () => {
     const { worker, query, publish } = setup();
+
     query
       .mockReset()
       .mockResolvedValueOnce([{ ...row, payload: { ...row.payload, version: 3 } }])
@@ -98,10 +106,12 @@ describe('DDP-040 durable publication worker', () => {
   });
   it('does nothing when disabled or idle', async () => {
     const disabled = setup('false');
+
     disabled.worker.onApplicationBootstrap();
     await disabled.worker.processOnce();
     expect(disabled.query).not.toHaveBeenCalled();
     const idle = setup();
+
     idle.query.mockReset().mockResolvedValue([]);
     await idle.worker.processOnce();
     expect(idle.publish).not.toHaveBeenCalled();
@@ -116,11 +126,13 @@ describe('DDP-040 durable publication worker', () => {
           finish = resolve;
         })
     );
+
     try {
       worker.onApplicationBootstrap();
       await jest.advanceTimersByTimeAsync(1000);
       expect(processCall).toHaveBeenCalledTimes(1);
       const shutdown = worker.onApplicationShutdown();
+
       finish();
       await shutdown;
       await jest.advanceTimersByTimeAsync(1000);
@@ -146,12 +158,15 @@ describe('DDP-040 broker confirms and mandatory routing', () => {
       createConfirmChannel: jest.fn().mockResolvedValue(channel),
       close: jest.fn().mockResolvedValue(undefined)
     });
+
     jest.mocked(connect).mockResolvedValue(connection as unknown as ChannelModel);
     const broker = new PromotionBroker(new ConfigService({ RABBITMQ_URL: 'amqp://localhost/mad_test' }));
+
     return { channel, connection, broker };
   }
   it('publishes immutable persistent envelopes with confirms and closes resources', async () => {
     const { broker, channel, connection } = setup();
+
     await broker.publish(event);
     expect(channel.assertExchange).toHaveBeenCalledWith('hotel.events', 'topic', { durable: true });
     expect(channel.publish).toHaveBeenCalledWith(
@@ -169,6 +184,7 @@ describe('DDP-040 broker confirms and mandatory routing', () => {
   });
   it.each(['returned', 'nacked'])('rejects %s messages rather than marking them published', async mode => {
     const { broker, channel, connection } = setup();
+
     channel.publish.mockImplementationOnce((_e, _k, _b, _o, confirm) => {
       if (mode === 'returned') channel.emit('return', {});
       confirm(mode === 'nacked' ? new Error('nack') : undefined);
@@ -180,9 +196,11 @@ describe('DDP-040 broker confirms and mandatory routing', () => {
   it('bounds missing confirms and rejects oversized envelopes', async () => {
     jest.useFakeTimers();
     const { broker, channel, connection } = setup();
+
     channel.publish.mockImplementationOnce(() => true);
     try {
       const pending = expect(broker.publish(event)).rejects.toThrow('PROMOTION_CONFIRM_TIMEOUT');
+
       await jest.advanceTimersByTimeAsync(5001);
       await pending;
       expect(connection.close).toHaveBeenCalled();

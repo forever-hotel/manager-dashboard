@@ -4,6 +4,7 @@ import { RoomsController } from './rooms.controller';
 import { parseRoomEvent, RoomEventsConsumer } from '../realtime/room-events.consumer';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { ConfigService } from '@nestjs/config';
+
 const room = {
   id: '101',
   number: '101',
@@ -31,6 +32,7 @@ describe('DDP-027 room snapshot and event contract', () => {
       { publishRoom } as unknown as RealtimeGateway,
       {} as RoomsService
     );
+
     await expect(service.dispatch()).rejects.toThrow('offline');
     expect(query).toHaveBeenCalledTimes(1);
     query.mockClear();
@@ -46,6 +48,7 @@ describe('DDP-027 room snapshot and event contract', () => {
       }
     ]);
     const service = new RoomsService({ query } as unknown as DataSource);
+
     expect((await new RoomsController(service).status({})).rooms.map(r => r.label)).toEqual([
       'Occupied',
       'Vacant',
@@ -58,6 +61,7 @@ describe('DDP-027 room snapshot and event contract', () => {
   it('distinguishes empty sources from malformed or unavailable ones', async () => {
     const query = jest.fn();
     const service = new RoomsService({ query } as unknown as DataSource);
+
     query.mockResolvedValueOnce([{ queried_at: new Date(), rooms: [] }]);
     expect((await service.snapshot()).rooms).toEqual([]);
     for (const rows of [
@@ -108,6 +112,7 @@ describe('DDP-027 room snapshot and event contract', () => {
       {} as RealtimeGateway,
       { snapshot } as unknown as RoomsService
     );
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: false }])

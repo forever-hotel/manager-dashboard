@@ -2,12 +2,8 @@ import { csvCell, flattenReport, renderCsv, renderPdf, MAX_REPORT_ROWS } from '.
 import { parseReportQuery, REPORT_TYPES } from './report-query';
 import { ReportsService } from './reports.service';
 import { BookingAnalyticsService } from '../analytics/booking-analytics.service';
-import { RevenueAnalyticsService } from '../analytics/revenue-analytics.service';
-import { WorkerPerformanceService } from '../analytics/worker-performance.service';
-import { FoodAnalyticsService } from '../analytics/food-analytics.service';
-import { ServiceRequestAnalyticsService } from '../analytics/service-request-analytics.service';
 import { OccupancyAnalyticsService } from '../analytics/occupancy-analytics.service';
-import { LowBookingAlertsService } from '../analytics/low-booking-alerts.service';
+
 describe('DDP-030 report validation and encoding', () => {
   it('accepts only per-report filters and bounded periods', () => {
     for (const type of REPORT_TYPES)
@@ -18,7 +14,9 @@ describe('DDP-030 report validation and encoding', () => {
         }).format
       ).toBe('csv');
     for (const [type, query] of [
-      ['bad', { format: 'csv' }],
+      ...['bad', 'revenue', 'worker-performance', 'staff', 'food-orders', 'service-requests', 'low-booking-alerts'].map(
+        type => [type, { format: 'csv' }] as const
+      ),
       ['bookings', {}],
       ['bookings', { format: 'xlsx' }],
       ['bookings', { format: 'pdf', period: 'year' }],
@@ -46,6 +44,7 @@ describe('DDP-030 report validation and encoding', () => {
       trend: [{ count: 0 }],
       workers: []
     });
+
     expect(rows).toContainEqual(['currentMinor', '25000', 'LKR cents']);
     expect(rows).toContainEqual(['percentageChange', 'null', 'unavailable']);
     expect(rows).toContainEqual(['trend[0].count', '0', 'count']);
@@ -73,18 +72,12 @@ describe('DDP-030 report validation and encoding', () => {
       ['hour', '4', 'number']
     ]);
     let deep: Record<string, unknown> = { value: 1 };
+
     for (let i = 0; i < 13; i++) deep = { nested: deep };
     expect(() => flattenReport(deep)).toThrow();
     expect(() => flattenReport({ ['x'.repeat(257)]: 1 })).toThrow();
     expect(() => flattenReport({ value: undefined })).toThrow();
     expect(() => renderCsv(Array.from({ length: 5000 }, () => ['key', 'x'.repeat(1800), '']))).toThrow();
-    expect(
-      parseReportQuery('staff', {
-        format: 'pdf',
-        period: 'month',
-        workerId: '67f4568c-89ab-4c12-b321-123456789012'
-      })
-    ).toMatchObject({ period: 'month' });
   });
   it('renders a real paginated PDF with embedded Sinhala/Tamil fonts and a title', async () => {
     const pdf = await renderPdf(
@@ -96,15 +89,18 @@ describe('DDP-030 report validation and encoding', () => {
         'count'
       ])
     );
+
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
     const content = pdf.toString('latin1');
     // PDFKit stores metadata strings in indirect objects, not inline in /Info.
     // Follow /Title to its object so unrelated text cannot satisfy this check.
     const titleReference = content.match(/\/Title\s+(\d+)\s+(\d+)\s+R\b/);
+
     expect(titleReference).not.toBeNull();
     const titleObject = content.match(
       new RegExp(`(?:^|\\n)${titleReference?.[1]}\\s+${titleReference?.[2]}\\s+obj\\s*([\\s\\S]*?)\\s*endobj`)
     );
+
     expect(titleObject?.[1]).toBe('(Worker report)');
     expect(content).toMatch(/\/BaseFont \/[A-Z]+\+NotoSansSinhala-Regular/);
     expect(content).toMatch(/\/BaseFont \/[A-Z]+\+NotoSansTamil-Regular/);
@@ -118,7 +114,9 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
       start: '2026-10-19T18:30:00Z',
       end: '2026-10-20T18:30:00Z',
       total: 2,
-      workers: []
+      trend: [{ date: '2026-10-20', count: 2 }],
+      period: 'week',
+      asOf: '2026-10-20T06:00:00Z'
     });
     const calendar = jest.fn().mockResolvedValue({
       from: '2026-10-20',
@@ -126,29 +124,26 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
       rangeEndInclusive: true,
       dates: []
     });
-    const alerts = jest.fn().mockResolvedValue({
-      from: '2026-10-20',
-      to: '2026-11-02',
-      rangeEndInclusive: true,
-      alerts: []
-    });
+
     return {
       summary,
       calendar,
-      alerts,
       service: new ReportsService(
         { summary } as unknown as BookingAnalyticsService,
-        { summary } as unknown as RevenueAnalyticsService,
-        { summary } as unknown as WorkerPerformanceService,
-        { summary } as unknown as FoodAnalyticsService,
-        { summary } as unknown as ServiceRequestAnalyticsService,
         { calendar } as unknown as OccupancyAnalyticsService,
-        { alerts } as unknown as LowBookingAlertsService
+        {
+          details: jest.fn().mockResolvedValue({
+            averageLengthOfStay: null,
+            recentBookings: [],
+            bookingList: { total: 0, page: 1, pageSize: 500 }
+          })
+        } as unknown as import('../analytics/booking-details.service').BookingDetailsService
       )
     };
   }
   it('uses every existing aggregation service with the requested filters', async () => {
     const { service, summary, calendar } = setup();
+
     for (const type of REPORT_TYPES) {
       const result = await service.download(type, {
         format: 'csv',
@@ -156,20 +151,15 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
         from: '2026-10-20',
         to: '2026-10-20'
       });
+
       expect(result.contentType).toContain('text/csv');
-      expect(result.buffer.toString()).toContain('Field');
+      expect(result.buffer.toString()).toContain(type === 'bookings' ? 'Date' : 'Field');
     }
     expect(summary).toHaveBeenCalledWith('week');
-    expect(summary).toHaveBeenCalledWith({ period: 'week', workerId: undefined }, 201);
     expect(calendar).toHaveBeenCalledWith({
       from: '2026-10-20',
       to: '2026-10-20'
     });
-  });
-  it('rejects rather than truncates large worker selections', async () => {
-    const { service, summary } = setup();
-    summary.mockResolvedValue({ workers: Array(201).fill({}) });
-    await expect(service.download('staff', { format: 'csv', period: 'day' })).rejects.toMatchObject({ status: 422 });
   });
   it('caps concurrent exports and releases admission after source failures', async () => {
     const { service, summary } = setup();
@@ -177,15 +167,31 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
     const pending = new Promise(resolve => {
       finish = resolve;
     });
+
     summary.mockReturnValue(pending);
     const a = service.download('bookings', { format: 'csv', period: 'day' });
-    const b = service.download('revenue', { format: 'csv', period: 'day' });
+    const b = service.download('bookings', { format: 'csv', period: 'day' });
+
     await expect(service.download('bookings', { format: 'csv', period: 'day' })).rejects.toMatchObject({ status: 503 });
-    finish({ start: '2026-10-20', end: '2026-10-21', total: 0 });
+    finish({
+      start: '2026-10-20',
+      end: '2026-10-21',
+      total: 0,
+      trend: [],
+      period: 'day',
+      asOf: '2026-10-26T12:00:00Z'
+    });
     await Promise.all([a, b]);
     summary.mockRejectedValueOnce(new Error('source'));
     await expect(service.download('bookings', { format: 'csv', period: 'day' })).rejects.toThrow('source');
-    summary.mockResolvedValue({ start: '2026-10-20', end: '2026-10-21' });
+    summary.mockResolvedValue({
+      start: '2026-10-20',
+      end: '2026-10-21',
+      total: 0,
+      trend: [],
+      period: 'day',
+      asOf: '2026-10-26T12:00:00Z'
+    });
     expect((await service.download('bookings', { format: 'pdf', period: 'day' })).contentType).toBe('application/pdf');
   });
 });

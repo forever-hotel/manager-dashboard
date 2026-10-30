@@ -10,6 +10,7 @@ interface OccupancyRow {
   occupied_rooms: string;
   source_updated_at: Date | null;
   queried_at: Date;
+  fallback_rooms?: string;
 }
 
 @Injectable()
@@ -21,6 +22,7 @@ export class OccupancyAnalyticsService {
     // database access, outside the source-error handler so invalid input stays 400.
     const start = Date.parse(from);
     const days = (Date.parse(to) - start) / 86_400_000 + 1;
+
     if (!Number.isInteger(days) || days < 1 || days > MAX_OCCUPANCY_DAYS) {
       throw new BadRequestException({
         code: 'VALIDATION_ERROR',
@@ -29,11 +31,13 @@ export class OccupancyAnalyticsService {
     }
     try {
       const rows = await this.database.query<OccupancyRow[]>(OCCUPANCY_SQL, [from, to, INCLUDED_BOOKING_STATUSES]);
+
       if (rows.length !== days) throw new Error('Incomplete occupancy calendar');
       const dates = rows.map((row, index) => {
         const eligibleRooms = Number(row.eligible_rooms);
         const occupiedRooms = Number(row.occupied_rooms);
         const expectedDate = new Date(start + index * 86_400_000).toISOString().slice(0, 10);
+
         if (
           row.date !== expectedDate ||
           !Number.isSafeInteger(eligibleRooms) ||
@@ -50,6 +54,7 @@ export class OccupancyAnalyticsService {
           rate: eligibleRooms === 0 ? null : occupiedRooms / eligibleRooms
         };
       });
+
       return {
         from,
         to,
@@ -58,6 +63,8 @@ export class OccupancyAnalyticsService {
         maxRangeDays: MAX_OCCUPANCY_DAYS,
         includedStatuses: [...INCLUDED_BOOKING_STATUSES],
         denominator: 'active_rooms_excluding_maintenance',
+        inventoryBasis: 'availability_schedule_or_room_creation_date',
+        roomsUsingCreationDate: Number(rows[0].fallback_rooms ?? 0),
         dates,
         freshness: {
           queriedAt: rows[0].queried_at.toISOString(),

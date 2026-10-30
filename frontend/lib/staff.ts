@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 export const staffRoles = ['RECEPTIONIST', 'WORKER', 'KITCHEN_STAFF', 'KITCHEN_MANAGER'] as const;
 export const staffLabels = {
   RECEPTIONIST: 'Receptionist',
@@ -35,11 +36,10 @@ export const staffPatch = staffInput
   .partial()
   .extend({
     version: z.number().int().min(0).max(2147483646),
-    isActive: z.literal(false).optional()
+    isActive: z.boolean().optional()
   })
   .strict()
   .refine(v => Object.keys(v).length > 1);
-export const staffReset = z.object({ version: z.number().int().min(0).max(2147483646) }).strict();
 export const staffProfile = z.object({
   staffId: z.uuid(),
   name: z.string(),

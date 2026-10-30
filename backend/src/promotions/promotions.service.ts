@@ -1,3 +1,4 @@
+import { PromotionListDto } from './promotion.dto';
 import {
   BadRequestException,
   ConflictException,
@@ -48,6 +49,7 @@ export function promotionView(row: PromotionRow, now: Date) {
           : now < row.valid_from
             ? 'SCHEDULED'
             : 'ACTIVE';
+
   return {
     id: row.promo_id,
     version: row.version,
@@ -86,6 +88,7 @@ export class PromotionsService {
     } catch (error: unknown) {
       if (error instanceof HttpException) throw error;
       const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
+
       if (code === '23505') throw new ConflictException('Promotion code already exists.');
       if (code === '23503' || code === '23514') throw new BadRequestException('Invalid promotion or room type.');
       throw new ServiceUnavailableException();
@@ -95,6 +98,7 @@ export class PromotionsService {
   private validateTerms(input: CreatePromotionDto) {
     const start = Date.parse(input.validFrom),
       end = Date.parse(input.validUntil);
+
     if (
       !Number.isFinite(start) ||
       !Number.isFinite(end) ||
@@ -108,6 +112,7 @@ export class PromotionsService {
 
   async create(input: NewPromotionDto) {
     const { start, end } = this.validateTerms(input);
+
     return this.guarded(() =>
       this.database.transaction(async manager => {
         // Check selections without shared-table write privileges. Foreign keys protect
@@ -116,14 +121,17 @@ export class PromotionsService {
           'SELECT room_type_id FROM public.room_types WHERE room_type_id=ANY($1::uuid[]) ORDER BY room_type_id',
           [input.roomTypeIds]
         );
+
         if (types.length !== input.roomTypeIds.length) throw new BadRequestException('Unknown room type.');
         // Also recognize legacy mixed-case codes. The normalized unique index protects all writers.
         const duplicate = await manager.query<{ promo_id: string }[]>(
           'SELECT promo_id FROM public.mad_promotion_codes WHERE upper(btrim(code_string))=$1',
           [input.code]
         );
+
         if (duplicate.length) throw new ConflictException('Promotion code already exists.');
         const id = randomUUID();
+
         await manager.query(
           `INSERT INTO public.mad_promotion_codes
         (promo_id,code_string,discount_type,discount_value,valid_from,valid_until,max_redemptions,current_redemptions,status)
@@ -146,6 +154,7 @@ export class PromotionsService {
         );
         const rows = await manager.query<PromotionRow[]>(select + ' WHERE p.promo_id=$1', [id]);
         const view = promotionView({ ...rows[0], publication_pending: true }, this.now());
+
         await this.enqueue(manager, view);
         return view;
       })
@@ -170,6 +179,7 @@ export class PromotionsService {
   private async locked(manager: EntityManager, id: string, version: number) {
     const rows = await manager.query<PromotionRow[]>(select + ' WHERE p.promo_id=$1 FOR UPDATE OF p', [id]);
     const row = rows[0];
+
     if (!row) throw new NotFoundException('Promotion not found.');
     if (row.version !== version) throw new ConflictException('Promotion changed. Reload before retrying.');
     if (row.deleted_at) throw new ConflictException('Deleted promotions cannot be changed.');
@@ -180,28 +190,34 @@ export class PromotionsService {
   private async changed(manager: EntityManager, id: string, now: Date) {
     const [row] = await manager.query<PromotionRow[]>(select + ' WHERE p.promo_id=$1', [id]);
     const view = promotionView({ ...row, publication_pending: true }, now);
+
     await this.enqueue(manager, view);
     return view;
   }
 
   async edit(id: string, input: EditPromotionDto) {
     const { start, end } = this.validateTerms(input);
+
     return this.guarded(() =>
       this.database.transaction(async manager => {
         const row = await this.locked(manager, id, input.version);
+
         if (input.maxRedemptions < row.current_redemptions)
           throw new BadRequestException('Limit cannot be below completed redemptions.');
         const types = await manager.query<{ room_type_id: string }[]>(
           'SELECT room_type_id FROM public.room_types WHERE room_type_id=ANY($1::uuid[])',
           [input.roomTypeIds]
         );
+
         if (types.length !== input.roomTypeIds.length) throw new BadRequestException('Unknown room type.');
         const duplicate = await manager.query<{ promo_id: string }[]>(
           'SELECT promo_id FROM public.mad_promotion_codes WHERE upper(btrim(code_string))=$1 AND promo_id<>$2',
           [input.code, id]
         );
+
         if (duplicate.length) throw new ConflictException('Promotion code already exists.');
         const now = this.now();
+
         await manager.query(
           `UPDATE public.mad_promotion_codes SET code_string=$2,discount_type=$3,
         discount_value=$4,valid_from=$5,valid_until=$6,max_redemptions=$7,version=version+1,updated_at=$8
@@ -232,6 +248,7 @@ export class PromotionsService {
       this.database.transaction(async manager => {
         const row = await this.locked(manager, id, version);
         const now = this.now();
+
         if (action === 'activate' && (row.valid_until <= now || row.current_redemptions >= row.max_redemptions)) {
           throw new ConflictException('Expired or exhausted promotions cannot be activated.');
         }
@@ -248,22 +265,39 @@ export class PromotionsService {
   async detail(id: string) {
     return this.guarded(async () => {
       const rows = await this.database.query<PromotionRow[]>(select + ' WHERE p.promo_id=$1', [id]);
+
       if (!rows.length) throw new NotFoundException('Promotion not found.');
       return promotionView(rows[0], this.now());
     });
   }
 
-  async list(query: PromotionPageDto) {
+  async list(query: PromotionListDto) {
     return this.guarded(() =>
       this.database.transaction('REPEATABLE READ', async manager => {
+        const now = this.now();
+        const values: unknown[] = [];
+        let where = ' WHERE p.deleted_at IS NULL';
+
+        if (query.view) {
+          values.push(now);
+          where += ' AND p.valid_until > $1';
+          if (query.view === 'inactive') where += " AND p.status='INACTIVE'";
+          else {
+            where += " AND p.status='ACTIVE' AND p.current_redemptions < p.max_redemptions";
+            where += query.view === 'active' ? ' AND p.valid_from <= $1' : ' AND p.valid_from > $1';
+          }
+        }
         const [count] = await manager.query<{ total: string }[]>(
-          'SELECT count(*) AS total FROM public.mad_promotion_codes WHERE deleted_at IS NULL'
+          'SELECT count(*) AS total FROM public.mad_promotion_codes p' + where,
+          values
         );
         const rows = await manager.query<PromotionRow[]>(
-          select + ' WHERE p.deleted_at IS NULL ORDER BY p.created_at DESC,p.promo_id DESC LIMIT $1 OFFSET $2',
-          [query.pageSize, (query.page - 1) * query.pageSize]
+          select +
+            where +
+            ` ORDER BY p.created_at DESC,p.promo_id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+          [...values, query.pageSize, (query.page - 1) * query.pageSize]
         );
-        const now = this.now();
+
         return {
           items: rows.map(row => promotionView(row, now)),
           total: Number(count.total),
@@ -283,6 +317,7 @@ export class PromotionsService {
         FROM public.room_types ORDER BY type_name,room_type_id LIMIT $1 OFFSET $2`,
           [query.pageSize, (query.page - 1) * query.pageSize]
         );
+
         return {
           items: rows,
           total: Number(count.total),

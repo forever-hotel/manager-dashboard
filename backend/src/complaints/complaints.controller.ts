@@ -8,12 +8,15 @@ import { ComplaintsService } from './complaints.service';
 @UseGuards(JwtAuthGuard)
 export class ComplaintsController {
   constructor(private readonly complaints: ComplaintsService) {}
+
   @Get() list(@Query() query: ComplaintQueryDto) {
     return this.complaints.list(query);
   }
+
   @Get(':id') detail(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.complaints.detail(id);
   }
+
   @Patch(':id') update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req() request: AuthenticatedRequest,

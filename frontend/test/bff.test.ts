@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { GET, POST } from '@/app/api/auth/[action]/route';
+import { POST } from '@/app/api/auth/[action]/route';
 import { backend } from '@/lib/backend';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const session = {
   sub: 'id',
@@ -11,6 +12,7 @@ const session = {
   expiresAt: Math.floor(Date.now() / 1000) + 28800,
   passwordChangeRequired: false
 };
+
 function req(
   action = 'login',
   options: {
@@ -26,6 +28,7 @@ function req(
     origin: options.origin ?? 'http://localhost:3000',
     'content-type': options.type ?? 'application/json'
   };
+
   if (options.cookie) headers.cookie = 'mad_session=token';
   if (options.site) headers['sec-fetch-site'] = options.site;
   return new NextRequest('http://localhost:3000/api/auth/' + action, {
@@ -48,11 +51,21 @@ describe('BFF cookie/session boundary', () => {
       data: { ...session, accessToken: 'private-token' }
     });
     const result = await POST(req(), context('login'));
+
     expect(result.status).toBe(200);
     expect(await result.json()).toEqual(session);
     expect(result.headers.get('set-cookie')).toContain('HttpOnly');
     expect(result.headers.get('set-cookie')).toContain('SameSite=strict');
     expect(result.headers.get('cache-control')).toBe('no-store');
+  });
+  it('returns real login throttling with retry timing without deleting a session', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 503, data: { code: 'RATE_LIMITED', retryAfter: 37 } });
+    const response = await POST(req('login', { cookie: true }), context('login'));
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('retry-after')).toBe('37');
+    expect((await response.json()).code).toBe('RATE_LIMITED');
+    expect(response.headers.get('set-cookie')).toBeNull();
   });
   it('marks HTTPS cookies Secure', async () => {
     vi.stubEnv('APP_ORIGIN', 'https://mad.test');
@@ -61,6 +74,7 @@ describe('BFF cookie/session boundary', () => {
       data: { ...session, accessToken: 'token' }
     });
     const result = await POST(req('login', { origin: 'https://mad.test' }), context('login'));
+
     expect(result.headers.get('set-cookie')).toContain('Secure');
   });
   it.each([{ origin: 'https://evil.test' }, { site: 'cross-site' }, { type: 'text/plain' }])(
@@ -82,6 +96,7 @@ describe('BFF cookie/session boundary', () => {
       data: { password: 'secret' }
     });
     const result = await POST(req(), context('login'));
+
     expect(result.status).toBe(status < 500 ? status : 503);
     expect(await result.text()).not.toContain('secret');
     expect(result.cookies.get('mad_session')).toBeUndefined();
@@ -95,23 +110,33 @@ describe('BFF cookie/session boundary', () => {
     expect((await POST(req('logout', { cookie: true }), context('logout'))).cookies.get('mad_session')?.value).toBe('');
     vi.mocked(backend).mockResolvedValue({ status: 503, data: {} });
     const failed = await POST(req('logout', { cookie: true }), context('logout'));
+
     expect(failed.status).toBe(503);
     expect(failed.cookies.get('mad_session')).toBeUndefined();
   });
-  it('returns a current safe session without exposing bearer tokens', async () => {
-    vi.mocked(backend).mockResolvedValue({ status: 200, data: session });
-    expect(await (await GET(req('session', { method: 'GET', cookie: true }), context('session'))).json()).toEqual(
-      session
+  it('requests a reset without requiring a login cookie and never returns credentials', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: { status: 'code_requested', code: 'private' } });
+    const response = await POST(
+      req('request-password-reset', { body: JSON.stringify({ email: 'manager@example.invalid' }) }),
+      context('request-password-reset')
     );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).not.toContain('private');
+    expect(response.cookies.get('mad_session')).toBeUndefined();
   });
-  it('rejects unauthenticated/unknown session reads', async () => {
-    expect((await GET(req('session', { method: 'GET' }), context('session'))).status).toBe(401);
-    expect((await GET(req('session', { method: 'GET' }), context('unknown'))).status).toBe(404);
-  });
-  it.each([401, 403, 500, 200])('fails closed for invalid session response %i', async status => {
-    vi.mocked(backend).mockResolvedValue({ status, data: {} });
-    const result = await GET(req('session', { method: 'GET', cookie: true }), context('session'));
-    expect(result.status).toBe(status >= 500 ? 503 : status === 403 ? 403 : 401);
-    expect(result.cookies.get('mad_session')?.value).toBe(status >= 500 ? undefined : '');
+  it('clears the old cookie only after successful password recovery', async () => {
+    vi.mocked(backend).mockResolvedValue({
+      status: 400,
+      data: { message: 'Choose a different password from your current password.' }
+    });
+    const failed = await POST(req('reset-password'), context('reset-password'));
+
+    expect(failed.status).toBe(400);
+    expect(failed.cookies.get('mad_session')).toBeUndefined();
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: { status: 'password_reset' } });
+    const success = await POST(req('reset-password'), context('reset-password'));
+
+    expect(success.cookies.get('mad_session')?.value).toBe('');
   });
 });

@@ -6,6 +6,7 @@ describe('Readiness dependencies', () => {
   const query = jest.fn();
   const controller = new HealthController({ query } as unknown as DataSource);
   let log: jest.SpyInstance;
+
   beforeEach(() => {
     query.mockReset().mockResolvedValue([]);
     log = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);

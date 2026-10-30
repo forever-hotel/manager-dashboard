@@ -1,5 +1,7 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, Min, ValidateBy } from 'class-validator';
+import { BOOKING_PERIODS, type BookingPeriod } from '../analytics/booking-query.dto';
+import { isCalendarDate } from '../analytics/occupancy-query.dto';
 
 export const COMPLAINT_STATUSES = ['SUBMITTED', 'UNDER_REVIEW', 'RESOLVED'] as const;
 export type ComplaintStatus = (typeof COMPLAINT_STATUSES)[number];
@@ -8,6 +10,12 @@ const pageNumber = ({ value }: { value: unknown }) =>
   typeof value === 'string' && /^[1-9]\d*$/.test(value) ? Number(value) : value;
 
 export class ComplaintQueryDto {
+  @IsOptional()
+  @IsIn(BOOKING_PERIODS)
+  period?: BookingPeriod;
+  @IsOptional()
+  @ValidateBy({ name: 'calendarDate', validator: { validate: value => isCalendarDate(value) } })
+  date?: string;
   @IsOptional()
   @Transform(pageNumber)
   @IsInt()

@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/analytics/operations/[type]/route';
 import { backend } from '@/lib/backend';
 import { foodFixture, serviceFixture, workerFixture } from './operations-fixture';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const req = (query = 'period=week', cookie = true) =>
   new NextRequest('http://localhost/api/analytics/operations?' + query, {
@@ -22,9 +23,19 @@ describe('DDP-032/033 analytics proxy', () => {
       data: { ...fixture(), password: 'secret' }
     });
     const response = await GET(req(), ctx(type));
+
     expect(response.status).toBe(200);
     expect(JSON.stringify(await response.json())).not.toContain('secret');
     expect(backend).toHaveBeenCalledWith('/mad/analytics/' + type + '?period=week', 'GET', 'private');
+  });
+  it('forwards historical worker dates', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: workerFixture() });
+    expect((await GET(req('period=week&date=2026-09-01'), ctx('worker-performance'))).status).toBe(200);
+    expect(backend).toHaveBeenCalledWith(
+      '/mad/analytics/worker-performance?period=week&date=2026-09-01',
+      'GET',
+      'private'
+    );
   });
   it('rejects invalid input and absent authentication', async () => {
     expect((await GET(req('', false), ctx('food-orders'))).status).toBe(401);

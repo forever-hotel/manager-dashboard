@@ -22,6 +22,8 @@ services:
       NODE_ENV: development
       PORT: 4000
       MAD_REALTIME_ENABLED: "true"
+      SHARED_WEBSOCKET_URL: http://shared-websocket:4700
+      MAD_WEBSOCKET_RELAY_KEY: ${MAD_WEBSOCKET_RELAY_KEY:?Set MAD_WEBSOCKET_RELAY_KEY}
       MAD_PROMOTIONS_PUBLISH_ENABLED: ${MAD_PROMOTIONS_PUBLISH_ENABLED:-false}
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://mad:mad-local-only@mad-rabbitmq:5672}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
@@ -33,8 +35,7 @@ services:
       DB_SSL: "true"
       DB_SYNCHRONIZE: "false"
       DB_LOGGING: ${DB_LOGGING:-false}
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
-      JWT_ISSUER: ${JWT_ISSUER:?Set JWT_ISSUER}
+      AUTH_SERVICE_URL: http://api-gateway:8080
       LOW_BOOKING_THRESHOLD: ${LOW_BOOKING_THRESHOLD-0.40}
       STAFF_CREDENTIALS_KEY: ${STAFF_CREDENTIALS_KEY:-}
       STAFF_EMAIL_ENABLED: ${STAFF_EMAIL_ENABLED:-false}
@@ -47,8 +48,29 @@ services:
       - "127.0.0.1:${BACKEND_PORT:-4000}:4000"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      # Give Neon connection retries time to finish before failing dependants.
+      start_period: 240s
       interval: 10s
       timeout: 8s
+      retries: 6
+    restart: unless-stopped
+
+  shared-websocket:
+    build: ./backend
+    command: ["node", "dist/shared-websocket/main.js"]
+    environment:
+      PORT: 4700
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://mad:mad-local-only@mad-rabbitmq:5672}
+      WEBSOCKET_SUBSYSTEMS_JSON: |
+        {"mad":{"authUrl":"http://api-gateway:8080/mad/auth/session","relayKey":"${MAD_WEBSOCKET_RELAY_KEY:?Set MAD_WEBSOCKET_RELAY_KEY}","origins":["${APP_ORIGIN:-http://localhost:3000}"],"roles":{"MANAGER":["analytics","rooms","kitchen","tasks","stock","notifications"]}}}
+    depends_on:
+      mad-rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4700/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
       retries: 6
     restart: unless-stopped
 
@@ -58,10 +80,32 @@ services:
       NODE_ENV: development
       HOST: 0.0.0.0
       PORT: 8080
+      STAFF_AUTH_ENABLED: "true"
+      DB_HOST: ${DB_HOST:?Set DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USERNAME: ${DB_USERNAME:?Set DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      DB_NAME: ${DB_NAME:?Set DB_NAME}
+      DB_SSL: "true"
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:?Set JWT_ISSUER}
+      STAFF_EMAIL_ENABLED: ${STAFF_EMAIL_ENABLED:-false}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-}
       MAD_SERVICE_URL: http://mad-backend:4000
+      WEBSOCKET_SERVICE_URL: http://shared-websocket:4700
       ALLOWED_ORIGINS: ${APP_ORIGIN:-http://localhost:3000}
       ROUTES_JSON: |
         [
+          {
+            "id": "shared-websocket",
+            "enabled": true,
+            "prefix": "/realtime",
+            "rewritePrefix": "",
+            "upstreamEnv": "WEBSOCKET_SERVICE_URL",
+            "websocket": true,
+            "cookieNames": []
+          },
           {
             "id": "mad-auth",
             "enabled": true,
@@ -90,6 +134,8 @@ services:
     depends_on:
       mad-backend:
         condition: service_healthy
+      shared-websocket:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
@@ -109,7 +155,7 @@ services:
     environment:
       BACKEND_API_URL: http://api-gateway:8080
       BACKEND_API_MODE: gateway
-      MAD_SOCKET_PUBLIC_URL: ${MAD_SOCKET_PUBLIC_URL:-http://localhost:4000}
+      MAD_SOCKET_PUBLIC_URL: ${MAD_SOCKET_PUBLIC_URL:-http://localhost:8080}
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
     ports:

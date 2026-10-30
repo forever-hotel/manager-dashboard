@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { GET, PATCH } from '@/app/api/complaints/[[...path]]/route';
 import { backend } from '@/lib/backend';
 import { complaint, complaintPage } from './complaints-fixture';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 vi.mock('@/lib/environment', () => ({
   serverConfig: () => ({ origin: 'http://localhost' })
@@ -12,6 +13,7 @@ const context = (path: string[] = []) => ({
   params: Promise.resolve({ path })
 });
 const input = { version: 0, status: 'UNDER_REVIEW', note: 'Private note' };
+
 function req(method = 'GET', body?: unknown, query = '', headers: Record<string, string> = {}) {
   return new NextRequest('http://localhost/api/complaints' + query, {
     method,
@@ -26,6 +28,27 @@ function req(method = 'GET', body?: unknown, query = '', headers: Record<string,
 }
 describe('DDP-022 complaint BFF contracts', () => {
   beforeEach(() => vi.mocked(backend).mockReset());
+  it('forwards calendar history filters with required summary and actual room/severity fields', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: complaintPage() });
+    const response = await GET(req('GET', undefined, '?period=month&date=2026-09-01'), context());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      items: [{ roomNumber: '204', severity: 'HIGH' }],
+      summary: { open: 1 }
+    });
+    expect(backend).toHaveBeenCalledWith(
+      '/mad/complaints?period=month&date=2026-09-01',
+      'GET',
+      'private-token',
+      undefined
+    );
+    const { summary: _summary, ...withoutSummary } = complaintPage();
+
+    void _summary;
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: withoutSummary });
+    expect((await GET(req('GET', undefined, '?period=month'), context())).status).toBe(503);
+  });
   it('validates and forwards filters while stripping notes and arbitrary provider fields from lists', async () => {
     vi.mocked(backend).mockResolvedValue({
       status: 200,
@@ -46,6 +69,7 @@ describe('DDP-022 complaint BFF contracts', () => {
       ])
     });
     const result = await GET(req('GET', undefined, '?status=SUBMITTED&page=2&category=Room'), context());
+
     expect(result.status).toBe(200);
     expect(result.headers.get('cache-control')).toBe('no-store');
     expect(JSON.stringify(await result.json())).not.toContain('private');
@@ -60,6 +84,7 @@ describe('DDP-022 complaint BFF contracts', () => {
     vi.mocked(backend).mockResolvedValue({ status: 200, data: complaint() });
     expect(await (await GET(req(), context([complaint().id]))).json()).toEqual(complaint());
     const result = await PATCH(req('PATCH', { ...input, note: '  Private note  ' }), context([complaint().id]));
+
     expect(result.status).toBe(200);
     expect(await result.json()).not.toHaveProperty('history');
     expect(backend).toHaveBeenLastCalledWith('/mad/complaints/' + complaint().id, 'PATCH', 'private-token', input);
@@ -70,6 +95,7 @@ describe('DDP-022 complaint BFF contracts', () => {
       data: { message: 'private note SQL' }
     });
     const result = await PATCH(req('PATCH', input), context([complaint().id]));
+
     expect(result.status).toBe(status >= 500 ? 503 : status);
     expect(JSON.stringify(await result.json())).not.toContain('private');
   });
@@ -93,7 +119,10 @@ describe('DDP-022 complaint BFF contracts', () => {
       '?status=BAD',
       '?workerId=bad',
       '?unknown=1',
-      '?category='
+      '?category=',
+      '?period=year',
+      '?period=month&date=2026-02-30',
+      '?date=2026-09-01'
     ])
       expect((await GET(req('GET', undefined, query), context())).status).toBe(400);
     expect((await GET(req('GET', undefined, '?page=1'), context([complaint().id]))).status).toBe(400);
@@ -106,6 +135,7 @@ describe('DDP-022 complaint BFF contracts', () => {
       expect((await PATCH(req('PATCH', body), context([complaint().id]))).status).toBe(400);
     expect((await PATCH(req('PATCH', { huge: 'x'.repeat(33000) }), context([complaint().id]))).status).toBe(413);
     const invalid = req('PATCH', input);
+
     vi.spyOn(invalid, 'text').mockResolvedValue('{');
     expect((await PATCH(invalid, context([complaint().id]))).status).toBe(400);
     expect(backend).not.toHaveBeenCalled();

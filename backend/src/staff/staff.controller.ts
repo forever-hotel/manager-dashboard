@@ -1,12 +1,12 @@
 import { StaffDirectoryService } from './staff-directory.service';
-import { StaffDetailQueryDto, StaffDirectoryDto, StaffResetDto } from './staff-directory.dto';
+import { StaffDeleteDto, StaffDetailQueryDto, StaffDirectoryDto } from './staff-directory.dto';
 import {
   Body,
+  Delete,
   Query,
   Get,
   Patch,
   Controller,
-  HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
@@ -28,15 +28,18 @@ export class StaffController {
     private readonly profiles: StaffProfilesService,
     private readonly directory: StaffDirectoryService
   ) {}
+
   @Get()
   list(@Query() query: StaffDirectoryDto) {
     return this.directory.list(query);
   }
+
   @Get(':id')
   get(@Param('id', new ParseUUIDPipe()) id: string, @Query() query: StaffDetailQueryDto) {
     void query;
     return this.directory.get(id);
   }
+
   @Patch(':id')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -45,14 +48,14 @@ export class StaffController {
   ) {
     return this.profiles.update(id, request.user.sub, patch);
   }
-  @Post(':id/reset-password')
-  @HttpCode(200)
-  resetPassword(
-    @Body() body: StaffResetDto,
+
+  @Delete(':id')
+  remove(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: StaffDeleteDto,
     @Req() request: AuthenticatedRequest
   ) {
-    return this.staff.resetPassword(id, request.user.sub, body?.version);
+    return this.profiles.remove(id, request.user.sub, body.version);
   }
 
   @Post()

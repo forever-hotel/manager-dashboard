@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { RealtimeGateway } from './realtime.gateway';
 import { StockAlertsService } from '../stock/stock-alerts.service';
 import { InvalidStockEvent, parseStockEvent, type StockUpdate } from '../stock/stock-event';
+
 export const STOCK_QUEUE = 'mad.stock';
 export const STOCK_DEAD_QUEUE = 'mad.stock.dead';
 export const STOCK_BINDING = 'kitchen.stock.changed';
@@ -17,6 +18,7 @@ export const STOCK_QUEUE_ARGUMENTS = {
   'x-dead-letter-strategy': 'at-least-once',
   'x-overflow': 'reject-publish'
 };
+
 @Injectable()
 export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(StockEventsConsumer.name);
@@ -26,24 +28,30 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
   private retryTimer?: ReturnType<typeof setTimeout>;
   private stopped = false;
   private busy = false;
+
   constructor(
     private readonly config: ConfigService,
     private readonly database: DataSource,
     private readonly gateway: RealtimeGateway,
     private readonly alerts: StockAlertsService
   ) {}
+
   onModuleInit() {
     if (this.config.get<string>('MAD_REALTIME_ENABLED') === 'true') void this.tick();
   }
+
   private offline() {
     this.gateway.stockHealthy = false;
     clearTimeout(this.retryTimer);
     this.retryTimer = undefined;
   }
+
   private async attach() {
     const url = this.config.get<string>('RABBITMQ_URL');
+
     if (!url) throw new Error('Missing broker');
     const connection = await connect(url, { timeout: 5000 });
+
     if (this.stopped) {
       await connection.close();
       throw new Error('Stopped');
@@ -63,6 +71,7 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
       }
     });
     const channel = await connection.createChannel();
+
     this.channel = channel;
     channel.on('error', () => {
       if (this.channel === channel) {
@@ -100,16 +109,19 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
       { noAck: false }
     );
   }
+
   private async handle(channel: Channel, connection: ChannelModel, message: ConsumeMessage) {
     try {
       if (message.content.length > 8192) throw new InvalidStockEvent('Oversized stock event');
       let raw: unknown;
+
       try {
         raw = JSON.parse(message.content.toString()) as unknown;
       } catch {
         throw new InvalidStockEvent('Malformed stock event');
       }
       const event = parseStockEvent(raw);
+
       await this.alerts.accept(event);
       // Durable alert and notification outbox are committed before acknowledgement.
       if (!this.stopped && this.channel === channel) channel.ack(message);
@@ -147,10 +159,12 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
       this.retryTimer.unref();
     }
   }
+
   async dispatch() {
     const rows = await this.database.query<{ event_id: string; payload: StockUpdate }[]>(
       "SELECT e.event_id,e.payload FROM mad_stock_events e JOIN mad_stock_alerts a ON a.menu_item_id=e.menu_item_id AND a.version=e.version WHERE e.delivery_state='pending' ORDER BY e.received_at,e.event_id LIMIT 100"
     );
+
     for (const row of rows) {
       await this.gateway.publishStock(row.payload);
       await this.database.query(
@@ -159,6 +173,7 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
       );
     }
   }
+
   private async tick() {
     if (this.stopped || this.busy) return;
     this.busy = true;
@@ -184,6 +199,7 @@ export class StockEventsConsumer implements OnModuleInit, OnModuleDestroy {
       }
     }
   }
+
   async onModuleDestroy() {
     this.stopped = true;
     clearTimeout(this.timer);

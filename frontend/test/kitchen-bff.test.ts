@@ -2,9 +2,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/kitchen/orders/route';
-import { POST } from '@/app/api/kitchen/ticket/route';
+import { POST } from '@/app/api/realtime/ticket/route';
 import { backend } from '@/lib/backend';
 import { kitchenSnapshot } from './kitchen-fixture';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const req = (query = '', cookie = true, origin = 'http://localhost:3000') =>
   new NextRequest('http://localhost/api/kitchen/orders?' + query, {
@@ -24,6 +25,7 @@ describe('DDP-026 protected kitchen routes', () => {
       data: { ...kitchenSnapshot(), private: 'secret' }
     });
     const response = await GET(req('status=PLACED'));
+
     expect(await response.json()).toEqual(kitchenSnapshot());
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(backend).toHaveBeenCalledWith('/mad/kitchen/orders?page=1&pageSize=100&status=PLACED', 'GET', 'private');
@@ -49,6 +51,7 @@ describe('DDP-026 protected kitchen routes', () => {
       data: { private: 'secret' }
     });
     const response = await GET(req());
+
     expect(response.status).toBe([401, 403].includes(status) ? status : 503);
     expect(JSON.stringify(await response.json())).not.toContain('secret');
     expect((await POST(req())).status).toBe([401, 403].includes(status) ? status : 503);
@@ -67,6 +70,7 @@ describe('DDP-026 protected kitchen routes', () => {
       data: { ticket: 'a'.repeat(43) }
     });
     const result = await POST(req());
+
     expect(await result.json()).toEqual({
       ticket: 'a'.repeat(43),
       socketUrl: 'http://localhost:4000'
@@ -76,5 +80,13 @@ describe('DDP-026 protected kitchen routes', () => {
     expect((await POST(req())).status).toBe(503);
     vi.stubEnv('MAD_SOCKET_PUBLIC_URL', 'http://localhost:4000/path');
     expect((await POST(req())).status).toBe(503);
+  });
+  it('forwards the active-only cohort and rejects delivered rows in that response', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: kitchenSnapshot() });
+    expect((await GET(req('activeOnly=true'))).status).toBe(200);
+    expect(backend).toHaveBeenCalledWith('/mad/kitchen/orders?page=1&pageSize=100&activeOnly=true', 'GET', 'private');
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: kitchenSnapshot('DELIVERED') });
+    expect((await GET(req('activeOnly=true'))).status).toBe(503);
+    expect((await GET(req('activeOnly=invalid'))).status).toBe(400);
   });
 });

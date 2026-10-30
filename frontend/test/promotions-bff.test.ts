@@ -5,6 +5,7 @@ import { GET, POST, PUT, DELETE } from '@/app/api/promotions/[[...path]]/route';
 import { backend } from '@/lib/backend';
 import { page, promotion, room } from './promotions-fixture';
 import { formFrom, formPayload } from '@/lib/promotions';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 vi.mock('@/lib/environment', () => ({
   serverConfig: () => ({ origin: 'http://localhost' })
@@ -12,6 +13,7 @@ vi.mock('@/lib/environment', () => ({
 const context = (path: string[] = []) => ({
   params: Promise.resolve({ path })
 });
+
 function req(method = 'GET', body?: unknown, headers: Record<string, string> = {}, query = '') {
   return new NextRequest('http://localhost/api/promotions' + query, {
     method,
@@ -26,12 +28,20 @@ function req(method = 'GET', body?: unknown, headers: Record<string, string> = {
 }
 describe('DDP-020 protected promotion BFF', () => {
   beforeEach(() => vi.mocked(backend).mockReset());
+  it('forwards lifecycle views and rejects invalid or misplaced view filters', async () => {
+    vi.mocked(backend).mockResolvedValue({ status: 200, data: page([promotion()]) });
+    expect((await GET(req('GET', undefined, {}, '?view=active&page=1'), context())).status).toBe(200);
+    expect(backend).toHaveBeenCalledWith('/mad/promotions?view=active&page=1', 'GET', 'private', undefined);
+    expect((await GET(req('GET', undefined, {}, '?view=expired'), context())).status).toBe(400);
+    expect((await GET(req('GET', undefined, {}, '?view=active'), context(['room-types']))).status).toBe(400);
+  });
   it('lists promotions and strips unrecognized data', async () => {
     vi.mocked(backend).mockResolvedValue({
       status: 200,
       data: page([{ ...promotion(), secret: 'hidden' }])
     });
     const response = await GET(req('GET', undefined, {}, '?page=2&pageSize=20'), context());
+
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(await response.json()).toEqual(page([promotion()]));
@@ -53,6 +63,7 @@ describe('DDP-020 protected promotion BFF', () => {
   ] as const)('forwards allowed %s %j through the server-held token', async (method, path, body) => {
     vi.mocked(backend).mockResolvedValue({ status: 200, data: promotion() });
     const handler = method === 'PUT' ? PUT : method === 'DELETE' ? DELETE : POST;
+
     expect((await handler(req(method, body), context([...path]))).status).toBe(200);
     expect(backend).toHaveBeenCalledWith(
       '/mad/promotions' + (path.length ? '/' + path.join('/') : ''),
@@ -67,6 +78,7 @@ describe('DDP-020 protected promotion BFF', () => {
       data: { message: 'secret database error' }
     });
     const response = await DELETE(req('DELETE', { version: 0 }), context([promotion().id]));
+
     expect(response.status).toBe(status >= 500 ? 503 : status);
     expect(JSON.stringify(await response.json())).not.toContain('secret');
   });
@@ -102,6 +114,7 @@ describe('DDP-020 protected promotion BFF', () => {
       },
       body: '{'
     });
+
     expect((await POST(bad, context())).status).toBe(400);
     vi.mocked(backend).mockResolvedValue({ status: 200, data: {} });
     expect((await GET(req(), context())).status).toBe(503);

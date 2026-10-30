@@ -10,6 +10,7 @@ export class InvalidKitchenEvent extends Error {}
 export function parseKitchenEvent(raw: unknown): KitchenEvent {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new InvalidKitchenEvent('Invalid event');
   const e = raw as Record<string, unknown>;
+
   if (
     e.type !== 'kitchen.order.changed' ||
     typeof e.eventId !== 'string' ||
@@ -31,6 +32,7 @@ export function parseKitchenEvent(raw: unknown): KitchenEvent {
     occurredAt: e.occurredAt
   };
 }
+
 @Injectable()
 export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
   private connection?: ChannelModel;
@@ -38,14 +40,17 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
   private timer?: ReturnType<typeof setTimeout>;
   private stopped = false;
   private busy = false;
+
   constructor(
     private readonly config: ConfigService,
     private readonly database: DataSource,
     private readonly gateway: RealtimeGateway
   ) {}
+
   onModuleInit() {
     if (this.config.get<string>('MAD_REALTIME_ENABLED') === 'true') void this.tick();
   }
+
   async accept(event: KitchenEvent) {
     await this.database.transaction(async manager => {
       // Transaction-level lock serializes versions for one order across consumers.
@@ -54,8 +59,10 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
         'SELECT EXISTS(SELECT 1 FROM mad_realtime_events WHERE event_id=$1) AS exists, (SELECT payload FROM mad_realtime_events WHERE event_id=$1) AS payload',
         [event.eventId]
       );
+
       if (seen.exists) {
         const prior = seen.payload ? parseKitchenEvent(seen.payload) : null;
+
         if (
           !prior ||
           prior.eventId !== event.eventId ||
@@ -72,6 +79,7 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
         [event.orderId]
       );
       const stale = last && Number(last.version) >= event.version;
+
       await manager.query(
         'INSERT INTO mad_realtime_events(event_id,order_id,version,payload,delivered_at) VALUES ($1,$2,$3,$4,CASE WHEN $5 THEN now() ELSE NULL END)',
         [event.eventId, event.orderId, event.version, JSON.stringify(event), Boolean(stale)]
@@ -90,10 +98,13 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
       }
     });
   }
+
   private async attach() {
     const url = this.config.get<string>('RABBITMQ_URL');
+
     if (!url) throw new Error('Missing broker');
     const connection = await connect(url, { timeout: 5000 });
+
     if (this.stopped) {
       await connection.close();
       throw new Error('Stopped');
@@ -110,6 +121,7 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
       }
     });
     const channel = await connection.createChannel();
+
     this.channel = channel;
     channel.on('error', () => {
       this.gateway.healthy = false;
@@ -140,6 +152,7 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
           return;
         }
         let event: KitchenEvent;
+
         try {
           if (message.content.length > 8192) throw new Error();
           event = parseKitchenEvent(JSON.parse(message.content.toString()) as unknown);
@@ -169,15 +182,18 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
       { noAck: false }
     );
   }
+
   async dispatch() {
     const rows = await this.database.query<{ event_id: string; payload: KitchenEvent }[]>(
       'SELECT event_id,payload FROM mad_realtime_events WHERE delivered_at IS NULL ORDER BY received_at,event_id LIMIT 100'
     );
+
     for (const row of rows) {
       await this.gateway.publish(row.payload);
       await this.database.query('UPDATE mad_realtime_events SET delivered_at=now() WHERE event_id=$1', [row.event_id]);
     }
   }
+
   private async tick() {
     if (this.stopped || this.busy) return;
     this.busy = true;
@@ -206,6 +222,7 @@ export class RealtimeConsumer implements OnModuleInit, OnModuleDestroy {
       }
     }
   }
+
   async onModuleDestroy() {
     this.stopped = true;
     clearTimeout(this.timer);

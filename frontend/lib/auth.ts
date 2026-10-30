@@ -6,9 +6,11 @@ export type Session = {
   expiresAt: number;
   passwordChangeRequired: boolean;
 };
+
 export function safeDestination(value: string | null | undefined) {
   if (!value || !/^\/(?!\/)/.test(value) || /[\\\r\n]/.test(value)) return '/analytics';
   const path = value.split(/[?#]/)[0];
+
   return [
     '/analytics',
     '/rooms',
@@ -19,16 +21,16 @@ export function safeDestination(value: string | null | undefined) {
     '/food-orders',
     '/service-requests',
     '/worker-performance',
-    '/tasks',
-    '/reports',
-    '/settings'
+    '/tasks'
   ].includes(path)
     ? value
     : '/analytics';
 }
+
 export function isSession(value: unknown): value is Session {
   if (!value || typeof value !== 'object') return false;
   const session = value as Session;
+
   return (
     typeof session.sub === 'string' &&
     typeof session.username === 'string' &&

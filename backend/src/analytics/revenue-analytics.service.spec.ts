@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { RevenueAnalyticsService } from './revenue-analytics.service';
+
 const now = () => new Date('2026-10-15T00:00:00Z');
 const row = {
   start: new Date('2026-10-14T18:30:00Z'),
@@ -10,8 +11,10 @@ const row = {
   percentage: '100.01',
   invalid: '0'
 };
+
 function setup(rows: unknown[] = [row]) {
   const query = jest.fn().mockResolvedValue(rows);
+
   return {
     query,
     service: new RevenueAnalyticsService({ query } as unknown as DataSource, now)
@@ -21,6 +24,7 @@ describe('DDP-056 revenue contract', () => {
   it('returns integer LKR cents and database-rounded percentage with shared timestamp', async () => {
     const { query, service } = setup();
     const asOf = '2026-10-15T01:00:00.000Z';
+
     expect(await service.summary('day', asOf)).toMatchObject({
       currentMinor: 20001,
       previousMinor: 10000,
@@ -63,6 +67,7 @@ describe('DDP-056 revenue contract', () => {
   });
   it('sanitizes database errors', async () => {
     const { service, query } = setup();
+
     query.mockRejectedValue(new Error('private database detail'));
     await expect(service.summary('day')).rejects.toMatchObject({ status: 503 });
   });
@@ -73,5 +78,12 @@ describe('DDP-056 revenue contract', () => {
       percentageChange: -100,
       percentageUnavailableReason: null
     });
+  });
+  it('uses the same selected historical period while retaining query freshness', async () => {
+    const { query, service } = setup();
+    const result = await service.summary('month', undefined, '2026-08-01');
+
+    expect(query).toHaveBeenCalledWith(expect.any(String), ['month', 'Asia/Colombo', '2026-08-01T12:00:00.000Z']);
+    expect(result.asOf).toBe(now().toISOString());
   });
 });

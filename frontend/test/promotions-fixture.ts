@@ -1,4 +1,5 @@
 import type { Promotion, RoomType } from '@/lib/promotions';
+
 export const room: RoomType = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Suite',

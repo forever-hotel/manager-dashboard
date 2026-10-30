@@ -1,7 +1,11 @@
 'use client';
+
+import Pagination from './Pagination';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { replaceLocation } from '@/lib/navigation';
 import { notificationsSchema, type NotificationItem } from '@/lib/notifications';
 import { useOperationsSnapshot } from './useOperationsSnapshot';
+
 function useNotificationsState() {
   const [page, setPage] = useState(1);
   const live = useOperationsSnapshot(
@@ -26,6 +30,7 @@ function useNotificationsState() {
         body: JSON.stringify({ revision: item.revision }),
         signal: AbortSignal.timeout(8000)
       });
+
       if ([401, 403].includes(result.status)) {
         setDenied(true);
         throw new Error('Please sign in again.');
@@ -55,19 +60,27 @@ function useNotificationsState() {
   };
 }
 const NotificationsContext = createContext<ReturnType<typeof useNotificationsState> | null>(null);
+
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const value = useNotificationsState();
+
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }
+
 export function useNotifications() {
   return useContext(NotificationsContext);
 }
-const button = 'font-normal text-[10px] text-black underline focus-visible:outline-2 focus-visible:outline-offset-2';
+const button = 'font-normal text-xs text-ink underline focus-visible:outline-2 focus-visible:outline-offset-2';
+
 export function NotificationsBanner() {
   const state = useNotifications();
+
   if (!state) return null;
   return (
-    <section aria-label="Current alerts" className="mx-8 mt-6 rounded-lg border border-gray-200 p-4 text-[11px]">
+    <section
+      aria-label="Current alerts"
+      className="mx-8 mt-6 rounded-lg border border-accent bg-accent-light p-4 text-[13px]"
+    >
       {state.snapshot ? (
         <>
           <p role="status">
@@ -89,7 +102,7 @@ export function NotificationsBanner() {
       {state.message && (
         <p role="status">
           {state.message}{' '}
-          <button type="button" className={button} onClick={state.retry}>
+          <button type="button" className={button + ' button button-secondary'} onClick={state.retry}>
             Refresh alerts
           </button>
         </p>
@@ -97,22 +110,35 @@ export function NotificationsBanner() {
     </section>
   );
 }
+
 export default function NotificationsPanel({ initialPage = 1 }: { initialPage?: number }) {
   const state = useNotifications();
   const setPage = state?.setPage;
+
   useEffect(() => {
     setPage?.(initialPage);
   }, [initialPage, setPage]);
   if (!state) return <p role="alert">Notifications are unavailable.</p>;
   const data = state.snapshot;
+
   return (
-    <main className="flex-1 min-w-0 px-8 py-6">
-      <h1 className="font-medium text-[15px] text-black mb-6">Notifications</h1>
-      <p className="text-[11px] mb-4">Reading an alert does not resolve its underlying issue.</p>
+    <main className="dashboard-page">
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={() => (window.history.length > 1 ? window.history.back() : replaceLocation('/analytics'))}
+          aria-label="Back to previous page"
+        >
+          &larr; Back
+        </button>
+        <h1 className="font-medium text-[22px] text-brand">Notifications</h1>
+      </div>
+      <p className="text-[13px] mb-4">Reading an alert does not resolve its underlying issue.</p>
       {state.message && (
-        <p role="status" className="text-[11px] mb-3">
+        <p role="status" className="text-[13px] mb-3">
           {state.message}{' '}
-          <button className={button} onClick={state.retry}>
+          <button className={button + ' button button-secondary'} onClick={state.retry}>
             Retry notifications
           </button>
         </p>
@@ -120,7 +146,7 @@ export default function NotificationsPanel({ initialPage = 1 }: { initialPage?: 
       {state.error && <p role="alert">{state.error}</p>}
       {data && (
         <>
-          <p role="status" className="text-[11px] mb-4">
+          <p role="status" className="text-[13px] mb-4">
             {data.total} active alerts; {data.unread} unread. Counts include every page.
           </p>
           {data.total === 0 && <p>No active complaints or stock problems.</p>}
@@ -129,9 +155,9 @@ export default function NotificationsPanel({ initialPage = 1 }: { initialPage?: 
               <li
                 id={(item.type === 'STOCK' ? 'stock-' : 'complaint-') + item.sourceId}
                 key={item.id}
-                className="border border-gray-200 rounded-lg p-4 text-[11px]"
+                className="border border-border rounded-lg p-4 text-[13px] bg-surface"
               >
-                <h2 className="font-medium">{item.title}</h2>
+                <h2 className="font-medium text-base text-ink">{item.title}</h2>
                 <p>
                   {item.status.replaceAll('_', ' ')} · {item.isRead ? 'Read' : 'Unread'}
                 </p>
@@ -148,7 +174,7 @@ export default function NotificationsPanel({ initialPage = 1 }: { initialPage?: 
                 {!item.isRead && (
                   <button
                     type="button"
-                    className={button + ' ml-4'}
+                    className={button + ' ml-4' + ' button button-secondary'}
                     disabled={!!state.busy}
                     onClick={() => void state.markRead(item)}
                   >
@@ -158,15 +184,7 @@ export default function NotificationsPanel({ initialPage = 1 }: { initialPage?: 
               </li>
             ))}
           </ul>
-          <nav aria-label="Notification pages" className="flex gap-4 mt-4 text-[11px]">
-            <button disabled={state.page === 1} onClick={() => state.setPage(p => p - 1)}>
-              Previous alerts
-            </button>
-            <span>Page {state.page}</span>
-            <button disabled={state.page * 20 >= data.total} onClick={() => state.setPage(p => p + 1)}>
-              Next alerts
-            </button>
-          </nav>
+          <Pagination page={state.page} pageSize={20} total={data.total} noun="alerts" onChange={state.setPage} />
         </>
       )}
     </main>

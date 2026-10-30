@@ -18,6 +18,7 @@ import {
 export function normalizeCode(value: unknown): unknown {
   return typeof value === 'string' && /^[\x20-\x7e]*$/.test(value.trim()) ? value.trim().toUpperCase() : value;
 }
+
 export class CreatePromotionDto {
   @Transform(({ value }: { value: unknown }) => normalizeCode(value))
   @Matches(/^[A-Z0-9][A-Z0-9_-]*$/)
@@ -56,6 +57,7 @@ export class CreatePromotionDto {
 function pageNumber(value: unknown) {
   return typeof value === 'string' && /^[1-9]\d*$/.test(value) ? Number(value) : value;
 }
+
 export class PromotionPageDto {
   @IsOptional()
   @Transform(({ value }: { value: unknown }) => pageNumber(value))
@@ -77,6 +79,12 @@ export class PromotionVersionDto {
   @Min(0)
   @Max(2147483647)
   version!: number;
+}
+
+export class PromotionListDto extends PromotionPageDto {
+  @IsOptional()
+  @IsIn(['active', 'inactive', 'scheduled'])
+  view?: 'active' | 'inactive' | 'scheduled';
 }
 
 // PUT replaces editable fields; redemption counts and status are never client-writable.

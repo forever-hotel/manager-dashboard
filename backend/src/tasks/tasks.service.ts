@@ -11,6 +11,7 @@ function timestamp(value: unknown): value is string {
     Number.isFinite(Date.parse(value))
   );
 }
+
 function label(value: unknown, maximum: number): value is string {
   return typeof value === 'string' && Boolean(value.trim()) && value.length <= maximum && !/\p{Cc}/u.test(value);
 }
@@ -33,6 +34,7 @@ export const TASKS_SQL = `WITH filtered AS MATERIALIZED (
  WHERE ($1::text IS NULL OR t.status::text=$1)
  AND ($2::uuid IS NULL OR t.assigned_worker_id=$2)
  AND ($5::uuid IS NULL OR t.task_id=$5)
+ AND ($6::text IS NULL OR strpos(lower(s.full_name),lower($6))>0)
 ), page AS (
  SELECT * FROM filtered ORDER BY submitted_at DESC,task_id LIMIT $3 OFFSET $4
 )
@@ -47,6 +49,7 @@ SELECT statement_timestamp() AS queried_at,(SELECT count(*)::integer FROM filter
 @Injectable()
 export class TasksService {
   constructor(private readonly database: DataSource) {}
+
   async snapshot(query: TasksQueryDto, id?: string) {
     try {
       const [row] = await this.database.query<{ queried_at: Date; total: number; tasks: WorkerTask[] }[]>(TASKS_SQL, [
@@ -54,8 +57,10 @@ export class TasksService {
         query.worker ?? null,
         query.pageSize,
         (query.page - 1) * query.pageSize,
-        id ?? null
+        id ?? null,
+        query.workerName || null
       ]);
+
       if (
         !row ||
         !Array.isArray(row.tasks) ||
@@ -69,6 +74,7 @@ export class TasksService {
         throw new Error();
       const seen = new Set<string>();
       const tasks: WorkerTask[] = [];
+
       for (const task of row.tasks) {
         if (
           !task ||
@@ -104,6 +110,7 @@ export class TasksService {
         )
           throw new Error();
         const fraction = /\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/.exec(task.updatedAt)?.[1] ?? '';
+
         if (
           fraction.length > 6 ||
           task.version !== Date.parse(task.updatedAt) * 1000 + Number(fraction.padEnd(6, '0').slice(3))
@@ -136,6 +143,7 @@ export class TasksService {
       throw new ServiceUnavailableException();
     }
   }
+
   async find(id: string) {
     return (await this.snapshot(new TasksQueryDto(), id)).tasks[0];
   }
