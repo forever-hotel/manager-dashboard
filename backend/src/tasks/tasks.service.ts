@@ -11,13 +11,9 @@ function timestamp(value: unknown): value is string {
     Number.isFinite(Date.parse(value))
   );
 }
+
 function label(value: unknown, maximum: number): value is string {
-  return (
-    typeof value === 'string' &&
-    Boolean(value.trim()) &&
-    value.length <= maximum &&
-    !/\p{Cc}/u.test(value)
-  );
+  return typeof value === 'string' && Boolean(value.trim()) && value.length <= maximum && !/\p{Cc}/u.test(value);
 }
 
 export interface WorkerTask {
@@ -38,6 +34,7 @@ export const TASKS_SQL = `WITH filtered AS MATERIALIZED (
  WHERE ($1::text IS NULL OR t.status::text=$1)
  AND ($2::uuid IS NULL OR t.assigned_worker_id=$2)
  AND ($5::uuid IS NULL OR t.task_id=$5)
+ AND ($6::text IS NULL OR strpos(lower(s.full_name),lower($6))>0)
 ), page AS (
  SELECT * FROM filtered ORDER BY submitted_at DESC,task_id LIMIT $3 OFFSET $4
 )
@@ -52,17 +49,18 @@ SELECT statement_timestamp() AS queried_at,(SELECT count(*)::integer FROM filter
 @Injectable()
 export class TasksService {
   constructor(private readonly database: DataSource) {}
+
   async snapshot(query: TasksQueryDto, id?: string) {
     try {
-      const [row] = await this.database.query<
-        { queried_at: Date; total: number; tasks: WorkerTask[] }[]
-      >(TASKS_SQL, [
+      const [row] = await this.database.query<{ queried_at: Date; total: number; tasks: WorkerTask[] }[]>(TASKS_SQL, [
         query.status ?? null,
         query.worker ?? null,
         query.pageSize,
         (query.page - 1) * query.pageSize,
         id ?? null,
+        query.workerName || null
       ]);
+
       if (
         !row ||
         !Array.isArray(row.tasks) ||
@@ -70,16 +68,13 @@ export class TasksService {
         row.total < 0 ||
         !(row.queried_at instanceof Date) ||
         !Number.isFinite(row.queried_at.getTime()) ||
-        row.tasks.length !==
-          Math.min(
-            query.pageSize,
-            Math.max(0, row.total - (query.page - 1) * query.pageSize),
-          ) ||
+        row.tasks.length !== Math.min(query.pageSize, Math.max(0, row.total - (query.page - 1) * query.pageSize)) ||
         (id !== undefined && row.total > 1)
       )
         throw new Error();
       const seen = new Set<string>();
       const tasks: WorkerTask[] = [];
+
       for (const task of row.tasks) {
         if (
           !task ||
@@ -89,8 +84,7 @@ export class TasksService {
           seen.has(task.id.toLowerCase()) ||
           (id !== undefined && task.id.toLowerCase() !== id.toLowerCase()) ||
           (query.status !== undefined && task.status !== query.status) ||
-          (query.worker !== undefined &&
-            task.assignee?.id?.toLowerCase() !== query.worker.toLowerCase()) ||
+          (query.worker !== undefined && task.assignee?.id?.toLowerCase() !== query.worker.toLowerCase()) ||
           !label(task.roomNumber, 10) ||
           ![
             'ROOM_CLEANING',
@@ -99,16 +93,10 @@ export class TasksService {
             'MAINTENANCE',
             'LAUNDRY',
             'FOOD_DELIVERY',
-            'OTHER',
+            'OTHER'
           ].includes(task.category) ||
           !['HIGH', 'NORMAL'].includes(task.priority) ||
-          ![
-            'UNASSIGNED',
-            'ASSIGNED',
-            'IN_PROGRESS',
-            'COMPLETED',
-            'ESCALATED',
-          ].includes(task.status) ||
+          !['UNASSIGNED', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'ESCALATED'].includes(task.status) ||
           (task.assignee !== null &&
             (!task.assignee ||
               typeof task.assignee.id !== 'string' ||
@@ -118,18 +106,14 @@ export class TasksService {
           task.version < 0 ||
           !timestamp(task.updatedAt) ||
           !timestamp(task.submittedAt) ||
-          (task.status === 'COMPLETED'
-            ? !task.completedAt || !timestamp(task.completedAt)
-            : task.completedAt !== null)
+          (task.status === 'COMPLETED' ? !task.completedAt || !timestamp(task.completedAt) : task.completedAt !== null)
         )
           throw new Error();
-        const fraction =
-          /\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/.exec(task.updatedAt)?.[1] ?? '';
+        const fraction = /\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/.exec(task.updatedAt)?.[1] ?? '';
+
         if (
           fraction.length > 6 ||
-          task.version !==
-            Date.parse(task.updatedAt) * 1000 +
-              Number(fraction.padEnd(6, '0').slice(3))
+          task.version !== Date.parse(task.updatedAt) * 1000 + Number(fraction.padEnd(6, '0').slice(3))
         )
           throw new Error();
         seen.add(task.id.toLowerCase());
@@ -139,14 +123,11 @@ export class TasksService {
           category: task.category,
           priority: task.priority,
           status: task.status,
-          assignee:
-            task.assignee === null
-              ? null
-              : { id: task.assignee.id, name: task.assignee.name },
+          assignee: task.assignee === null ? null : { id: task.assignee.id, name: task.assignee.name },
           submittedAt: task.submittedAt,
           updatedAt: task.updatedAt,
           completedAt: task.completedAt,
-          version: task.version,
+          version: task.version
         });
       }
       return {
@@ -156,12 +137,13 @@ export class TasksService {
         page: query.page,
         pageSize: query.pageSize,
         source: 'WKMS',
-        readOnly: true,
+        readOnly: true
       };
     } catch {
       throw new ServiceUnavailableException();
     }
   }
+
   async find(id: string) {
     return (await this.snapshot(new TasksQueryDto(), id)).tasks[0];
   }

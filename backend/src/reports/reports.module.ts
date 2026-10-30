@@ -3,9 +3,10 @@ import { AuthModule } from '../auth/auth.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
+
 @Module({
   imports: [AuthModule, AnalyticsModule],
   controllers: [ReportsController],
-  providers: [ReportsService],
+  providers: [ReportsService]
 })
 export class ReportsModule {}

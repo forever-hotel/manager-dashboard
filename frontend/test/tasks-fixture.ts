@@ -11,13 +11,13 @@ export const tasksSnapshot = (page = 1) => ({
       submittedAt: '2026-10-20T00:00:00Z',
       updatedAt: '2026-10-20T00:00:00Z',
       completedAt: null,
-      version: 1,
-    },
+      version: 1
+    }
   ],
   total: 41,
   page,
   pageSize: 20,
   source: 'WKMS',
   readOnly: true,
-  queriedAt: '2026-10-20T00:00:00Z',
+  queriedAt: '2026-10-20T00:00:00Z'
 });

@@ -1,10 +1,11 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+
 export const ROOM_LABELS = {
   OCCUPIED: 'Occupied',
   VACANT: 'Vacant',
   UNDER_MAINTENANCE: 'Under Maintenance',
-  REQUIRES_CLEANING: 'Requires Cleaning',
+  REQUIRES_CLEANING: 'Requires Cleaning'
 } as const;
 export interface RoomStatus {
   id: string;
@@ -23,16 +24,17 @@ export const ROOMS_SQL = `SELECT statement_timestamp() AS queried_at,coalesce(js
 ) ORDER BY r.room_number COLLATE "C") FILTER(WHERE r.room_number IS NOT NULL),'[]'::jsonb) AS rooms
 FROM public.rooms r LEFT JOIN public.room_types t ON t.room_type_id=r.room_type_id
 WHERE ($1::text IS NULL OR r.room_number=$1)`;
+
 @Injectable()
 export class RoomsService {
   constructor(private readonly database: DataSource) {}
+
   async snapshot(id?: string) {
     try {
-      const [row] = await this.database.query<
-        { queried_at: Date; rooms: RoomStatus[] }[]
-      >(ROOMS_SQL, [id ?? null]);
+      const [row] = await this.database.query<{ queried_at: Date; rooms: RoomStatus[] }[]>(ROOMS_SQL, [id ?? null]);
+
       if (!row || !Array.isArray(row.rooms)) throw new Error();
-      const rooms = row.rooms.map((room) => {
+      const rooms = row.rooms.map(room => {
         if (
           typeof room.id !== 'string' ||
           !room.id.length ||
@@ -50,11 +52,12 @@ export class RoomsService {
           throw new Error();
         return { ...room, label: ROOM_LABELS[room.status] };
       });
+
       return {
         rooms,
         queriedAt: row.queried_at.toISOString(),
         source: 'FDS',
-        readOnly: true,
+        readOnly: true
       };
     } catch {
       throw new ServiceUnavailableException();

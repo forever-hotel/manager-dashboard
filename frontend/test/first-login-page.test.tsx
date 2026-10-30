@@ -6,9 +6,9 @@ vi.mock('@/lib/session', () => ({ requireSession: vi.fn() }));
 vi.mock('next/navigation', () => ({
   redirect: (path: string) => {
     throw new Error(path);
-  },
+  }
 }));
-vi.mock('@/components/AuthForm', () => ({ AuthForm: () => null }));
+vi.mock('@/components/ChangePasswordForm', () => ({ ChangePasswordForm: () => null }));
 
 describe('First-login password page', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -17,31 +17,33 @@ describe('First-login password page', () => {
     username: 'manager',
     role: 'MANAGER' as const,
     expiresAt: 9999999999,
-    passwordChangeRequired: true,
+    passwordChangeRequired: true
   };
+
   it('shows the password form while the database flag is true', async () => {
-    vi.mocked(requireSession).mockResolvedValue(session);
+    vi.mocked(requireSession).mockImplementation(() => Promise.resolve(session));
     const page = await ChangePasswordPage({
-      searchParams: Promise.resolve({ next: '/rooms' }),
+      searchParams: Promise.resolve({ next: '/rooms' })
     });
-    expect(page.props).toMatchObject({ changePassword: true, next: '/rooms' });
+
+    expect(page.props).toMatchObject({ next: '/rooms' });
   });
   it('opens the dashboard after the password has been changed', async () => {
-    vi.mocked(requireSession).mockResolvedValue({
-      ...session,
-      passwordChangeRequired: false,
-    });
-    await expect(
-      ChangePasswordPage({ searchParams: Promise.resolve({}) }),
-    ).rejects.toThrow('/analytics');
+    vi.mocked(requireSession).mockImplementation(() =>
+      Promise.resolve({
+        ...session,
+        passwordChangeRequired: false
+      })
+    );
+    await expect(ChangePasswordPage({ searchParams: Promise.resolve({}) })).rejects.toThrow('/analytics');
   });
   it('preserves a safe destination for returning managers', async () => {
-    vi.mocked(requireSession).mockResolvedValue({
-      ...session,
-      passwordChangeRequired: false,
-    });
-    await expect(
-      ChangePasswordPage({ searchParams: Promise.resolve({ next: '/rooms' }) }),
-    ).rejects.toThrow('/rooms');
+    vi.mocked(requireSession).mockImplementation(() =>
+      Promise.resolve({
+        ...session,
+        passwordChangeRequired: false
+      })
+    );
+    await expect(ChangePasswordPage({ searchParams: Promise.resolve({ next: '/rooms' }) })).rejects.toThrow('/rooms');
   });
 });

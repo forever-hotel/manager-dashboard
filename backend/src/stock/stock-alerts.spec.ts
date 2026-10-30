@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { StockAlertsService } from './stock-alerts.service';
 import { parseStockEvent, STOCK_STATUSES } from './stock-event';
+
 const id = '67f4568c-89ab-4c12-b321-123456789012';
 const item = '77f4568c-89ab-4c12-b321-123456789012';
 const event = {
@@ -9,13 +10,13 @@ const event = {
   menuItemId: item,
   stockStatus: 'LOW_STOCK' as const,
   version: 2,
-  occurredAt: '2026-10-21T00:00:00Z',
+  occurredAt: '2026-10-21T00:00:00Z'
 };
 const source = {
   name: 'Soup',
   status: 'LOW_STOCK',
   updated_at: new Date(event.occurredAt),
-  version: '2',
+  version: '2'
 };
 const saved = {
   alertId: id,
@@ -26,18 +27,17 @@ const saved = {
   version: 2,
   sourceUpdatedAt: new Date(event.occurredAt),
   raisedAt: new Date(event.occurredAt),
-  clearedAt: null,
+  clearedAt: null
 };
+
 function setup() {
   const query = jest.fn().mockResolvedValue([]);
-  const transaction = jest.fn(
-    async (work: (manager: { query: typeof query }) => Promise<void>) =>
-      work({ query }),
-  );
+  const transaction = jest.fn(async (work: (manager: { query: typeof query }) => Promise<void>) => work({ query }));
+
   return {
     query,
     transaction,
-    service: new StockAlertsService({ transaction } as unknown as DataSource),
+    service: new StockAlertsService({ transaction } as unknown as DataSource)
   };
 }
 describe('DDP-034 stock contract and durable alert processing', () => {
@@ -48,12 +48,10 @@ describe('DDP-034 stock contract and durable alert processing', () => {
           ...event,
           stockStatus,
           name: 'untrusted',
-          token: 'secret',
-        }),
+          token: 'secret'
+        })
       ).toEqual({ ...event, stockStatus });
-    expect(
-      parseStockEvent({ ...event, menuItemId: item.toUpperCase() }),
-    ).toEqual(event);
+    expect(parseStockEvent({ ...event, menuItemId: item.toUpperCase() })).toEqual(event);
     for (const raw of [
       null,
       [],
@@ -68,13 +66,14 @@ describe('DDP-034 stock contract and durable alert processing', () => {
         { version: Number.MAX_SAFE_INTEGER + 1 },
         { type: 'other' },
         { occurredAt: 'bad' },
-        { occurredAt: '2026-10-21T00:00:00' },
-      ].map((patch) => ({ ...event, ...patch })),
+        { occurredAt: '2026-10-21T00:00:00' }
+      ].map(patch => ({ ...event, ...patch }))
     ])
       expect(() => parseStockEvent(raw)).toThrow();
   });
   it('persists source-authoritative alert and its notification in one transaction', async () => {
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
@@ -82,32 +81,27 @@ describe('DDP-034 stock contract and durable alert processing', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([saved]);
     await service.accept(event);
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO mad_stock_alerts'),
-      [
-        expect.any(String),
-        item,
-        'Soup',
-        'LOW_STOCK',
-        true,
-        2,
-        source.updated_at,
-      ],
-    );
-    expect(query).toHaveBeenLastCalledWith(
-      expect.stringContaining('INSERT INTO mad_stock_events'),
-      [
-        id,
-        item,
-        2,
-        JSON.stringify(event),
-        expect.stringContaining('stock.alert.changed'),
-        'pending',
-      ],
-    );
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO mad_stock_alerts'), [
+      expect.any(String),
+      item,
+      'Soup',
+      'LOW_STOCK',
+      true,
+      2,
+      source.updated_at
+    ]);
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('INSERT INTO mad_stock_events'), [
+      id,
+      item,
+      2,
+      JSON.stringify(event),
+      expect.stringContaining('stock.alert.changed'),
+      'pending'
+    ]);
   });
   it('coalesces a delayed event to a newer Available source and emits recovery', async () => {
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
@@ -120,25 +114,23 @@ describe('DDP-034 stock contract and durable alert processing', () => {
           version: 3,
           active: false,
           raisedAt: null,
-          clearedAt: new Date(event.occurredAt),
-        },
+          clearedAt: new Date(event.occurredAt)
+        }
       ]);
     await service.accept(event);
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO mad_stock_alerts'),
-      [
-        expect.any(String),
-        item,
-        'Soup',
-        'AVAILABLE',
-        false,
-        3,
-        source.updated_at,
-      ],
-    );
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO mad_stock_alerts'), [
+      expect.any(String),
+      item,
+      'Soup',
+      'AVAILABLE',
+      false,
+      3,
+      source.updated_at
+    ]);
   });
   it('skips matching duplicates without reading the source and rejects identity reuse', async () => {
     const { service, query } = setup();
+
     query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ same: true }]);
     await service.accept(event);
     expect(query).toHaveBeenCalledTimes(2);
@@ -151,20 +143,22 @@ describe('DDP-034 stock contract and durable alert processing', () => {
   });
   it('stores stale receipts without updating counts or dispatching stale alerts', async () => {
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([source])
       .mockResolvedValueOnce([{ version: '2' }]);
     await service.accept(event);
-    expect(query).toHaveBeenLastCalledWith(
-      expect.stringContaining('INSERT INTO mad_stock_events'),
-      [id, item, 2, JSON.stringify(event), null, 'superseded'],
-    );
-    expect(query).not.toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO mad_stock_alerts'),
-      expect.anything(),
-    );
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('INSERT INTO mad_stock_events'), [
+      id,
+      item,
+      2,
+      JSON.stringify(event),
+      null,
+      'superseded'
+    ]);
+    expect(query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO mad_stock_alerts'), expect.anything());
   });
   it('fails safely on missing, malformed, behind or contradictory source rows', async () => {
     for (const bad of [
@@ -177,9 +171,10 @@ describe('DDP-034 stock contract and durable alert processing', () => {
       { ...source, updated_at: new Date('bad') },
       { ...source, version: '1' },
       { ...source, version: '9007199254740992' },
-      { ...source, status: 'AVAILABLE' },
+      { ...source, status: 'AVAILABLE' }
     ]) {
       const { service, query } = setup();
+
       query
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
@@ -190,9 +185,11 @@ describe('DDP-034 stock contract and durable alert processing', () => {
   });
   it('refuses acknowledgement when storage fails or returns no persisted alert', async () => {
     const failed = setup();
+
     failed.query.mockRejectedValue(new Error('DB offline'));
     await expect(failed.service.accept(event)).rejects.toThrow('DB offline');
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])

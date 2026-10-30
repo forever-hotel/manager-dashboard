@@ -8,6 +8,7 @@ import { RealtimeGateway } from './realtime.gateway';
 @UseGuards(JwtAuthGuard)
 export class RealtimeController {
   constructor(private readonly gateway: RealtimeGateway) {}
+
   @Post('ticket') ticket(@Req() request: AuthenticatedRequest) {
     return this.gateway.ticket(bearer(request.headers.authorization));
   }

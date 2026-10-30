@@ -21,19 +21,19 @@ export default defineConfig({
         'app/api/rooms/**/route.ts',
         'app/api/tasks/**/route.ts',
         'app/api/notifications/**/route.ts',
-        'app/api/settings/**/route.ts',
         'app/api/staff/**/route.ts',
+        'app/api/service-requests/**/route.ts',
         'app/api/reports/**/route.ts',
         'app/api/realtime/**/route.ts',
-        'app/(dashboard)/rooms/page.tsx',
+        'app/(dashboard)/rooms/page.tsx'
       ],
       exclude: ['lib/navigation.ts'],
       thresholds: {
         lines: 80,
         branches: 80,
         'lib/auth.ts': { branches: 90 },
-        'app/api/auth/**/route.ts': { branches: 90 },
-      },
-    },
-  },
+        'app/api/auth/**/route.ts': { branches: 90 }
+      }
+    }
+  }
 });

@@ -4,6 +4,7 @@ import { KitchenController } from './kitchen.controller';
 import { KitchenQueryDto } from './kitchen-query.dto';
 import { Test } from '@nestjs/testing';
 import { getDataSourceToken } from '@nestjs/typeorm';
+
 const now = new Date('2026-10-19T06:00:00Z');
 const updatedAt = '2026-10-19T01:00:00.123456Z';
 const order = {
@@ -14,7 +15,7 @@ const order = {
   placedAt: '2026-10-19T00:00:00Z',
   updatedAt,
   version: Date.parse(updatedAt) * 1000 + 456,
-  itemCount: 2,
+  itemCount: 2
 };
 const empty = {
   invalidSource: false,
@@ -22,19 +23,21 @@ const empty = {
   total: 0,
   counts: { PLACED: 0, IN_PREPARATION: 0, READY: 0, DELIVERED: 0 },
   asOf: now.toISOString(),
-  deliveredSince: '2026-10-18T18:30:00Z',
+  deliveredSince: '2026-10-18T18:30:00Z'
 };
 const populated = {
   ...empty,
   orders: [order],
   total: 1,
-  counts: { ...empty.counts, PLACED: 1 },
+  counts: { ...empty.counts, PLACED: 1 }
 };
+
 function setup(source: unknown = empty) {
   const query = jest.fn().mockResolvedValue([{ snapshot: source }]);
+
   return {
     query,
-    service: new KitchenService({ query } as unknown as DataSource, () => now),
+    service: new KitchenService({ query } as unknown as DataSource, () => now)
   };
 }
 describe('DDP-041 kitchen snapshot', () => {
@@ -44,20 +47,15 @@ describe('DDP-041 kitchen snapshot', () => {
       providers: [
         KitchenService,
         { provide: getDataSourceToken(), useValue: { query } },
-        { provide: 'KITCHEN_CLOCK', useValue: () => now },
-      ],
+        { provide: 'KITCHEN_CLOCK', useValue: () => now }
+      ]
     }).compile();
+
     try {
-      const response = await module
-        .get(KitchenService)
-        .snapshot(new KitchenQueryDto());
+      const response = await module.get(KitchenService).snapshot(new KitchenQueryDto());
+
       expect(response.asOf).toBe(now.toISOString());
-      expect(query).toHaveBeenCalledWith(expect.any(String), [
-        null,
-        20,
-        0,
-        now.toISOString(),
-      ]);
+      expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString(), false]);
     } finally {
       await module.close();
     }
@@ -73,69 +71,53 @@ describe('DDP-041 kitchen snapshot', () => {
 
       expect(response.asOf).toBe(now.toISOString());
       expect(response.orders).toEqual([]);
-      expect(query).toHaveBeenCalledWith(expect.any(String), [
-        null,
-        20,
-        0,
-        now.toISOString(),
-      ]);
+      expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString(), false]);
     } finally {
       jest.useRealTimers();
     }
   });
   it('returns valid empty pages with parameterized filters and a consistent clock', async () => {
     const { service, query } = setup();
-    const response = await new KitchenController(service).orders(
-      new KitchenQueryDto(),
-    );
+    const response = await new KitchenController(service).orders(new KitchenQueryDto());
+
     expect(response).toMatchObject({
       orders: [],
       total: 0,
       page: 1,
-      pageSize: 20,
+      pageSize: 20
     });
     expect(response).not.toHaveProperty('invalidSource');
-    expect(query).toHaveBeenCalledWith(expect.any(String), [
-      null,
-      20,
-      0,
-      now.toISOString(),
-    ]);
+    expect(query).toHaveBeenCalledWith(expect.any(String), [null, 20, 0, now.toISOString(), false]);
     await service.snapshot({ status: 'READY', page: 2, pageSize: 5 });
-    expect(query).toHaveBeenLastCalledWith(expect.any(String), [
-      'READY',
-      5,
-      5,
-      now.toISOString(),
-    ]);
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), ['READY', 5, 5, now.toISOString(), false]);
   });
   it.each(['PLACED', 'IN_PREPARATION', 'READY', 'DELIVERED'])(
     'preserves exact identity/revision and counts for %s',
-    async (status) => {
+    async status => {
       const { service } = setup({
         ...populated,
         counts: { ...empty.counts, [status]: 1 },
         orders: [{ ...order, status, password: 'private' }],
-        internal: 'private',
+        internal: 'private'
       });
       const response = await service.snapshot({
         status,
         page: 1,
-        pageSize: 20,
+        pageSize: 20
       });
+
       expect(response.orders).toEqual([{ ...order, status }]);
-      expect(response.orders[0].version).toBe(
-        Date.parse(updatedAt) * 1000 + 456,
-      );
+      expect(response.orders[0].version).toBe(Date.parse(updatedAt) * 1000 + 456);
       expect(JSON.stringify(response)).not.toContain('private');
-    },
+    }
   );
   it('allows an out-of-range empty page without discarding global counts', async () => {
     const { service } = setup({ ...populated, orders: [] });
+
     expect(await service.snapshot({ page: 2, pageSize: 20 })).toMatchObject({
       orders: [],
       total: 1,
-      counts: populated.counts,
+      counts: populated.counts
     });
   });
   it('rejects missing, malformed, inconsistent and unsafe source results as unavailable', async () => {
@@ -161,9 +143,10 @@ describe('DDP-041 kitchen snapshot', () => {
         ...populated,
         total: 2,
         counts: { ...empty.counts, PLACED: 2 },
-        orders: [order, order],
-      },
+        orders: [order, order]
+      }
     ];
+
     for (const patch of [
       { id: 'bad' },
       { status: 'UNKNOWN' },
@@ -176,22 +159,34 @@ describe('DDP-041 kitchen snapshot', () => {
       { updatedAt: '2026-10-19T01:00:00.1234567Z' },
       { version: order.version + 1 },
       { itemCount: -1 },
-      { itemCount: 9007199254740992 },
+      { itemCount: 9007199254740992 }
     ])
       invalid.push({ ...populated, orders: [{ ...order, ...patch }] });
     for (const source of invalid) {
       query.mockResolvedValueOnce([{ snapshot: source }]);
-      await expect(
-        service.snapshot(new KitchenQueryDto()),
-      ).rejects.toMatchObject({ status: 503 });
+      await expect(service.snapshot(new KitchenQueryDto())).rejects.toMatchObject({ status: 503 });
     }
     query.mockResolvedValueOnce([]);
-    await expect(service.snapshot(new KitchenQueryDto())).rejects.toMatchObject(
-      { status: 503 },
-    );
+    await expect(service.snapshot(new KitchenQueryDto())).rejects.toMatchObject({ status: 503 });
     query.mockRejectedValueOnce(new Error('private SQL'));
-    await expect(service.snapshot(new KitchenQueryDto())).rejects.toMatchObject(
-      { status: 503, message: 'Service Unavailable' },
-    );
+    await expect(service.snapshot(new KitchenQueryDto())).rejects.toMatchObject({
+      status: 503,
+      message: 'Service Unavailable'
+    });
+  });
+  it('binds the active-only filter and rejects delivered rows returned for that cohort', async () => {
+    const { service, query } = setup();
+
+    await service.snapshot({ page: 1, pageSize: 100, activeOnly: 'true' });
+    expect(query).toHaveBeenCalledWith(expect.any(String), [null, 100, 0, now.toISOString(), true]);
+    const delivered = setup({
+      ...populated,
+      counts: { ...empty.counts, DELIVERED: 1 },
+      orders: [{ ...order, status: 'DELIVERED' }]
+    });
+
+    await expect(delivered.service.snapshot({ page: 1, pageSize: 100, activeOnly: 'true' })).rejects.toMatchObject({
+      status: 503
+    });
   });
 });

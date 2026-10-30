@@ -1,9 +1,21 @@
+import Link from 'next/link';
 import TaskQueue from '@/components/TaskQueue';
+import HeaderNotifications from '@/components/HeaderNotifications';
 
-export default function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
+  const fromWorker = (await searchParams).from === 'worker-performance';
+
   return (
-    <main className="min-w-0 flex-1 px-4 py-6 sm:px-8">
-      <h1 className="mb-6 text-[15px] font-medium text-black">Tasks</h1>
+    <main className="dashboard-page">
+      <div className="page-topbar">
+        <h1>Tasks</h1>
+        <HeaderNotifications />
+      </div>
+      {fromWorker && (
+        <Link href="/worker-performance" className="button button-secondary mb-4">
+          Back to Worker Performance
+        </Link>
+      )}
       <TaskQueue />
     </main>
   );

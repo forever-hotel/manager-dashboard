@@ -1,17 +1,12 @@
 import { z } from 'zod';
-export const taskStatuses = [
-  'UNASSIGNED',
-  'ASSIGNED',
-  'IN_PROGRESS',
-  'COMPLETED',
-  'ESCALATED',
-] as const;
+
+export const taskStatuses = ['UNASSIGNED', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'ESCALATED'] as const;
 export const taskLabels = {
   UNASSIGNED: 'Unassigned',
   ASSIGNED: 'Assigned',
   IN_PROGRESS: 'In Progress',
   COMPLETED: 'Completed',
-  ESCALATED: 'Escalated',
+  ESCALATED: 'Escalated'
 };
 export const tasksSnapshotSchema = z
   .object({
@@ -28,7 +23,7 @@ export const tasksSnapshotSchema = z
               'MAINTENANCE',
               'LAUNDRY',
               'FOOD_DELIVERY',
-              'OTHER',
+              'OTHER'
             ]),
             priority: z.enum(['HIGH', 'NORMAL']),
             status: z.enum(taskStatuses),
@@ -36,11 +31,9 @@ export const tasksSnapshotSchema = z
             submittedAt: z.iso.datetime({ offset: true }),
             updatedAt: z.iso.datetime({ offset: true }),
             completedAt: z.iso.datetime({ offset: true }).nullable(),
-            version: z.number().int().nonnegative().safe(),
+            version: z.number().int().nonnegative().safe()
           })
-          .refine(
-            (t) => (t.status === 'COMPLETED') === (t.completedAt !== null),
-          ),
+          .refine(t => (t.status === 'COMPLETED') === (t.completedAt !== null))
       )
       .max(100),
     total: z.number().int().nonnegative().safe(),
@@ -48,6 +41,6 @@ export const tasksSnapshotSchema = z
     page: z.number().int().positive(),
     pageSize: z.number().int().positive().max(100),
     source: z.literal('WKMS'),
-    readOnly: z.literal(true),
+    readOnly: z.literal(true)
   })
-  .refine((s) => new Set(s.tasks.map((t) => t.id)).size === s.tasks.length);
+  .refine(s => new Set(s.tasks.map(t => t.id)).size === s.tasks.length);

@@ -93,14 +93,23 @@ jobs:
       - run: node ../scripts/check-changed-coverage.mjs frontend
       - run: npm run build
       - run: npm run audit:ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: frontend-coverage
           path: frontend/coverage
 
-  browser:
-    name: Browser acceptance
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-traces
+          path: frontend/test-results/
+          if-no-files-found: ignore
+
+  cross-system:
+    name: Central auth and shared WebSocket integration
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -112,45 +121,35 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres -d mad_test"
           --health-interval 5s --health-timeout 3s --health-retries 15
+      rabbitmq:
+        image: rabbitmq:4-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: mad
+          RABBITMQ_DEFAULT_PASS: integration-only
+          RABBITMQ_DEFAULT_VHOST: mad_test
+        ports: ["5672:5672"]
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s --health-timeout 5s --health-retries 15
     env:
       TEST_DATABASE_URL: postgresql://postgres:integration-only@localhost:5432/mad_test
+      TEST_RABBITMQ_URL: amqp://mad:integration-only@localhost:5672/mad_test
+      MAD_BACKEND_PATH: ${{ github.workspace }}/backend
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: forever-hotel/api-gateway
+          ref: ${{ vars.GATEWAY_TEST_REF || 'main' }}
+          path: api-gateway
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
       - run: npm ci
         working-directory: backend
-      - run: node scripts/verify-build-config.mjs
-        working-directory: frontend
+      - run: npm run build
+        working-directory: backend
       - run: npm ci --ignore-scripts
-        working-directory: frontend
-      - run: node scripts/verify-build-config.mjs
-        working-directory: frontend
-      - run: npx playwright install --with-deps chromium
-        working-directory: frontend
-      - run: npm run test:e2e
-        working-directory: frontend
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: browser-failure-traces
-          path: frontend/test-results
-
-  containers:
-    name: Container smoke
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: docker compose --env-file .env.example -f docker-compose.yml -f deploy/compose.ci.yml -p mad-ci config --quiet
-      - run: docker compose --env-file .env.example -f docker-compose.yml -f deploy/compose.ci.yml -p mad-ci up --build --wait --wait-timeout 180 postgres mad-backend mad-frontend
-      - run: |
-          curl --fail http://localhost:4000/health/ready
-          curl --fail http://localhost:3000/api/health
-          curl --fail http://localhost:3000/login
-      - run: docker compose --env-file .env.example -f docker-compose.yml -f deploy/compose.ci.yml -p mad-ci down --volumes
-        if: always()
+        working-directory: api-gateway
+      - run: npm run test:system
+        working-directory: api-gateway

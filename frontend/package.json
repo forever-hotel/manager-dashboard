@@ -11,14 +11,14 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
-    "test:e2e": "playwright test",
     "preinstall": "node scripts/verify-build-config.mjs",
     "prebuild": "node scripts/verify-build-config.mjs",
     "postbuild": "node scripts/verify-build-config.mjs",
     "predev": "node scripts/verify-build-config.mjs",
     "check:build-config": "node scripts/verify-build-config.mjs",
     "test:build-config": "node --test scripts/verify-build-config.test.mjs",
-    "audit:ci": "node scripts/audit-ci.mjs"
+    "audit:ci": "node scripts/audit-ci.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -31,7 +31,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",

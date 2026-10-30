@@ -14,15 +14,15 @@ const nextConfig: NextConfig = {
           { key: 'Referrer-Policy', value: 'no-referrer' },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
+            value: 'camera=(), microphone=(), geolocation=()'
           },
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
-          },
-        ],
-      },
+            value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+          }
+        ]
+      }
     ];
-  },
+  }
 };
 export default nextConfig;

@@ -5,17 +5,15 @@ const timestamp = z.iso
   .datetime({ offset: true })
   .regex(
     /^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/,
-    'Use a valid timestamp with seconds and a timezone offset.',
+    'Use a valid timestamp with seconds and a timezone offset.'
   );
-export const versionSchema = z
-  .object({ version: z.number().int().min(0).max(2147483647) })
-  .strict();
+export const versionSchema = z.object({ version: z.number().int().min(0).max(2147483647) }).strict();
 const fields = {
   code: z
     .string()
     .trim()
     .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,49}$/)
-    .transform((s) => s.toUpperCase()),
+    .transform(s => s.toUpperCase()),
   discountType: z.enum(['PERCENTAGE', 'FIXED_AMOUNT']),
   discountValue: integer,
   validFrom: timestamp,
@@ -24,9 +22,10 @@ const fields = {
     .array(z.uuid())
     .min(1)
     .max(100)
-    .refine((ids) => new Set(ids).size === ids.length),
-  maxRedemptions: integer,
+    .refine(ids => new Set(ids).size === ids.length),
+  maxRedemptions: integer
 };
+
 function terms(
   value: {
     discountType: string;
@@ -34,19 +33,19 @@ function terms(
     validFrom: string;
     validUntil: string;
   },
-  ctx: z.RefinementCtx,
+  ctx: z.RefinementCtx
 ) {
   if (value.discountType === 'PERCENTAGE' && value.discountValue > 100)
     ctx.addIssue({
       code: 'custom',
       path: ['discountValue'],
-      message: 'Percentage must be between 1 and 100.',
+      message: 'Percentage must be between 1 and 100.'
     });
   if (Date.parse(value.validUntil) <= Date.parse(value.validFrom))
     ctx.addIssue({
       code: 'custom',
       path: ['validUntil'],
-      message: 'End must be after start.',
+      message: 'End must be after start.'
     });
 }
 export const createSchema = z
@@ -66,38 +65,32 @@ export const promotionSchema = z.object({
   currency: z.literal('LKR'),
   currentRedemptions: z.number().int().nonnegative(),
   status: z.enum(['ACTIVE', 'INACTIVE']),
-  lifecycleState: z.enum([
-    'ACTIVE',
-    'INACTIVE',
-    'SCHEDULED',
-    'EXPIRED',
-    'EXHAUSTED',
-    'DELETED',
-  ]),
+  lifecycleState: z.enum(['ACTIVE', 'INACTIVE', 'SCHEDULED', 'EXPIRED', 'EXHAUSTED', 'DELETED']),
   createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime()
 });
 export type Promotion = z.infer<typeof promotionSchema>;
 export const roomSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   priceMinor: z.number().int(),
-  maxGuests: z.number().int(),
+  maxGuests: z.number().int()
 });
 export type RoomType = z.infer<typeof roomSchema>;
+
 export function pageSchema<T extends z.ZodType>(item: T) {
   return z.object({
     items: z.array(item),
     total: z.number().int().nonnegative(),
     page: z.number().int().positive(),
-    pageSize: z.number().int().positive().max(100),
+    pageSize: z.number().int().positive().max(100)
   });
 }
 export const publicationLabel = (status: Promotion['publicationStatus']) =>
   ({
     PENDING: 'Publication pending; website availability unconfirmed.',
     FAILED: 'Publication failed; website availability unconfirmed.',
-    NO_PENDING_WORK: 'No pending work; website availability unconfirmed.',
+    NO_PENDING_WORK: 'No pending work; website availability unconfirmed.'
   })[status];
 
 export class PromotionError extends Error {
@@ -113,16 +106,17 @@ export class PromotionError extends Error {
               ? 'Invalid promotion. Check the fields, selected rooms and redemption limit.'
               : status === 404
                 ? 'Promotion no longer exists. Refresh the list.'
-                : 'Service unavailable. Refresh before retrying a save; it may already have succeeded.',
+                : 'Service unavailable. Refresh before retrying a save; it may already have succeeded.'
     );
   }
 }
+
 export async function promotionRequest<T>(
   path: string,
   schema: z.ZodType<T>,
   method = 'GET',
   body?: unknown,
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<T> {
   const response = await fetch('/api/promotions' + path, {
     method,
@@ -133,9 +127,10 @@ export async function promotionRequest<T>(
       ? {}
       : {
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        }),
+          body: JSON.stringify(body)
+        })
   });
+
   if (!response.ok) throw new PromotionError(response.status);
   return schema.parse(await response.json());
 }
@@ -156,30 +151,38 @@ export const emptyForm: PromotionForm = {
   validFrom: '',
   validUntil: '',
   maxRedemptions: '',
-  roomTypeIds: [],
+  roomTypeIds: []
 };
 // The form always uses hotel time, regardless of the manager's browser timezone.
 export function hotelInput(iso: string) {
-  return new Date(Date.parse(iso) + 330 * 60000).toISOString().slice(0, -1);
+  return new Date(Date.parse(iso) + 330 * 60000).toISOString().slice(0, 10);
 }
+
 export function formFrom(p: Promotion): PromotionForm {
   return {
     code: p.code,
     discountType: p.discountType,
     discountValue: String(p.discountValue),
     validFrom: hotelInput(p.validFrom),
-    validUntil: hotelInput(p.validUntil),
+    validUntil: hotelInput(new Date(Date.parse(p.validUntil) - 1).toISOString()),
     maxRedemptions: String(p.maxRedemptions),
-    roomTypeIds: p.roomTypeIds,
+    roomTypeIds: p.roomTypeIds
   };
 }
+
 export function formPayload(form: PromotionForm) {
-  const date = (s: string) => s + (s.length === 16 ? ':00' : '') + '+05:30';
+  const date = (value: string, exclusiveEnd = false) => {
+    if (!z.iso.date().safeParse(value).success || value.startsWith('0000')) return '';
+    const day = exclusiveEnd ? new Date(Date.parse(value) + 86400000).toISOString().slice(0, 10) : value;
+
+    return day + 'T00:00:00+05:30';
+  };
+
   return {
     ...form,
     discountValue: Number(form.discountValue),
     maxRedemptions: Number(form.maxRedemptions),
     validFrom: date(form.validFrom),
-    validUntil: date(form.validUntil),
+    validUntil: date(form.validUntil, true)
   };
 }

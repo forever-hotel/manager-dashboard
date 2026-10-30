@@ -1,5 +1,4 @@
 import { ReportsModule } from './reports/reports.module';
-import { SettingsModule } from './settings/settings.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { Module } from '@nestjs/common';
@@ -21,13 +20,12 @@ import { RealtimeModule } from './realtime/realtime.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      validate: validateEnvironment,
+      validate: validateEnvironment
     }),
     DatabaseModule,
     AuthModule,
     AnalyticsModule,
     ReportsModule,
-    SettingsModule,
     NotificationsModule,
     StaffModule,
     PromotionsModule,
@@ -35,8 +33,8 @@ import { RealtimeModule } from './realtime/realtime.module';
     KitchenModule,
     RoomsModule,
     TasksModule,
-    RealtimeModule,
+    RealtimeModule
   ],
-  controllers: [HealthController],
+  controllers: [HealthController]
 })
 export class AppModule {}

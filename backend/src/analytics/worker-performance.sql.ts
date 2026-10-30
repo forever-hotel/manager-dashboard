@@ -1,6 +1,6 @@
 export const WORKER_PERFORMANCE_SQL = `
 WITH calendar AS (
-  SELECT date_trunc($1,$3::timestamptz AT TIME ZONE $2) AS local_start
+  SELECT date_trunc($1,coalesce($5::date::timestamp,$3::timestamptz AT TIME ZONE $2)) AS local_start
 ), bounds AS (
   SELECT local_start AT TIME ZONE $2 AS period_start,
     (local_start + CASE $1 WHEN 'day' THEN interval '1 day'

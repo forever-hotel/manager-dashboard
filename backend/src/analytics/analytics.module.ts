@@ -1,4 +1,5 @@
 import { RevenueAnalyticsService } from './revenue-analytics.service';
+import { BookingDetailsService } from './booking-details.service';
 import { Module } from '@nestjs/common';
 import { LowBookingAlertsService } from './low-booking-alerts.service';
 import { AuthModule } from '../auth/auth.module';
@@ -10,10 +11,7 @@ import { ServiceRequestAnalyticsService } from './service-request-analytics.serv
 import { ServiceRequestAnalyticsController } from './service-request-analytics.controller';
 import { WorkerPerformanceController } from './worker-performance.controller';
 import { WorkerPerformanceService } from './worker-performance.service';
-import {
-  BOOKING_CLOCK,
-  BookingAnalyticsService,
-} from './booking-analytics.service';
+import { BOOKING_CLOCK, BookingAnalyticsService } from './booking-analytics.service';
 
 @Module({
   imports: [AuthModule],
@@ -21,18 +19,20 @@ import {
     WorkerPerformanceController,
     AnalyticsController,
     FoodAnalyticsController,
-    ServiceRequestAnalyticsController,
+    ServiceRequestAnalyticsController
   ],
   exports: [
+    BookingDetailsService,
     WorkerPerformanceService,
     ServiceRequestAnalyticsService,
     FoodAnalyticsService,
     LowBookingAlertsService,
     RevenueAnalyticsService,
     BookingAnalyticsService,
-    OccupancyAnalyticsService,
+    OccupancyAnalyticsService
   ],
   providers: [
+    BookingDetailsService,
     WorkerPerformanceService,
     ServiceRequestAnalyticsService,
     FoodAnalyticsService,
@@ -40,7 +40,7 @@ import {
     RevenueAnalyticsService,
     BookingAnalyticsService,
     OccupancyAnalyticsService,
-    { provide: BOOKING_CLOCK, useValue: () => new Date() },
-  ],
+    { provide: BOOKING_CLOCK, useValue: () => new Date() }
+  ]
 })
 export class AnalyticsModule {}

@@ -1,23 +1,8 @@
 import { Transform } from 'class-transformer';
-import {
-  IsEmail,
-  IsIn,
-  IsInt,
-  IsString,
-  Length,
-  Matches,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsEmail, IsIn, IsInt, IsString, Length, Matches, Max, Min } from 'class-validator';
 
-export const STAFF_ROLES = [
-  'RECEPTIONIST',
-  'WORKER',
-  'KITCHEN_STAFF',
-  'KITCHEN_MANAGER',
-] as const;
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
+export const STAFF_ROLES = ['RECEPTIONIST', 'WORKER', 'KITCHEN_STAFF', 'KITCHEN_MANAGER'] as const;
+const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
 export class CreateStaffDto {
   @Transform(trim)
@@ -32,9 +17,7 @@ export class CreateStaffDto {
   @Matches(/^[^\p{Cc}<>]+$/u)
   vocation!: string;
 
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim().toLowerCase() : value,
-  )
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
   @IsEmail()
   @Length(3, 320)
   email!: string;
@@ -49,9 +32,7 @@ export class CreateStaffDto {
   @Matches(/^\+?[0-9]{7,15}$/)
   phone!: string;
 
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim().toUpperCase() : value,
-  )
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
   @IsString()
   @Matches(/^(?:[0-9]{9}[VX]|[0-9]{12})$/)
   nic!: string;

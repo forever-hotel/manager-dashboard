@@ -1,17 +1,11 @@
 import { INestApplication, RequestMethod } from '@nestjs/common';
-import {
-  GUARDS_METADATA,
-  METHOD_METADATA,
-  PATH_METADATA,
-} from '@nestjs/common/constants';
+import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AuthService } from '../auth/auth.service';
-import { TokenService } from '../auth/token.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { configureHttp } from './http';
 import { AnalyticsController } from '../analytics/analytics.controller';
@@ -27,8 +21,7 @@ import { RoomsController } from '../rooms/rooms.controller';
 import { StaffController } from '../staff/staff.controller';
 import { TasksController } from '../tasks/tasks.controller';
 import { NotificationsController } from '../notifications/notifications.controller';
-import { TaskLimitController } from '../settings/task-limit.controller';
-// Real JWT/guard/session logic with isolated storage; feature e2e suites cover PostgreSQL.
+// Real backend guard/adapter with a gateway session contract fixture.
 const controllers = [
   AnalyticsController,
   FoodAnalyticsController,
@@ -42,34 +35,29 @@ const controllers = [
   RoomsController,
   StaffController,
   TasksController,
-  NotificationsController,
-  TaskLimitController,
+  NotificationsController
 ];
-const routes = controllers.flatMap((controller) => {
+const routes = controllers.flatMap(controller => {
   const prefix = Reflect.getMetadata(PATH_METADATA, controller) as string;
-  return Object.getOwnPropertyNames(controller.prototype).flatMap((name) => {
+
+  return Object.getOwnPropertyNames(controller.prototype).flatMap(name => {
     const handler = controller.prototype[name] as object;
-    const method = Reflect.getMetadata(METHOD_METADATA, handler) as
-      | RequestMethod
-      | undefined;
+    const method = Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod | undefined;
+
     if (method === undefined) return [];
-    const paths = Reflect.getMetadata(PATH_METADATA, handler) as
-      | string
-      | string[];
-    return (Array.isArray(paths) ? paths : [paths]).map((path) => ({
+    const paths = Reflect.getMetadata(PATH_METADATA, handler) as string | string[];
+
+    return (Array.isArray(paths) ? paths : [paths]).map(path => ({
       controller,
-      method:
-        method === RequestMethod.ALL
-          ? 'post'
-          : RequestMethod[method].toLowerCase(),
+      method: method === RequestMethod.ALL ? 'post' : RequestMethod[method].toLowerCase(),
       path:
         '/' +
         [prefix, path]
-          .map((part) => part.replace(/^\/+|\/+$/g, ''))
+          .map(part => part.replace(/^\/+|\/+$/g, ''))
           .filter(Boolean)
           .join('/')
           .replace(':id', '12345678-1234-4234-8234-123456789012')
-          .replace(':type', 'bookings'),
+          .replace(':type', 'bookings')
     }));
   });
 });
@@ -81,40 +69,59 @@ describe('DDP-035 protected REST boundaries', () => {
     worker_id: '12345678-1234-4234-8234-123456789012',
     role: 'WORKER',
     is_active: true,
-    session_version: 0,
+    session_version: 0
   };
+  const originalFetch = global.fetch;
+
   beforeAll(async () => {
+    global.fetch = jest.fn((_url, init) => {
+      const authorization = new Headers(init?.headers).get('authorization');
+
+      try {
+        jwt.verify(authorization?.slice(7) ?? '', { secret, issuer: 'mad', audience: 'mad', algorithms: ['HS256'] });
+      } catch {
+        return Promise.resolve(new Response('{}', { status: 401 }));
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            sub: account.worker_id,
+            username: 'worker',
+            role: 'WORKER',
+            expiresAt: 4102444800,
+            passwordChangeRequired: false
+          }),
+          { status: 200 }
+        )
+      );
+    });
     const module = await Test.createTestingModule({
       controllers,
       providers: [
         AuthService,
-        TokenService,
         JwtAuthGuard,
-        {
-          provide: DataSource,
-          useValue: { query: jest.fn().mockResolvedValue([account]) },
-        },
-        { provide: JwtService, useValue: jwt },
         {
           provide: ConfigService,
           useValue: {
-            getOrThrow: (name: string) =>
-              name === 'JWT_SECRET' ? secret : 'mad',
-          },
-        },
-      ],
+            getOrThrow: () => 'http://gateway.test'
+          }
+        }
+      ]
     })
       .useMocker(() => ({}))
       .compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.init();
   });
   afterAll(async () => {
     await app?.close();
+    global.fetch = originalFetch;
   });
   function token(expired = false) {
     const now = Math.floor(Date.now() / 1000) - (expired ? 30000 : 0);
+
     return jwt.sign(
       {
         sub: account.worker_id,
@@ -122,34 +129,31 @@ describe('DDP-035 protected REST boundaries', () => {
         role: 'WORKER',
         ver: 0,
         iat: now,
-        exp: now + 28800,
+        exp: now + 28800
       },
-      { secret, issuer: 'mad', audience: 'mad', algorithm: 'HS256' },
+      { secret, issuer: 'mad', audience: 'mad', algorithm: 'HS256' }
     );
   }
   it.each(routes)(
     '$method $path rejects missing, malformed, expired and disallowed-role sessions',
     async ({ controller, method, path }) => {
-      expect(Reflect.getMetadata(GUARDS_METADATA, controller)).toContain(
-        JwtAuthGuard,
-      );
+      expect(Reflect.getMetadata(GUARDS_METADATA, controller)).toContain(JwtAuthGuard);
       for (const [authorization, status] of [
         [undefined, 401],
         ['Bearer invalid', 401],
         ['Bearer ' + token(true), 401],
-        ['Bearer ' + token(), 403],
+        ['Bearer ' + token(), 403]
       ] as const) {
         const client = request(app.getHttpServer());
-        const send =
-          client[method as 'get' | 'post' | 'put' | 'patch' | 'delete'](path);
+        const send = client[method as 'get' | 'post' | 'put' | 'patch' | 'delete'](path);
+
         if (authorization) send.set('Authorization', authorization);
         const response = await send.send({}).expect(status);
-        expect((response.body as { code: string }).code).toBe(
-          status === 401 ? 'UNAUTHENTICATED' : 'FORBIDDEN',
-        );
+
+        expect((response.body as { code: string }).code).toBe(status === 401 ? 'UNAUTHENTICATED' : 'FORBIDDEN');
         expect(response.headers['cache-control']).toBe('no-store');
         expect(response.headers['x-content-type-options']).toBe('nosniff');
       }
-    },
+    }
   );
 });

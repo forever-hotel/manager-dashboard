@@ -1,6 +1,11 @@
 import type { Overview, Period } from '@/lib/analytics';
+
 export function overview(period: Period = 'week', total = 4): Overview {
   return {
+    averageLengthOfStay: total ? 2.4 : null,
+    occupancy: { rate: 0.5, occupiedRoomNights: 14, eligibleRoomNights: 28, roomsUsingCreationDate: 0 },
+    recentBookings: [],
+    bookingList: { total: 0, page: 1, pageSize: 5 },
     bookings: {
       period,
       timezone: 'Asia/Colombo',
@@ -13,9 +18,9 @@ export function overview(period: Period = 'week', total = 4): Overview {
           date: '2026-10-12',
           start: '2026-10-11T18:30:00.000Z',
           end: '2026-10-12T18:30:00.000Z',
-          count: total,
-        },
-      ],
+          count: total
+        }
+      ]
     },
     revenue: {
       period,
@@ -31,7 +36,7 @@ export function overview(period: Period = 'week', total = 4): Overview {
       currentMinor: 20001,
       previousMinor: 10000,
       percentageChange: 100.01,
-      percentageUnavailableReason: null,
-    },
+      percentageUnavailableReason: null
+    }
   };
 }

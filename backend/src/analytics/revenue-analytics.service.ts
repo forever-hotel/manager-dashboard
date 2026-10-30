@@ -1,8 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { BOOKING_CLOCK, BOOKING_TIMEZONE } from './booking-analytics.service';
 import { BookingPeriod } from './booking-query.dto';
@@ -26,13 +22,15 @@ SELECT start,finish,previous_start,current::text,previous::text,
  CASE WHEN previous=0 THEN NULL ELSE round((current-previous)*100/previous,2)::text END AS percentage,
  invalid::text FROM bounds CROSS JOIN totals
 `;
+
 @Injectable()
 export class RevenueAnalyticsService {
   constructor(
     private readonly database: DataSource,
-    @Inject(BOOKING_CLOCK) private readonly now: () => Date,
+    @Inject(BOOKING_CLOCK) private readonly now: () => Date
   ) {}
-  async summary(period: BookingPeriod, asOf?: string) {
+
+  async summary(period: BookingPeriod, asOf?: string, date?: string) {
     try {
       asOf ??= this.now().toISOString();
       const rows = await this.database.query<
@@ -45,19 +43,20 @@ export class RevenueAnalyticsService {
           percentage: string | null;
           invalid: string;
         }[]
-      >(REVENUE_SQL, [period, BOOKING_TIMEZONE, asOf]);
+      >(REVENUE_SQL, [period, BOOKING_TIMEZONE, date ? `${date}T12:00:00.000Z` : asOf]);
       const row = rows[0];
-      if (!row || Number(row.invalid) > 0)
+
+      if (rows.length !== 1 || !row || row.invalid !== '0' || !/^\d+$/.test(row.current) || !/^\d+$/.test(row.previous))
         throw new Error('Invalid payment data');
       const current = Number(row.current),
         previous = Number(row.previous);
-      const percentage =
-        row.percentage === null ? null : Number(row.percentage);
+      const percentage = row.percentage === null ? null : Number(row.percentage);
+
       if (
-        ![current, previous].every(
-          (value) => Number.isSafeInteger(value) && value >= 0,
-        ) ||
-        (percentage !== null && !Number.isFinite(percentage))
+        ![current, previous].every(value => Number.isSafeInteger(value) && value >= 0) ||
+        (previous === 0
+          ? row.percentage !== null
+          : row.percentage === null || !/^-?\d+(\.\d{1,2})?$/.test(row.percentage) || !Number.isFinite(percentage))
       )
         throw new Error('Invalid aggregate');
       return {
@@ -74,8 +73,7 @@ export class RevenueAnalyticsService {
         currentMinor: current,
         previousMinor: previous,
         percentageChange: percentage,
-        percentageUnavailableReason:
-          previous === 0 ? 'PREVIOUS_REVENUE_ZERO' : null,
+        percentageUnavailableReason: previous === 0 ? 'PREVIOUS_REVENUE_ZERO' : null
       };
     } catch {
       throw new ServiceUnavailableException();

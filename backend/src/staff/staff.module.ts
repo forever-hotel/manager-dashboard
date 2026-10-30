@@ -17,7 +17,7 @@ import { StaffDeliveryWorker } from './staff-delivery.worker';
     StaffProfilesService,
     CredentialCipher,
     SendGridService,
-    StaffDeliveryWorker,
-  ],
+    StaffDeliveryWorker
+  ]
 })
 export class StaffModule {}

@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-  All,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, All, ForbiddenException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TasksQueryDto } from './tasks-query.dto';
 import { TasksService } from './tasks.service';
@@ -14,10 +7,12 @@ import { TasksService } from './tasks.service';
 @UseGuards(JwtAuthGuard)
 export class TasksController {
   constructor(private readonly tasks: TasksService) {}
+
   @All([':id/claim', ':id/assign', ':id/complete'])
   denyMutation() {
     throw new ForbiddenException();
   }
+
   @Get()
   list(@Query() query: TasksQueryDto) {
     return this.tasks.snapshot(query);

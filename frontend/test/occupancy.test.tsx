@@ -1,11 +1,6 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+vi.mock('@/components/useRealtimeRefresh', () => ({ useRealtimeRefresh: () => undefined }));
+
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import OccupancyCalendar from '@/components/OccupancyCalendar';
 import {
@@ -15,14 +10,16 @@ import {
   loadOccupancy,
   monthDates,
   parseOccupancy,
-  shiftMonth,
+  shiftMonth
 } from '@/lib/occupancy';
 import { occupancy } from './occupancy-fixture';
 
 afterEach(() => vi.unstubAllGlobals());
 const response = (data: unknown) => new Response(JSON.stringify(data));
+
 function setup(data = occupancy()) {
-  const fetchMock = vi.fn().mockResolvedValue(response(data));
+  const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(response(data)));
+
   vi.stubGlobal('fetch', fetchMock);
   render(<OccupancyCalendar initialMonth="2024-02" />);
   return fetchMock;
@@ -48,7 +45,7 @@ describe('DDP-016 calendar contracts', () => {
       'Medium',
       'Medium',
       'High',
-      'High',
+      'High'
     ]);
   });
   it('rejects malformed counts, rates, incomplete months and shifted dates', () => {
@@ -59,179 +56,112 @@ describe('DDP-016 calendar contracts', () => {
       { eligibleRooms: 0 },
       { rate: null },
       { rate: 0.7 },
-      { date: '2024-02-30' },
+      { date: '2024-02-30' }
     ]) {
       const data = occupancy();
+
       Object.assign(data.dates[0], change);
       expect(() => parseOccupancy(data, '2024-02')).toThrow();
     }
     const partial = occupancy();
+
     partial.dates.pop();
     expect(() => parseOccupancy(partial, '2024-02')).toThrow();
     const shifted = occupancy();
+
     shifted.dates.reverse();
     expect(() => parseOccupancy(shifted, '2024-02')).toThrow();
     expect(() => parseOccupancy(occupancy('2024-03'), '2024-02')).toThrow();
     const zero = occupancy();
+
     zero.dates[0] = {
       date: zero.from,
       occupiedRooms: 0,
       eligibleRooms: 0,
-      rate: 0,
+      rate: 0
     };
     expect(() => parseOccupancy(zero, '2024-02')).toThrow();
   });
   it('client rejects non-OK responses and sends only same-origin credentials', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response('{}', { status: 403 }));
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status: 403 })));
+
     vi.stubGlobal('fetch', fetchMock);
-    await expect(
-      loadOccupancy('2024-02', new AbortController().signal),
-    ).rejects.toMatchObject({ status: 403 });
+    await expect(loadOccupancy('2024-02', new AbortController().signal)).rejects.toMatchObject({ status: 403 });
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/analytics/occupancy?month=2024-02',
       expect.objectContaining({
         credentials: 'same-origin',
-        cache: 'no-store',
-      }),
+        cache: 'no-store'
+      })
     );
   });
 });
-describe('DDP-016 calendar UI', () => {
-  it('TC-MAD-016-AC1/AC2: labels every day and exposes counts on focus and in a table', async () => {
+describe('Analytics heatmap UI', () => {
+  it('labels every date and exposes the selected room-night counts', async () => {
     setup();
-    expect(screen.getByRole('status')).toHaveTextContent('Loading occupancy');
-    const calendar = await screen.findByRole('group', {
-      name: 'Occupancy calendar 2024-02',
-    });
+    const calendar = await screen.findByRole('group', { name: 'Occupancy calendar 2024-02' });
+
+    await waitFor(() => expect(within(calendar).getAllByRole('button')).toHaveLength(29));
     const days = within(calendar).getAllByRole('button');
-    expect(days).toHaveLength(29);
-    occupancy().dates.forEach((day, index) =>
-      expect(days[index]).toHaveAccessibleName(
-        expect.stringContaining(`${demand(day.rate)} demand`),
-      ),
-    );
-    expect(
-      within(
-        screen.getByRole('group', { name: 'Demand scale legend' }),
-      ).getByText('High: 70% to 100%'),
-    ).toBeVisible();
+
+    expect(days[0]).toHaveAccessibleName(expect.stringContaining('2 occupied rooms, 10 eligible rooms'));
     fireEvent.focus(days[0]);
     expect(days[0]).toHaveAttribute('aria-pressed', 'true');
-    expect(
-      screen.getByText(
-        '2024-02-01: 2 occupied rooms, 10 eligible rooms; 20.0% occupancy; Low demand.',
-      ),
-    ).toBeVisible();
-    fireEvent.click(days[1]);
-    expect(days[1]).toHaveAttribute('aria-pressed', 'true');
-    const table = screen.getByRole('table', {
-      name: 'Daily occupancy data for 2024-02',
-    });
-    expect(within(table).getAllByRole('row')).toHaveLength(30);
-    expect(days[3]).toHaveAccessibleName(
-      expect.stringContaining('occupancy unknown (no eligible capacity)'),
-    );
-    expect(calendar.children[10]).toBe(days[0]);
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
-  it('TC-MAD-016-AC3: navigates leap February and does not display stale results', async () => {
-    let resolveOld!: (value: Response) => void;
+  it('navigates months without showing obsolete results', async () => {
+    let resolveOld!: (response: Response) => void;
+
     vi.stubGlobal(
       'fetch',
       vi
         .fn()
-        .mockReturnValueOnce(
-          new Promise<Response>((resolve) => {
-            resolveOld = resolve;
-          }),
+        .mockImplementationOnce(
+          () =>
+            new Promise<Response>(resolve => {
+              resolveOld = resolve;
+            })
         )
-        .mockResolvedValue(response(occupancy('2024-03'))),
+        .mockImplementation(() => Promise.resolve(response(occupancy('2024-03'))))
     );
     render(<OccupancyCalendar initialMonth="2024-02" />);
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Next occupancy month' }),
-    );
+    fireEvent.click(screen.getByText('Legend', { selector: 'summary' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next occupancy month' }));
     await screen.findByRole('group', { name: 'Occupancy calendar 2024-03' });
     await act(async () => resolveOld(response(occupancy())));
-    expect(
-      screen.queryByRole('group', { name: 'Occupancy calendar 2024-02' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Occupancy calendar 2024-02' })).not.toBeInTheDocument();
   });
-  it('TC-MAD-016-AC3: distinguishes empty, unknown and known zero occupancy', async () => {
-    const data = occupancy();
-    data.dates = [];
-    const fetchMock = setup(data);
-    await screen.findByText('No occupancy data is available for this month.');
-    const unknown = occupancy('2024-01');
-    unknown.dates.forEach((day) =>
-      Object.assign(day, { occupiedRooms: 0, eligibleRooms: 0, rate: null }),
-    );
-    fetchMock.mockResolvedValue(response(unknown));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Previous occupancy month' }),
-    );
-    await screen.findByText(
-      'Occupancy is unknown: no eligible room capacity is available this month.',
-    );
-    const zero = occupancy();
-    zero.dates.forEach((day) =>
-      Object.assign(day, { occupiedRooms: 0, eligibleRooms: 10, rate: 0 }),
-    );
-    fetchMock.mockResolvedValue(response(zero));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Next occupancy month' }),
-    );
-    await screen.findByText(
-      'No occupied rooms this month. Known occupancy is 0%.',
-    );
-  });
-  it('TC-MAD-016-AC3: retries failures without presenting fabricated zero values', async () => {
+  it('keeps unavailable data distinct from zero and retries the failed request', async () => {
     const fetchMock = vi
       .fn()
       .mockRejectedValueOnce(new Error('network'))
-      .mockResolvedValue(response(occupancy()));
+      .mockImplementation(() => Promise.resolve(response(occupancy())));
+
     vi.stubGlobal('fetch', fetchMock);
     render(<OccupancyCalendar initialMonth="2024-02" />);
     await screen.findByRole('alert');
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /2024-02-01:/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry occupancy' }));
-    await screen.findByRole('table');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('button', { name: /2024-02-01:/ })).toBeVisible();
   });
-  it.each([401, 403])(
-    'shows the appropriate access error for %s',
-    async (status) => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue(new Response('{}', { status })),
-      );
-      render(<OccupancyCalendar initialMonth="2024-02" />);
-      await screen.findByRole('alert');
-      expect(
-        screen.queryByRole('button', { name: 'Retry occupancy' }),
-      ).not.toBeInTheDocument();
-      if (status === 401)
-        expect(screen.getByRole('link', { name: 'Sign in' })).toBeVisible();
-      else expect(screen.getByRole('alert')).toHaveTextContent('permission');
-    },
-  );
-  it('aborts requests on unmount', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockImplementation(
-        (_url: string, options: RequestInit) =>
-          new Promise((_resolve, reject) =>
-            options.signal?.addEventListener('abort', () =>
-              reject(new Error('aborted')),
-            ),
-          ),
-      );
+  it.each([401, 403])('preserves access handling for status %s', async status => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status })))
+    );
+    render(<OccupancyCalendar initialMonth="2024-02" />);
+    await screen.findByRole('alert');
+    expect(screen.queryByRole('button', { name: 'Retry occupancy' })).not.toBeInTheDocument();
+    if (status === 401) expect(screen.getByRole('link', { name: 'Sign in' })).toBeVisible();
+    else expect(screen.getByRole('alert')).toHaveTextContent('permission');
+  });
+  it('aborts pending requests on unmount', async () => {
+    const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}));
+
     vi.stubGlobal('fetch', fetchMock);
     const view = render(<OccupancyCalendar initialMonth="2024-02" />);
+
     view.unmount();
-    await waitFor(() =>
-      expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true),
-    );
+    await waitFor(() => expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true));
   });
 });

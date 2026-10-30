@@ -3,14 +3,11 @@ import {
   HttpException,
   Injectable,
   NotFoundException,
-  ServiceUnavailableException,
+  ServiceUnavailableException
 } from '@nestjs/common';
 import { isISO8601, isUUID } from 'class-validator';
 import { DataSource } from 'typeorm';
-import {
-  NotificationPageDto,
-  NotificationIdentityDto,
-} from './notifications.dto';
+import { NotificationPageDto, NotificationIdentityDto } from './notifications.dto';
 
 // Read source state on every reconciliation: neither event delivery nor read state
 // is allowed to conceal an unresolved issue. No descriptions or internal notes.
@@ -55,19 +52,23 @@ interface Row {
   invalid: boolean;
   items: NotificationItem[];
 }
+
 function count(value: number) {
   return Number.isSafeInteger(value) && value >= 0;
 }
+
 @Injectable()
 export class NotificationsService {
   constructor(private readonly database: DataSource) {}
+
   async snapshot(manager: string, page: NotificationPageDto) {
     try {
       const [row] = await this.database.query<Row[]>(SNAPSHOT_SQL, [
         manager,
         page.pageSize,
-        (page.page - 1) * page.pageSize,
+        (page.page - 1) * page.pageSize
       ]);
+
       if (
         !row ||
         row.invalid !== false ||
@@ -77,16 +78,13 @@ export class NotificationsService {
         !(row.queried_at instanceof Date) ||
         !Number.isFinite(row.queried_at.getTime()) ||
         !Array.isArray(row.items) ||
-        row.items.length !==
-          Math.min(
-            page.pageSize,
-            Math.max(0, row.total - (page.page - 1) * page.pageSize),
-          )
+        row.items.length !== Math.min(page.pageSize, Math.max(0, row.total - (page.page - 1) * page.pageSize))
       )
         throw new Error();
       const seen = new Set<string>();
-      const items = row.items.map((item) => {
+      const items = row.items.map(item => {
         const key = item?.type + ':' + item?.sourceId;
+
         if (
           !item ||
           !['COMPLAINT', 'STOCK'].includes(item.type) ||
@@ -123,9 +121,10 @@ export class NotificationsService {
           href:
             item.type === 'COMPLAINT'
               ? '/complaints?complaintId=' + item.sourceId
-              : '/notifications?page=' + page.page + '#stock-' + item.sourceId,
+              : '/notifications?page=' + page.page + '#stock-' + item.sourceId
         };
       });
+
       return {
         items,
         total: row.total,
@@ -133,36 +132,32 @@ export class NotificationsService {
         counts: { complaints: row.complaints, stock: row.stock },
         page: page.page,
         pageSize: page.pageSize,
-        queriedAt: row.queried_at.toISOString(),
+        queriedAt: row.queried_at.toISOString()
       };
     } catch {
       throw new ServiceUnavailableException();
     }
   }
-  async markRead(
-    manager: string,
-    identity: NotificationIdentityDto,
-    revision: string,
-  ) {
+
+  async markRead(manager: string, identity: NotificationIdentityDto, revision: string) {
     try {
-      await this.database.transaction(async (db) => {
+      await this.database.transaction(async db => {
         const rows = await db.query<{ entity_id: string }[]>(
           `${ACTIVE_NOTIFICATIONS}
  INSERT INTO public.mad_notification_reads(manager_id,type,entity_id,revision,read_at)
  SELECT $1,type,id,revision,clock_timestamp() FROM active WHERE type=$2 AND id=$3 AND revision=$4
  ON CONFLICT(manager_id,type,entity_id) DO UPDATE SET revision=EXCLUDED.revision,read_at=EXCLUDED.read_at RETURNING entity_id`,
-          [manager, identity.type, identity.id, revision],
+          [manager, identity.type, identity.id, revision]
         );
+
         if (!rows.length) {
           const current = await db.query<{ id: string }[]>(
             `${ACTIVE_NOTIFICATIONS} SELECT id FROM active WHERE type=$1 AND id=$2`,
-            [identity.type, identity.id],
+            [identity.type, identity.id]
           );
-          if (!current.length)
-            throw new NotFoundException('The alert is no longer active.');
-          throw new ConflictException(
-            'The alert changed. Reload before marking it read.',
-          );
+
+          if (!current.length) throw new NotFoundException('The alert is no longer active.');
+          throw new ConflictException('The alert changed. Reload before marking it read.');
         }
       });
       return { read: true };
@@ -171,14 +166,13 @@ export class NotificationsService {
       throw new ServiceUnavailableException();
     }
   }
+
   async fingerprint() {
-    const [row] = await this.database.query<
-      { revision: string }[]
-    >(`${ACTIVE_NOTIFICATIONS}
+    const [row] = await this.database.query<{ revision: string }[]>(`${ACTIVE_NOTIFICATIONS}
  SELECT md5(COALESCE((SELECT string_agg(type||id::text||revision,'|' ORDER BY type,id) FROM active),'')||
  COALESCE((SELECT max(read_at)::text||count(*)::text FROM public.mad_notification_reads),'')) AS revision`);
-    if (!row || !/^[a-f0-9]{32}$/.test(row.revision))
-      throw new Error('Notification source unavailable');
+
+    if (!row || !/^[a-f0-9]{32}$/.test(row.revision)) throw new Error('Notification source unavailable');
     return row.revision;
   }
 }

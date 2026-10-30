@@ -2,6 +2,7 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import { isSession, safeDestination } from '@/lib/auth';
 import { httpUrl, serverConfig } from '@/lib/environment';
 import { backend } from '@/lib/backend';
+
 describe('Configuration, redirects and server transport', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -13,9 +14,12 @@ describe('Configuration, redirects and server transport', () => {
     '//evil.test',
     '/\\evil.test',
     '/login',
+    '/reports',
+    '/settings',
+    '/reports?period=month',
     'https://evil.test',
-    '/rooms\n',
-  ])('rejects unsafe redirect %s', (value) => {
+    '/rooms\n'
+  ])('rejects unsafe redirect %s', value => {
     expect(safeDestination(value)).toBe('/analytics');
   });
   it('keeps intended dashboard paths and query strings', () => {
@@ -27,8 +31,9 @@ describe('Configuration, redirects and server transport', () => {
       username: 'manager',
       role: 'MANAGER',
       expiresAt: Math.floor(Date.now() / 1000) + 100,
-      passwordChangeRequired: false,
+      passwordChangeRequired: false
     };
+
     expect(isSession(value)).toBe(true);
     for (const change of [
       { sub: 1 },
@@ -36,7 +41,7 @@ describe('Configuration, redirects and server transport', () => {
       { role: 'WORKER' },
       { expiresAt: 1 },
       { expiresAt: 2.5 },
-      { passwordChangeRequired: undefined },
+      { passwordChangeRequired: undefined }
     ])
       expect(isSession({ ...value, ...change })).toBe(false);
     expect(isSession(null)).toBe(false);
@@ -49,8 +54,8 @@ describe('Configuration, redirects and server transport', () => {
     'ftp://test',
     'http://user:secret@test',
     'http://test?q=x',
-    'http://test#fragment',
-  ])('redacts invalid URL %s', (value) => {
+    'http://test#fragment'
+  ])('redacts invalid URL %s', value => {
     expect(() => httpUrl('API_URL', value)).toThrow('Configuration: API_URL');
   });
   it('normalizes a valid URL and rejects an origin containing a path', () => {
@@ -63,17 +68,18 @@ describe('Configuration, redirects and server transport', () => {
     vi.stubEnv('BACKEND_API_URL', 'http://localhost:4000');
     vi.stubEnv('BACKEND_API_MODE', 'direct');
     const fetcher = vi.fn().mockResolvedValue(new Response('{"ok":true}'));
+
     vi.stubGlobal('fetch', fetcher);
     expect(await backend('/test', 'POST', 'token', { a: 1 })).toEqual({
       status: 200,
-      data: { ok: true },
+      data: { ok: true }
     });
     expect(fetcher).toHaveBeenCalledWith(
       'http://localhost:4000/test',
       expect.objectContaining({
         cache: 'no-store',
-        headers: expect.objectContaining({ Authorization: 'Bearer token' }),
-      }),
+        headers: expect.objectContaining({ Authorization: 'Bearer token' })
+      })
     );
     await backend('/health');
     fetcher.mockRejectedValue(new Error('private details'));
@@ -83,9 +89,8 @@ describe('Configuration, redirects and server transport', () => {
     vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');
     vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080');
     vi.stubEnv('BACKEND_API_MODE', 'gateway');
-    const fetcher = vi
-      .fn()
-      .mockImplementation(() => Promise.resolve(new Response('{}')));
+    const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response('{}')));
+
     vi.stubGlobal('fetch', fetcher);
     for (const [path, target] of [
       ['/auth/login', '/mad/auth/login'],
@@ -93,28 +98,34 @@ describe('Configuration, redirects and server transport', () => {
       ['/auth/logout', '/mad/auth/logout'],
       ['/auth/change-password', '/mad/auth/change-password'],
       ['/health/ready', '/mad/health/ready'],
-      [
-        '/mad/analytics/bookings?period=week',
-        '/mad/analytics/bookings?period=week',
-      ],
+      ['/mad/analytics/overview?period=week', '/mad/analytics/overview?period=week']
     ]) {
       await backend(path, 'GET', 'token');
       expect(fetcher).toHaveBeenLastCalledWith(
         'http://localhost:8080' + target,
         expect.objectContaining({
-          headers: expect.objectContaining({ Authorization: 'Bearer token' }),
-        }),
+          headers: expect.objectContaining({ Authorization: 'Bearer token' })
+        })
       );
     }
   });
   it('does not treat gateway rate limits as invalid sessions', async () => {
     vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');
     vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 429 })));
+    expect((await backend('/auth/session', 'GET', 'token')).status).toBe(503);
+  });
+  it('preserves rate-limit timing while keeping session throttling transient', async () => {
+    vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');
+    vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080');
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(new Response('{}', { status: 429 })),
+      vi.fn().mockResolvedValue(new Response('{}', { status: 429, headers: { 'Retry-After': '37' } }))
     );
-    expect((await backend('/auth/session', 'GET', 'token')).status).toBe(503);
+    expect(await backend('/auth/login', 'POST')).toMatchObject({
+      status: 503,
+      data: { code: 'RATE_LIMITED', retryAfter: 37 }
+    });
   });
   it('rejects ambiguous backend origins and transport modes', () => {
     vi.stubEnv('APP_ORIGIN', 'http://localhost:3000');

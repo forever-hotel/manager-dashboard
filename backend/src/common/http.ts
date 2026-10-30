@@ -1,18 +1,11 @@
-import {
-  ArgumentsHost,
-  Catch,
-  ExceptionFilter,
-  HttpException,
-  INestApplication,
-  ValidationPipe,
-} from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, INestApplication, ValidationPipe } from '@nestjs/common';
 import { Response } from 'express';
+import { operationsTelemetry } from '../operations/operations.telemetry';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
-    const status =
-      exception instanceof HttpException ? exception.getStatus() : 500;
+    const status = exception instanceof HttpException ? exception.getStatus() : 500;
     const codes: Record<number, string> = {
       400: 'VALIDATION_ERROR',
       401: 'UNAUTHENTICATED',
@@ -22,14 +15,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
       413: 'PAYLOAD_TOO_LARGE',
       422: 'REPORT_TOO_LARGE',
       429: 'RATE_LIMITED',
-      503: 'SERVICE_UNAVAILABLE',
+      503: 'SERVICE_UNAVAILABLE'
     };
-    const body =
-      exception instanceof HttpException ? exception.getResponse() : null;
-    const custom =
-      typeof body === 'object' && body !== null
-        ? (body as { code?: string; message?: unknown })
-        : null;
+    const body = exception instanceof HttpException ? exception.getResponse() : null;
+    const custom = typeof body === 'object' && body !== null ? (body as { code?: string; message?: unknown }) : null;
     const message =
       status >= 500
         ? 'Service temporarily unavailable. Please retry.'
@@ -38,19 +27,15 @@ export class ApiExceptionFilter implements ExceptionFilter {
           : typeof custom?.message === 'string'
             ? custom.message
             : 'The request could not be processed.';
+
     host
       .switchToHttp()
       .getResponse<Response>()
       .status(status)
       .json({
-        code:
-          (status < 500 ? custom?.code : undefined) ??
-          codes[status] ??
-          'INTERNAL_ERROR',
+        code: (status < 500 ? custom?.code : undefined) ?? codes[status] ?? 'INTERNAL_ERROR',
         message,
-        ...(status === 400 && Array.isArray(custom?.message)
-          ? { details: custom.message }
-          : {}),
+        ...(status === 400 && Array.isArray(custom?.message) ? { details: custom.message } : {})
       });
   }
 }
@@ -64,13 +49,14 @@ export function configureHttp(app: INestApplication) {
     response.setHeader('Referrer-Policy', 'no-referrer');
     next();
   });
+  app.use(operationsTelemetry.observe.bind(operationsTelemetry));
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      validationError: { target: false, value: false },
-    }),
+      validationError: { target: false, value: false }
+    })
   );
   app.useGlobalFilters(new ApiExceptionFilter());
   app.enableCors({ origin: process.env.FRONTEND_URL, credentials: true });

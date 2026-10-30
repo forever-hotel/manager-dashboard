@@ -12,13 +12,13 @@ export const staffFixture = () => ({
   isActive: true,
   passwordChangeRequired: true,
   version: 0,
-  deliveryStatus: 'pending' as const,
+  deliveryStatus: 'pending' as const
 });
 export const staffPageFixture = () => ({
   items: [staffFixture()],
   total: 1,
   page: 1,
-  pageSize: 20,
+  pageSize: 20
 });
 export const staffInputFixture = () => ({
   name: 'New Worker',
@@ -27,5 +27,5 @@ export const staffInputFixture = () => ({
   age: 25,
   phone: '+94771234567',
   nic: '200012345678',
-  role: 'WORKER',
+  role: 'WORKER'
 });

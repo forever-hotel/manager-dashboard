@@ -6,6 +6,9 @@ const pageNumber = ({ value }: { value: unknown }) =>
 
 export class KitchenQueryDto {
   @IsOptional()
+  @IsIn(['true', 'false'])
+  activeOnly?: string;
+  @IsOptional()
   @IsIn(['PLACED', 'IN_PREPARATION', 'READY', 'DELIVERED'])
   status?: string;
 

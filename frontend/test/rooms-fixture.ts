@@ -1,4 +1,5 @@
 import { roomStatuses } from '@/lib/rooms';
+
 export const roomsSnapshot = () => ({
   rooms: roomStatuses.map((status, index) => ({
     id: String(101 + index),
@@ -9,9 +10,9 @@ export const roomsSnapshot = () => ({
     status,
     label: String(status),
     updatedAt: '2026-10-20T00:00:00Z',
-    version: 1,
+    version: 1
   })),
   queriedAt: '2026-10-20T00:00:00Z',
   source: 'FDS' as const,
-  readOnly: true as const,
+  readOnly: true as const
 });

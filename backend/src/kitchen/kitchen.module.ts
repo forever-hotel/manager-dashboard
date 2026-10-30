@@ -6,6 +6,6 @@ import { KitchenService } from './kitchen.service';
 @Module({
   imports: [AuthModule],
   controllers: [KitchenController],
-  providers: [KitchenService],
+  providers: [KitchenService]
 })
 export class KitchenModule {}

@@ -6,8 +6,11 @@ WITH dates AS (
   SELECT day::date AS stay_date
   FROM generate_series($1::date::timestamp, $2::date::timestamp, interval '1 day') day
 ), rooms AS (
-  SELECT DISTINCT room_id, active_from, active_to
-  FROM public.mad_occupancy_rooms
+  SELECT DISTINCT source.room_id,
+    COALESCE(source.active_from, (inventory.created_at AT TIME ZONE 'Asia/Colombo')::date) AS active_from,
+    source.active_to, source.active_from IS NULL AS uses_creation_date
+  FROM public.mad_occupancy_rooms source
+  LEFT JOIN public.rooms inventory ON inventory.room_number::text = source.room_id::text
 ), allocations AS (
   SELECT DISTINCT room_id, check_in_date, check_out_date
   FROM public.mad_occupancy_allocations
@@ -42,7 +45,8 @@ WITH dates AS (
 SELECT to_char(d.stay_date, 'YYYY-MM-DD') AS date,
   COUNT(n.room_id)::text AS eligible_rooms,
   COUNT(n.room_id) FILTER (WHERE n.occupied)::text AS occupied_rooms,
-  f.source_updated_at, statement_timestamp() AS queried_at
+  f.source_updated_at, statement_timestamp() AS queried_at,
+  (SELECT COUNT(*)::text FROM rooms WHERE uses_creation_date) AS fallback_rooms
 FROM dates d LEFT JOIN nights n ON n.stay_date = d.stay_date
 CROSS JOIN freshness f
 -- Missing room history must not be represented as zero eligible rooms.

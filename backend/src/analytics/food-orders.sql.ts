@@ -12,6 +12,18 @@ WITH calendar AS (
   WHERE o.placed_at>=period_start AND o.placed_at<period_end
 ), orders AS MATERIALIZED (
   SELECT * FROM candidates WHERE status::text=ANY($4::text[])
+), deliveries AS MATERIALIZED (
+  SELECT order_id,placed_at,delivered_at,total_amount,updated_at
+  FROM public.kms_food_orders,period
+  WHERE status::text='DELIVERED' AND delivered_at>=period_start AND delivered_at<period_end
+), delivery_stats AS (
+  SELECT count(*)::text AS delivered_count,
+    count(*) FILTER (WHERE placed_at IS NOT NULL AND delivered_at>=placed_at)::text AS valid_duration_count,
+    count(*) FILTER (WHERE placed_at IS NULL OR delivered_at<placed_at)::text AS invalid_duration_count,
+    avg(extract(epoch FROM (delivered_at-placed_at))/60) FILTER (WHERE placed_at IS NOT NULL AND delivered_at>=placed_at)::float8 AS average_delivery_minutes,
+    COALESCE(sum(total_amount),0)::text AS sales_minor,
+    count(*) FILTER (WHERE total_amount IS NULL OR total_amount<0)::text AS invalid_amount_count
+  FROM deliveries
 ), days AS (
   SELECT day::date AS date FROM period,LATERAL generate_series(local_start,local_end-interval '1 day',interval '1 day') day
 ), daily AS (
@@ -24,7 +36,7 @@ WITH calendar AS (
   GROUP BY i.menu_item_id,i.name
   ORDER BY sum(i.quantity) DESC,i.name COLLATE "C" ASC,i.menu_item_id ASC LIMIT 10
 ), freshness AS (
-  SELECT greatest((SELECT max(updated_at) FROM candidates),
+  SELECT greatest((SELECT max(updated_at) FROM candidates),(SELECT max(updated_at) FROM deliveries),
     (SELECT max(i.updated_at) FROM public.kms_food_order_items i JOIN candidates c USING(order_id))) AS source_updated_at
 )
 SELECT period_start,period_end,(SELECT count(*)::text FROM orders) AS total,
@@ -34,5 +46,7 @@ SELECT period_start,period_end,(SELECT count(*)::text FROM orders) AS total,
     FROM generate_series(0,23) h LEFT JOIN hourly ON hourly.hour=h) AS hours,
   coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'name',name,'quantity',quantity)
     ORDER BY quantity::numeric DESC,name COLLATE "C" ASC,id ASC) FROM ranked_items),'[]'::jsonb) AS items,
-  source_updated_at,statement_timestamp() AS queried_at FROM period CROSS JOIN freshness
+  source_updated_at,statement_timestamp() AS queried_at,
+  delivered_count,valid_duration_count,invalid_duration_count,average_delivery_minutes,sales_minor,invalid_amount_count
+  FROM period CROSS JOIN freshness CROSS JOIN delivery_stats
 `;

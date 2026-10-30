@@ -1,10 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  Logger,
-  OnApplicationBootstrap,
-  OnApplicationShutdown,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
@@ -21,12 +15,11 @@ interface Delivery {
 
 // Keep runtime provider tokens explicit and constructor metadata type-only.
 @Injectable()
-export class StaffDeliveryWorker
-  implements OnApplicationBootstrap, OnApplicationShutdown
-{
+export class StaffDeliveryWorker implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(StaffDeliveryWorker.name);
   private timer?: ReturnType<typeof setInterval>;
   private running?: Promise<void>;
+
   constructor(
     @Inject(DataSource)
     private readonly database: { query: DataSource['query'] },
@@ -35,11 +28,10 @@ export class StaffDeliveryWorker
     @Inject(CredentialCipher)
     private readonly cipher: { decrypt: CredentialCipher['decrypt'] },
     @Inject(SendGridService)
-    private readonly mail: { send: SendGridService['send'] },
+    private readonly mail: { send: SendGridService['send'] }
   ) {}
 
   onApplicationBootstrap() {
-    if (this.config.get('STAFF_EMAIL_ENABLED') !== 'true') return;
     const tick = () => {
       if (this.running) return;
       this.running = this.processOnce()
@@ -50,31 +42,42 @@ export class StaffDeliveryWorker
           this.running = undefined;
         });
     };
+
     this.timer = setInterval(tick, 15000);
     this.timer.unref();
     tick();
   }
+
   async onApplicationShutdown() {
     clearInterval(this.timer);
     await this.running;
   }
 
   async processOnce() {
-    if (this.config.get('STAFF_EMAIL_ENABLED') !== 'true') return;
     const lease = randomUUID();
     const rows: Delivery[] = await this.database.query(
-      `WITH candidate AS (
+      `WITH expired AS (
+      UPDATE public.mad_staff_deliveries SET status='cancelled',encrypted_credentials=NULL,
+        last_error_code=CASE WHEN created_at <= now()-interval '24 hours'
+          THEN 'EMAIL_PAYLOAD_EXPIRED' ELSE 'EMAIL_RETRY_EXHAUSTED' END,
+        lease_token=NULL,lease_until=NULL,updated_at=now()
+      WHERE status IN ('pending','failed')
+        AND (created_at <= now()-interval '24 hours' OR attempts >= 5)
+        AND (lease_until IS NULL OR lease_until < now())
+    ), candidate AS (
       SELECT delivery_id FROM public.mad_staff_deliveries
       WHERE status IN ('pending','failed') AND next_attempt_at <= now()
+        AND $2::boolean AND attempts < 5 AND created_at > now()-interval '24 hours'
         AND (lease_until IS NULL OR lease_until < now())
       ORDER BY next_attempt_at FOR UPDATE SKIP LOCKED LIMIT 1
     ), claimed AS (
       UPDATE public.mad_staff_deliveries d SET lease_token=$1, lease_until=now()+interval '60 seconds',
         attempts=attempts+1, updated_at=now() FROM candidate c WHERE d.delivery_id=c.delivery_id RETURNING d.*
     ) SELECT * FROM claimed`,
-      [lease],
+      [lease, this.config.get('STAFF_EMAIL_ENABLED') === 'true']
     );
     const delivery = rows[0];
+
     if (!delivery) return;
     try {
       const accounts: {
@@ -83,9 +86,10 @@ export class StaffDeliveryWorker
         session_version: number;
       }[] = await this.database.query(
         'SELECT is_active,password_change_required,session_version FROM public.staff_users WHERE worker_id=$1',
-        [delivery.worker_id],
+        [delivery.worker_id]
       );
       const account = accounts[0];
+
       if (
         !account?.is_active ||
         !account.password_change_required ||
@@ -94,36 +98,35 @@ export class StaffDeliveryWorker
         await this.finish(delivery.delivery_id, lease, 'cancelled');
         return;
       }
-      await this.mail.send(
-        this.cipher.decrypt(
-          delivery.delivery_id,
-          delivery.encrypted_credentials,
-        ),
-      );
+      await this.mail.send(this.cipher.decrypt(delivery.delivery_id, delivery.encrypted_credentials));
       await this.finish(delivery.delivery_id, lease, 'sent');
     } catch {
-      const delay = Math.min(
-        3600,
-        30 * 2 ** Math.min(delivery.attempts - 1, 7),
-      );
+      if (delivery.attempts >= 5) {
+        await this.database.query(
+          `UPDATE public.mad_staff_deliveries SET status='cancelled',encrypted_credentials=NULL,
+          last_error_code='EMAIL_RETRY_EXHAUSTED',lease_token=NULL,lease_until=NULL,updated_at=now()
+          WHERE delivery_id=$1 AND lease_token=$2`,
+          [delivery.delivery_id, lease]
+        );
+        return;
+      }
+      const delay = Math.min(3600, 30 * 2 ** Math.min(delivery.attempts - 1, 7));
+
       await this.database.query(
         `UPDATE public.mad_staff_deliveries SET status='failed',
         last_error_code='EMAIL_DELIVERY_FAILED', next_attempt_at=now()+($3 * interval '1 second'),
         lease_token=NULL,lease_until=NULL,updated_at=now() WHERE delivery_id=$1 AND lease_token=$2`,
-        [delivery.delivery_id, lease, delay],
+        [delivery.delivery_id, lease, delay]
       );
     }
   }
-  private async finish(
-    id: string,
-    lease: string,
-    status: 'sent' | 'cancelled',
-  ) {
+
+  private async finish(id: string, lease: string, status: 'sent' | 'cancelled') {
     await this.database.query(
       `UPDATE public.mad_staff_deliveries SET status=$3,encrypted_credentials=NULL,
       last_error_code=NULL,lease_token=NULL,lease_until=NULL,updated_at=now(),
       sent_at=CASE WHEN $3='sent' THEN now() ELSE NULL END WHERE delivery_id=$1 AND lease_token=$2`,
-      [id, lease, status],
+      [id, lease, status]
     );
   }
 }

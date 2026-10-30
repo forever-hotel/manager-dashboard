@@ -3,26 +3,25 @@ import {
   BadRequestException,
   ForbiddenException,
   HttpException,
-  INestApplication,
+  INestApplication
 } from '@nestjs/common';
 import { ApiExceptionFilter, configureHttp } from './http';
+
 describe('Stable error envelope', () => {
   const json = jest.fn();
   const status = jest.fn(() => ({ json }));
   const host = {
-    switchToHttp: () => ({ getResponse: () => ({ status }) }),
+    switchToHttp: () => ({ getResponse: () => ({ status }) })
   } as unknown as ArgumentsHost;
+
   beforeEach(() => jest.clearAllMocks());
   it.each([
     [new Error('private secret'), 500, 'INTERNAL_ERROR'],
     [new HttpException('private outage', 503), 503, 'SERVICE_UNAVAILABLE'],
     [
-      new HttpException(
-        { code: 'private database secret', message: 'private outage' },
-        503,
-      ),
+      new HttpException({ code: 'private database secret', message: 'private outage' }, 503),
       503,
-      'SERVICE_UNAVAILABLE',
+      'SERVICE_UNAVAILABLE'
     ],
     [new HttpException('unauthorized', 401), 401, 'UNAUTHENTICATED'],
     [new HttpException('missing', 404), 404, 'NOT_FOUND'],
@@ -30,63 +29,41 @@ describe('Stable error envelope', () => {
     [
       new ForbiddenException({
         code: 'PASSWORD_CHANGE_REQUIRED',
-        message: 'Change password',
+        message: 'Change password'
       }),
       403,
-      'PASSWORD_CHANGE_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED'
     ],
-    [
-      new BadRequestException(['username must be a string']),
-      400,
-      'VALIDATION_ERROR',
-    ],
-  ])(
-    'redacts and normalizes exception %s',
-    (exception, expectedStatus, code) => {
-      new ApiExceptionFilter().catch(exception, host);
-      expect(status).toHaveBeenCalledWith(expectedStatus);
-      expect(json).toHaveBeenCalledWith(expect.objectContaining({ code }));
-      expect(JSON.stringify(json.mock.calls)).not.toContain('private');
-    },
-  );
+    [new BadRequestException(['username must be a string']), 400, 'VALIDATION_ERROR']
+  ])('redacts and normalizes exception %s', (exception, expectedStatus, code) => {
+    new ApiExceptionFilter().catch(exception, host);
+    expect(status).toHaveBeenCalledWith(expectedStatus);
+    expect(json).toHaveBeenCalledWith(expect.objectContaining({ code }));
+    expect(JSON.stringify(json.mock.calls)).not.toContain('private');
+  });
   it('applies identical global validation and filters to production and tests', () => {
     const app = {
       use: jest.fn<
         void,
-        [
-          (
-            request: unknown,
-            response: { setHeader: (name: string, value: string) => void },
-            next: () => void,
-          ) => void,
-        ]
+        [(request: unknown, response: { setHeader: (name: string, value: string) => void }, next: () => void) => void]
       >(),
       useGlobalPipes: jest.fn(),
       useGlobalFilters: jest.fn(),
       enableCors: jest.fn(),
-      enableShutdownHooks: jest.fn(),
+      enableShutdownHooks: jest.fn()
     };
+
     configureHttp(app as unknown as INestApplication);
     const response = { setHeader: jest.fn() };
     const next = jest.fn();
+
     app.use.mock.calls[0][0]({}, response, next);
-    expect(response.setHeader).toHaveBeenCalledWith(
-      'Cache-Control',
-      'no-store',
-    );
+    expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
     expect(next).toHaveBeenCalledTimes(1);
-    expect(response.setHeader).toHaveBeenCalledWith(
-      'X-Content-Type-Options',
-      'nosniff',
-    );
+    expect(response.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
     expect(response.setHeader).toHaveBeenCalledWith('X-Frame-Options', 'DENY');
-    expect(response.setHeader).toHaveBeenCalledWith(
-      'Referrer-Policy',
-      'no-referrer',
-    );
+    expect(response.setHeader).toHaveBeenCalledWith('Referrer-Policy', 'no-referrer');
     expect(app.useGlobalPipes).toHaveBeenCalled();
-    expect(app.useGlobalFilters).toHaveBeenCalledWith(
-      expect.any(ApiExceptionFilter),
-    );
+    expect(app.useGlobalFilters).toHaveBeenCalledWith(expect.any(ApiExceptionFilter));
   });
 });

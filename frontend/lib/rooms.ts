@@ -1,11 +1,6 @@
 import { z } from 'zod';
 
-export const roomStatuses = [
-  'VACANT',
-  'OCCUPIED',
-  'REQUIRES_CLEANING',
-  'UNDER_MAINTENANCE',
-] as const;
+export const roomStatuses = ['VACANT', 'OCCUPIED', 'REQUIRES_CLEANING', 'UNDER_MAINTENANCE'] as const;
 export const roomSnapshotSchema = z
   .object({
     rooms: z.array(
@@ -19,13 +14,12 @@ export const roomSnapshotSchema = z
           status: z.enum(roomStatuses),
           label: z.string().min(1),
           updatedAt: z.iso.datetime({ offset: true }),
-          version: z.number().int().nonnegative().safe(),
+          version: z.number().int().nonnegative().safe()
         })
-        .refine((room) => room.id === room.number),
+        .refine(room => room.id === room.number)
     ),
     queriedAt: z.iso.datetime({ offset: true }),
     source: z.literal('FDS'),
-    readOnly: z.literal(true),
+    readOnly: z.literal(true)
   })
-  .refine((s) => new Set(s.rooms.map((r) => r.id)).size === s.rooms.length);
-export type RoomSnapshot = z.infer<typeof roomSnapshotSchema>;
+  .refine(s => new Set(s.rooms.map(r => r.id)).size === s.rooms.length);

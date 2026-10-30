@@ -7,14 +7,13 @@ import { lowBookingThreshold } from './low-booking-config';
 @Injectable()
 export class LowBookingAlertsService {
   private readonly threshold: number;
+
   constructor(
     private readonly occupancy: OccupancyAnalyticsService,
     config: ConfigService,
-    @Inject(BOOKING_CLOCK) private readonly now: () => Date,
+    @Inject(BOOKING_CLOCK) private readonly now: () => Date
   ) {
-    this.threshold = lowBookingThreshold(
-      config.get<unknown>('LOW_BOOKING_THRESHOLD'),
-    );
+    this.threshold = lowBookingThreshold(config.get<unknown>('LOW_BOOKING_THRESHOLD'));
   }
 
   async alerts() {
@@ -22,15 +21,13 @@ export class LowBookingAlertsService {
       timeZone: BOOKING_TIMEZONE,
       year: 'numeric',
       month: '2-digit',
-      day: '2-digit',
+      day: '2-digit'
     }).formatToParts(this.now());
-    const part = (type: string) =>
-      parts.find((item) => item.type === type)!.value;
+    const part = (type: string) => parts.find(item => item.type === type)!.value;
     const from = `${part('year')}-${part('month')}-${part('day')}`;
-    const to = new Date(Date.parse(from) + 13 * 86400000)
-      .toISOString()
-      .slice(0, 10);
+    const to = new Date(Date.parse(from) + 13 * 86400000).toISOString().slice(0, 10);
     const calendar = await this.occupancy.calendar({ from, to });
+
     return {
       from,
       to,
@@ -40,16 +37,15 @@ export class LowBookingAlertsService {
       denominator: calendar.denominator,
       includedStatuses: calendar.includedStatuses,
       alerts: calendar.dates
-        .filter((day) => day.rate !== null && day.rate < this.threshold)
-        .map((day) => ({
+        .filter(day => day.rate !== null && day.rate < this.threshold)
+        .map(day => ({
           ...day,
-          promotionSuggestion:
-            'Consider creating a targeted promotion for this date.',
+          promotionSuggestion: 'Consider creating a targeted promotion for this date.'
         })),
       unavailableDates: calendar.dates
-        .filter((day) => day.rate === null)
-        .map((day) => ({ ...day, reason: 'ZERO_ELIGIBLE_ROOMS' as const })),
-      freshness: calendar.freshness,
+        .filter(day => day.rate === null)
+        .map(day => ({ ...day, reason: 'ZERO_ELIGIBLE_ROOMS' as const })),
+      freshness: calendar.freshness
     };
   }
 }
