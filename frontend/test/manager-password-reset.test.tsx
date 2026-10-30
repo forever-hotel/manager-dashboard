@@ -43,7 +43,9 @@ describe('Manager email password recovery', () => {
       'fetch',
       vi
         .fn()
-        .mockResolvedValue(new Response(JSON.stringify({ message: 'Password reset is unavailable.' }), { status: 503 }))
+        .mockImplementation(() =>
+          Promise.resolve(new Response(JSON.stringify({ message: 'Password reset is unavailable.' }), { status: 503 }))
+        )
     );
     render(<ManagerPasswordReset />);
     fireEvent.change(screen.getByLabelText('Manager email'), { target: { value: 'manager@example.invalid' } });

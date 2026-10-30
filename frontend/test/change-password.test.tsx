@@ -43,7 +43,7 @@ describe('Required first-login password change', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/rooms'));
   });
   it.each([400, 401, 503])('keeps the password gate closed after HTTP %s', async status => {
-    vi.mocked(fetch).mockResolvedValue(new Response('{}', { status }));
+    vi.mocked(fetch).mockImplementation(() => Promise.resolve(new Response('{}', { status })));
     render(<ChangePasswordForm />);
     fill();
     fireEvent.click(screen.getByRole('button', { name: 'Change password' }));

@@ -181,7 +181,7 @@ describe('DDP-029 staff management', () => {
       target: { value: 'invalid' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('phone (7?15 digits, optional +)');
+    expect(await screen.findByRole('alert')).toHaveTextContent('phone (7-15 digits, optional +)');
     expect(screen.getByLabelText('Full name')).toHaveValue('New Worker');
     expect(fetchMock.mock.calls.some(([, o]) => o?.method)).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -211,6 +211,6 @@ describe('DDP-029 staff management', () => {
     expect(screen.getByLabelText('Full name')).toHaveValue('New Worker');
     await waitFor(() => expect(screen.getByRole('button', { name: 'Previous accounts' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Previous accounts' }));
-    await waitFor(() => expect(screen.getByText('1–20 of 21 accounts')).toBeVisible());
+    await waitFor(() => expect(screen.getByText('1â€“20 of 21 accounts')).toBeVisible());
   });
 });

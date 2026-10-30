@@ -14,7 +14,7 @@ describe('Gateway authentication adapter', () => {
     global.fetch = original;
   });
   function response(body: unknown, status = 200) {
-    global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify(body), { status }));
+    global.fetch = jest.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify(body), { status })));
   }
   it('delegates JWT validation and checks the manager session', async () => {
     response(session);

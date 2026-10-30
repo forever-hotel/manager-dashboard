@@ -36,7 +36,9 @@ describe('Reference login design with real authentication', () => {
   it.each([true, false])('routes according to passwordChangeRequired=%s', async required => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({ passwordChangeRequired: required })))
+      vi
+        .fn()
+        .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ passwordChangeRequired: required }))))
     );
     render(<LoginForm next="/rooms" />);
     fireEvent.change(screen.getByLabelText('Username'), {
@@ -60,7 +62,11 @@ describe('Reference login design with real authentication', () => {
   it('shows a rate-limit wait instead of an incorrect password or outage message', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(new Response('{}', { status: 429, headers: { 'Retry-After': '37' } }))
+      vi
+        .fn()
+        .mockImplementation(() =>
+          Promise.resolve(new Response('{}', { status: 429, headers: { 'Retry-After': '37' } }))
+        )
     );
     render(<LoginForm />);
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'manager' } });
@@ -70,7 +76,10 @@ describe('Reference login design with real authentication', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
   it('keeps failed authentication on the login page', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 401 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status: 401 })))
+    );
     render(<LoginForm />);
     fireEvent.change(screen.getByLabelText('Username'), {
       target: { value: 'manager' }

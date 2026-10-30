@@ -16,7 +16,7 @@ import { occupancy } from './occupancy-fixture';
 afterEach(() => vi.unstubAllGlobals());
 const response = (data: unknown) => new Response(JSON.stringify(data));
 function setup(data = occupancy()) {
-  const fetchMock = vi.fn().mockResolvedValue(response(data));
+  const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(response(data)));
   vi.stubGlobal('fetch', fetchMock);
   render(<OccupancyCalendar initialMonth="2024-02" />);
   return fetchMock;
@@ -76,7 +76,7 @@ describe('DDP-016 calendar contracts', () => {
     expect(() => parseOccupancy(zero, '2024-02')).toThrow();
   });
   it('client rejects non-OK responses and sends only same-origin credentials', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 403 }));
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status: 403 })));
     vi.stubGlobal('fetch', fetchMock);
     await expect(loadOccupancy('2024-02', new AbortController().signal)).rejects.toMatchObject({ status: 403 });
     expect(fetchMock).toHaveBeenCalledWith(
@@ -111,7 +111,7 @@ describe('Analytics heatmap UI', () => {
               resolveOld = resolve;
             })
         )
-        .mockResolvedValue(response(occupancy('2024-03')))
+        .mockImplementation(() => Promise.resolve(response(occupancy('2024-03'))))
     );
     render(<OccupancyCalendar initialMonth="2024-02" />);
     fireEvent.click(screen.getByText('Legend', { selector: 'summary' }));
@@ -121,7 +121,10 @@ describe('Analytics heatmap UI', () => {
     expect(screen.queryByRole('group', { name: 'Occupancy calendar 2024-02' })).not.toBeInTheDocument();
   });
   it('keeps unavailable data distinct from zero and retries the failed request', async () => {
-    const fetchMock = vi.fn().mockRejectedValueOnce(new Error('network')).mockResolvedValue(response(occupancy()));
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network'))
+      .mockImplementation(() => Promise.resolve(response(occupancy())));
     vi.stubGlobal('fetch', fetchMock);
     render(<OccupancyCalendar initialMonth="2024-02" />);
     await screen.findByRole('alert');
@@ -130,7 +133,10 @@ describe('Analytics heatmap UI', () => {
     expect(await screen.findByRole('button', { name: /2024-02-01:/ })).toBeVisible();
   });
   it.each([401, 403])('preserves access handling for status %s', async status => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status })))
+    );
     render(<OccupancyCalendar initialMonth="2024-02" />);
     await screen.findByRole('alert');
     expect(screen.queryByRole('button', { name: 'Retry occupancy' })).not.toBeInTheDocument();

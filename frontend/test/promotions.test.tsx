@@ -267,7 +267,10 @@ describe('DDP-020 promotion management', () => {
       { code: 'bad code' }
     ])
       expect(createSchema.safeParse({ ...payload, ...change }).success).toBe(false);
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({})));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(json({})))
+    );
     await expect(promotionRequest('', promotionSchema)).rejects.toThrow();
   });
 });

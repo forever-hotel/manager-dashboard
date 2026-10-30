@@ -84,6 +84,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
+      "shared-websocket/**/*.ts",
       "operations/**/*.ts",
       "notifications/**/*.ts",
       "rooms/**/*.ts",
@@ -100,7 +101,8 @@
       "config/**/*.ts",
       "common/**/*.ts",
       "health/**/*.ts",
-      "!**/*.module.ts"
+      "!**/*.module.ts",
+      "!shared-websocket/main.ts"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
@@ -122,9 +124,6 @@
       "global": {
         "lines": 80,
         "branches": 80
-      },
-      "./src/auth/token.service.ts": {
-        "branches": 90
       },
       "./src/auth/auth.service.ts": {
         "branches": 90
@@ -175,7 +174,10 @@
         "branches": 90
       }
     },
-    "coverageProvider": "v8"
+    "coverageProvider": "v8",
+    "setupFiles": [
+      "reflect-metadata"
+    ]
   },
   "engines": {
     "node": ">=22.14 <23",

@@ -34,7 +34,7 @@ describe('Dashboard shell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     expect(screen.getByRole('button', { name: 'Close navigation' })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('navigation', { name: 'Dashboard' }).querySelectorAll('a')).toHaveLength(8);
-    fireEvent.click(screen.getByRole('button', { name: 'Open account menu' }));
+    fireEvent.click(screen.getByRole('button', { name: /Open account menu/ }));
     for (const name of ['Notifications', 'Task queue']) expect(screen.getByRole('link', { name })).toBeVisible();
     const rooms = screen.getByRole('link', { name: 'Room status' });
     expect(rooms).toHaveAttribute('aria-current', 'page');
@@ -44,7 +44,7 @@ describe('Dashboard shell', () => {
   });
   it('dismisses account tools on outside interaction and when selecting a destination', () => {
     render(<Sidebar open close={() => {}} username="manager" />);
-    const trigger = screen.getByRole('button', { name: 'Open account menu' });
+    const trigger = screen.getByRole('button', { name: /Open account menu/ });
     fireEvent.click(trigger);
     expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Reports' })).not.toBeInTheDocument();
@@ -55,10 +55,10 @@ describe('Dashboard shell', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
   it('shows the authenticated username and completes server logout', async () => {
-    vi.mocked(fetch).mockResolvedValue(new Response('{}'));
+    vi.mocked(fetch).mockImplementation(() => Promise.resolve(new Response('{}')));
     render(<Sidebar open close={() => {}} username="actual-manager" />);
     expect(screen.getByText('actual-manager')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Open account menu' }));
+    fireEvent.click(screen.getByRole('button', { name: /Open account menu/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
     await vi.waitFor(() => expect(replaceLocation).toHaveBeenCalledWith('/login'));
     expect(fetch).toHaveBeenCalledWith('/api/auth/logout', expect.objectContaining({ method: 'POST', body: '{}' }));
@@ -86,7 +86,7 @@ describe('Dashboard shell', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     const toggle = screen.getByRole('button', { name: 'Close navigation' });
-    const logout = screen.getByRole('button', { name: 'Open account menu' });
+    const logout = screen.getByRole('button', { name: /Open account menu/ });
     toggle.focus();
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
     expect(logout).toHaveFocus();
@@ -97,9 +97,9 @@ describe('Dashboard shell', () => {
     expect(toggle).toHaveFocus();
   });
   it('keeps logout retryable when the server fails', async () => {
-    vi.mocked(fetch).mockResolvedValue(new Response('{}', { status: 503 }));
+    vi.mocked(fetch).mockImplementation(() => Promise.resolve(new Response('{}', { status: 503 })));
     render(<Sidebar open close={() => {}} username="manager" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Open account menu' }));
+    fireEvent.click(screen.getByRole('button', { name: /Open account menu/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Please retry');
     expect(replaceLocation).not.toHaveBeenCalled();

@@ -96,7 +96,7 @@ describe('DDP-026 live kitchen', () => {
     render(<KitchenQueue />);
     await screen.findByText('Room 101');
     await waitFor(() => expect(handlers['kitchen.order.changed']).toBeDefined());
-    fetchMock.mockResolvedValue(new Response('{}', { status: 503 }));
+    fetchMock.mockImplementation(() => Promise.resolve(new Response('{}', { status: 503 })));
     await act(async () => handlers['kitchen.order.changed'](event));
     expect(screen.getByText('Room 101')).toBeVisible();
     expect(screen.getByRole('status')).toHaveTextContent('stale');

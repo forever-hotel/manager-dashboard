@@ -134,10 +134,10 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
         <button
           type="button"
           className="account-trigger"
-          aria-label="Open account menu"
           aria-expanded={accountOpen}
           onClick={() => setAccountOpen(value => !value)}
         >
+          <span className="sr-only">Open account menu</span>
           <span className="account-avatar">{username.slice(0, 2).toUpperCase()}</span>
           <span className="account-copy">
             <span>{username}</span>

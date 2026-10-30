@@ -107,5 +107,10 @@ export function retryRealtime() {
   timer = undefined;
   attempts = 0;
   status.clear();
-  if (listeners.size) void connect();
+  // Allow React's subscription cleanup/remount to finish before reconnecting.
+  // A sole subscriber remount starts its own connection and cancels this timer.
+  timer = setTimeout(() => {
+    timer = undefined;
+    if (listeners.size) void connect();
+  }, 0);
 }

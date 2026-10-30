@@ -8,7 +8,10 @@ afterEach(() => vi.unstubAllGlobals());
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 describe('DDP-057 low-demand suggestions', () => {
   it('renders a promotion suggestion directly from the low-demand response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(lowDemand())));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(response(lowDemand())))
+    );
     render(<LowDemandAlerts />);
     const link = await screen.findByRole('link', { name: /consider creating a promotion/ });
     expect(link).toHaveAttribute('href', '/promotions?lowDemandDate=' + lowDemand().alerts[0].date);
@@ -20,7 +23,10 @@ describe('DDP-057 low-demand suggestions', () => {
     data.unavailableDates = [
       { date: '2028-02-21', occupiedRooms: 0, eligibleRooms: 0, rate: null, reason: 'ZERO_ELIGIBLE_ROOMS' }
     ];
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(data)));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(response(data)))
+    );
     render(<LowDemandAlerts />);
     expect(await screen.findByText(/Some occupancy dates cannot be assessed/)).toBeVisible();
   });
@@ -35,7 +41,10 @@ describe('DDP-057 low-demand suggestions', () => {
     expect(await screen.findByRole('link', { name: /consider creating a promotion/ })).toBeVisible();
   });
   it.each([401, 403])('preserves authorization handling for %s', async status => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({}, status)));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(response({}, status)))
+    );
     render(<LowDemandAlerts />);
     await screen.findByRole('alert');
     expect(screen.queryByRole('button', { name: 'Retry low-demand alerts' })).not.toBeInTheDocument();

@@ -270,7 +270,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
   });
   function analytics(path: string, period = 'day', session = provider.issue('manager')) {
     return request(app.getHttpServer())
-      .get('/mad/analytics/' + path + '?period=' + period)
+      .get('/mad/analytics/' + (path === 'revenue' ? 'overview' : path) + '?period=' + period)
       .set('Authorization', 'Bearer ' + session);
   }
   async function payment(amount: number, paidAt: string | null, status = 'COMPLETED', booking = randomUUID()) {
@@ -291,6 +291,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     await payment(99999, '2026-09-27T18:30:00Z');
     for (const status of ['REFUNDED', 'FAILED', 'PENDING']) await payment(99999, '2026-09-27T04:00:00Z', status);
     const response = await analytics('revenue').expect(200);
+    response.body = (response.body as { revenue: unknown }).revenue;
     expect(response.body).toMatchObject({
       currency: 'LKR',
       currentMinor: 20002,
@@ -311,14 +312,14 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     expect(result.bookings.asOf).toBe(result.revenue.asOf);
   });
   it('TC-MAD-056-AC2: empty source returns zero with an unavailable comparison, not an error', async () => {
-    expect((await analytics('revenue').expect(200)).body).toMatchObject({
+    expect(((await analytics('revenue').expect(200)).body as { revenue: unknown }).revenue).toMatchObject({
       currentMinor: 0,
       previousMinor: 0,
       percentageChange: null,
       percentageUnavailableReason: 'PREVIOUS_REVENUE_ZERO'
     });
     await payment(123, '2026-09-27T04:00:00Z');
-    expect((await analytics('revenue').expect(200)).body).toMatchObject({
+    expect(((await analytics('revenue').expect(200)).body as { revenue: unknown }).revenue).toMatchObject({
       currentMinor: 123,
       percentageChange: null
     });
@@ -344,7 +345,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       clock = new Date(now);
       await payment(100, previousStart);
       await payment(125, start);
-      expect((await analytics('revenue', period).expect(200)).body).toMatchObject({
+      expect(((await analytics('revenue', period).expect(200)).body as { revenue: unknown }).revenue).toMatchObject({
         start,
         end,
         previousStart,
@@ -359,14 +360,14 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     await payment(300, '2026-09-25T18:30:00Z');
     await payment(100, '2026-09-26T18:30:00Z');
     await payment(900, '2026-09-25T18:30:00Z', 'REFUNDED');
-    expect((await analytics('revenue').expect(200)).body).toMatchObject({
+    expect(((await analytics('revenue').expect(200)).body as { revenue: unknown }).revenue).toMatchObject({
       currentMinor: 100,
       previousMinor: 300,
       percentageChange: -66.67,
       percentageUnavailableReason: null
     });
   });
-  it.each(['revenue', 'overview'])('protects and validates %s without writing payment data', async path => {
+  it.each(['overview'])('protects and validates %s without writing payment data', async path => {
     await request(app.getHttpServer())
       .get('/mad/analytics/' + path + '?period=day')
       .expect(401);

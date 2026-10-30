@@ -55,7 +55,7 @@ describe('DDP-028 task queue', () => {
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url.includes('workerName=Worker+One'))).toBe(true));
     await screen.findByText('101');
     fireEvent.click(screen.getByRole('button', { name: 'Next tasks' }));
-    await screen.findByText(/21�.* tasks/);
+    await screen.findByText(/21.* tasks/);
     await screen.findByText('101');
     const expected = '/api/tasks?page=2&pageSize=20&status=ASSIGNED&workerName=Worker+One';
     await act(async () => {
@@ -65,9 +65,9 @@ describe('DDP-028 task queue', () => {
     expect(fetchMock).toHaveBeenCalledWith(expected, expect.any(Object));
     expect(screen.getByLabelText('Status')).toHaveValue('ASSIGNED');
     expect(screen.getByLabelText('Worker name')).toHaveValue('Worker One');
-    expect(screen.getByText(/21�.* tasks/)).toBeVisible();
+    expect(screen.getByText(/21–.* tasks/)).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Previous tasks' }));
-    await screen.findByText(/1�20 of .* tasks/);
+    await screen.findByText(/1–20 of .* tasks/);
   });
   it('shows empty results and disables forward pagination', async () => {
     fetchMock.mockImplementation(

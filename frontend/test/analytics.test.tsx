@@ -23,7 +23,7 @@ describe('DDP-015 booking and revenue analytics', () => {
         status: 'CONFIRMED'
       }
     ];
-    const fetchMock = vi.fn().mockResolvedValue(response(data));
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(response(data)));
     vi.stubGlobal('fetch', fetchMock);
     render(<AnalyticsDashboard />);
     expect(await screen.findByText('LKR 200.01')).toBeVisible();
@@ -33,7 +33,7 @@ describe('DDP-015 booking and revenue analytics', () => {
     expect(screen.getByRole('img', { name: /Bar chart of daily bookings/ })).toBeVisible();
     expect(screen.queryByText('Reporting details and revenue export')).not.toBeInTheDocument();
     expect(screen.queryByText('Line chart')).not.toBeInTheDocument();
-    fetchMock.mockResolvedValue(response(overview('day', 8)));
+    fetchMock.mockImplementation(() => Promise.resolve(response(overview('day', 8))));
     fireEvent.click(screen.getByRole('button', { name: 'Day' }));
     await waitFor(() => expect(screen.getByText('+100.01% vs last day')).toBeVisible());
   });
@@ -45,7 +45,10 @@ describe('DDP-015 booking and revenue analytics', () => {
       count: 1
     }));
     data.revenue.currentMinor = 138700000;
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(data)));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(response(data)))
+    );
     render(<AnalyticsDashboard />);
     fireEvent.click(screen.getByRole('button', { name: 'Month' }));
     expect(await screen.findByText('LKR 1.39M')).toBeVisible();
@@ -61,7 +64,10 @@ describe('DDP-015 booking and revenue analytics', () => {
       percentageChange: null,
       percentageUnavailableReason: 'PREVIOUS_REVENUE_ZERO'
     };
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(data)));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(response(data)))
+    );
     render(<AnalyticsDashboard />);
     expect(await screen.findByText('N/A vs last week')).toBeVisible();
     expect(screen.getByRole('status')).toHaveTextContent('No eligible bookings');
@@ -96,7 +102,10 @@ describe('DDP-015 booking and revenue analytics', () => {
     expect(await screen.findByText('Total bookings (day)')).toBeVisible();
   });
   it.each([401, 403])('handles protected API status %s', async status => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status })))
+    );
     render(<AnalyticsDashboard />);
     await screen.findByRole('alert');
     expect(
@@ -109,7 +118,10 @@ describe('DDP-015 booking and revenue analytics', () => {
     const data = overview();
     data.revenue.period = 'day';
     expect(overviewSchema.safeParse(data).success).toBe(false);
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(overview('month'))));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => Promise.resolve(response(overview('month'))))
+    );
     await expect(loadAnalytics('day', new AbortController().signal)).rejects.toThrow('Mismatched');
     expect(percentage(null)).toBe('N/A');
     expect(percentage(-100)).toBe('-100.00%');
@@ -136,7 +148,7 @@ describe('DDP-015 booking and revenue analytics', () => {
     render(<AnalyticsDashboard />);
     fireEvent.click(screen.getByRole('button', { name: 'Month' }));
     fireEvent.change(screen.getByLabelText('Select analytics month'), { target: { value: '2026-09' } });
-    expect(await screen.findByText('Monthly bookings')).toBeVisible();
+    await waitFor(() => expect(screen.getByText('Monthly bookings')).toBeVisible());
     await waitFor(() =>
       expect(fetcher).toHaveBeenCalledWith(expect.stringContaining('date=2026-09-01'), expect.anything())
     );

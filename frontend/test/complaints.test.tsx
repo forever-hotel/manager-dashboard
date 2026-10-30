@@ -106,7 +106,7 @@ describe('DDP-022 complaint register', () => {
         status: 'UNDER_REVIEW',
         note: 'Investigating privately'
       });
-      expect(within(screen.getByRole('table')).getByText('Under review')).toBeVisible();
+      await waitFor(() => expect(within(screen.getByRole('table')).getByText('Under review')).toBeVisible());
       expect(listener).toHaveBeenCalledTimes(1);
       expect(JSON.stringify((listener.mock.calls[0][0] as CustomEvent).detail)).not.toContain('privately');
     } finally {

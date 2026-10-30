@@ -85,24 +85,20 @@ describe('DDP-043 shared persistent notification presentation', () => {
           : 'Unable to mark read.'
     );
     expect(screen.queryByText('No active complaints or stock problems.')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('link', {
-        name: status === 401 || status === 403 ? 'Notifications ?' : 'Notifications 2'
-      })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Current alerts' })).toBeInTheDocument();
   });
   it('shows an unknown initial count when the source is unavailable', async () => {
     failed = true;
     mount();
     await waitFor(() => expect(screen.getAllByText(/Data is stale or unavailable/).length).toBeGreaterThan(0));
     expect(screen.getByRole('button', { name: 'Retry notifications' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Notifications ?' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Current alerts' })).toBeInTheDocument();
     expect(screen.queryByText('No active complaints or stock problems.')).not.toBeInTheDocument();
   });
   it('AC1: uses one snapshot for the panel, top area and navigation badge with safe detail links', async () => {
     mount();
     expect(await screen.findByText('2 active alerts; 2 unread. Counts include every page.')).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Notifications 2' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Current alerts' })).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Current alerts' })).getByText(/2 active alerts:/)).toBeVisible();
     expect(screen.getByRole('link', { name: 'View complaint details' })).toHaveAttribute('href', data.items[0].href);
     expect(screen.getByRole('link', { name: 'View stock alert details' })).toHaveAttribute('href', data.items[1].href);
@@ -112,7 +108,7 @@ describe('DDP-043 shared persistent notification presentation', () => {
     await screen.findByText('2 active alerts; 2 unread. Counts include every page.');
     fireEvent.click(screen.getAllByRole('button', { name: 'Mark read' })[0]);
     expect(await screen.findByText('2 active alerts; 1 unread. Counts include every page.')).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Notifications 2' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Current alerts' })).toBeInTheDocument();
     await waitFor(() => expect(handlers['notifications.changed']).toBeDefined());
     data = {
       ...data,
@@ -123,7 +119,7 @@ describe('DDP-043 shared persistent notification presentation', () => {
     };
     act(() => handlers['notifications.changed']({}));
     expect(await screen.findByText('No active complaints or stock problems.')).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Notifications 0' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Current alerts' })).toBeInTheDocument();
   });
   it('AC3: duplicate/reconnect invalidations do not duplicate issues and source failure retains the last count', async () => {
     mount();
@@ -138,7 +134,7 @@ describe('DDP-043 shared persistent notification presentation', () => {
     failed = true;
     act(() => handlers['notifications.changed']({}));
     await waitFor(() => expect(screen.getAllByText(/Data is stale or unavailable/).length).toBeGreaterThan(0));
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Notifications 2' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Current alerts' })).toBeInTheDocument());
     expect(screen.queryByText('No active complaints or stock problems.')).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Retry notifications' })).toBeVisible();
   });
