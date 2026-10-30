@@ -1,4 +1,5 @@
 'use client';
+
 import Pagination from './Pagination';
 import RowActions from '@/components/RowActions';
 import RoomTypeSelect from './RoomTypeSelect';
@@ -31,10 +32,12 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
   const actionPanel = useRef<HTMLDialogElement>(null);
   const formPanel = useRef<HTMLFormElement>(null);
   const roomCache = useRef<RoomType[] | undefined>(undefined);
+
   useEffect(() => {
     if (!selected || !confirmAction) return;
     const dialog = actionPanel.current;
     const previous = document.activeElement;
+
     dialog?.showModal();
     dialog?.focus();
     return () => {
@@ -49,6 +52,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
     ...promotionDates(initialDate)
   }));
   const [editing, setEditing] = useState<Promotion>();
+
   useEffect(() => {
     if (editing) {
       formPanel.current?.focus({ preventScroll: true });
@@ -70,6 +74,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
     e instanceof PromotionError
       ? e.message
       : 'Service unavailable. Refresh before retrying a save; it may already have succeeded.';
+
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
@@ -87,6 +92,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
             if (roomCache.current) return roomCache.current;
             const values: RoomType[] = [];
             let current = 1;
+
             while (true) {
               const part = await promotionRequest(
                 `/room-types?page=${current}&pageSize=100`,
@@ -95,6 +101,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
                 undefined,
                 controller.signal
               );
+
               values.push(...part.items);
               if (values.length >= part.total) {
                 roomCache.current = values;
@@ -105,6 +112,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
             }
           })()
         ]);
+
         if (active) {
           setError('');
           setPromos(result.items);
@@ -131,6 +139,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
   }, [page, refresh, view]);
   useEffect(() => {
     const timer = setInterval(() => setRefresh(value => value + 1), 30000);
+
     return () => clearInterval(timer);
   }, []);
   function reload() {
@@ -169,8 +178,10 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
     const parsed = editing
       ? editSchema.safeParse({ ...payload, version: editing.version })
       : createSchema.safeParse({ ...payload, status });
+
     if (!parsed.success) {
       const next: Record<string, string> = {};
+
       for (const issue of parsed.error.issues) next[String(issue.path[0])] = issue.message;
       setErrors(next);
       return;
@@ -183,6 +194,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
         editing ? 'PUT' : 'POST',
         parsed.data
       );
+
       setNotice(`Saved ${saved.code}. ${publicationLabel(saved.publicationStatus)}`);
       setEditing(undefined);
       setForm({ ...emptyForm });
@@ -194,6 +206,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
   function edit(p: Promotion) {
     void work(async () => {
       const latest = await promotionRequest('/' + p.id, promotionSchema);
+
       if (latest.deletedAt) throw new PromotionError(404);
       setEditing(latest);
       setSelected(undefined);
@@ -208,6 +221,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
       if (selected)
         void work(async () => {
           const latest = await promotionRequest('/' + selected.id, promotionSchema);
+
           setSelected(latest);
           setConfirmAction(undefined);
           setConflict(false);
@@ -221,6 +235,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
     }
     void work(async () => {
       const latest = await promotionRequest('/' + editing.id, promotionSchema);
+
       if (latest.deletedAt) throw new PromotionError(404);
       setEditing(latest);
       setConflict(false);
@@ -238,6 +253,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
         action === 'delete' ? 'DELETE' : 'POST',
         { version: p.version }
       );
+
       setSelected(undefined);
       setConfirmAction(undefined);
       setNotice(`Saved ${saved.code}: ${saved.lifecycleState}. ${publicationLabel(saved.publicationStatus)}`);
@@ -255,6 +271,7 @@ export default function PromotionsDashboard({ initialDate }: { initialDate?: str
         {errors[name]}
       </p>
     ) : null;
+
   return (
     <main className="dashboard-page">
       {/* Top bar */}

@@ -1,6 +1,9 @@
 'use client';
+
 import { type Period } from '@/lib/analytics';
+
 export const analyticsButton = 'font-normal text-xs text-ink px-3 py-1 rounded';
+
 export function PeriodButtons({ period, onChange }: { period: Period; onChange: (period: Period) => void }) {
   return (
     <div role="group" aria-label="Reporting period" className="period-switch">
@@ -18,6 +21,7 @@ export function PeriodButtons({ period, onChange }: { period: Period; onChange: 
     </div>
   );
 }
+
 export function AnalyticsFailure({ error, retry }: { error?: number; retry: () => void }) {
   return error ? (
     <p role="alert" className="font-normal text-xs text-ink my-3">

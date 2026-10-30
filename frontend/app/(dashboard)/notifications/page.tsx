@@ -10,5 +10,6 @@ export default async function Page({
     typeof value === 'string' && /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 100000
       ? Number(value)
       : 1;
+
   return <NotificationsPanel initialPage={page} />;
 }

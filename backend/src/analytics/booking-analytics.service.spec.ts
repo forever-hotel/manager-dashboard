@@ -26,6 +26,7 @@ describe('DDP-009 booking summaries', () => {
 
   it('returns explicit check-in semantics, UTC boundaries and freshness', async () => {
     const result = await service.summary('day');
+
     expect(result).toMatchObject({
       metric: 'bookings_checking_in',
       timezone: 'Asia/Colombo',
@@ -52,6 +53,7 @@ describe('DDP-009 booking summaries', () => {
   it('keeps an empty source distinct from a source failure', async () => {
     query.mockResolvedValue([{ ...row, count: '0', source_updated_at: null }]);
     const result = await service.summary('day');
+
     expect(result.total).toBe(0);
     expect(result.trend[0].count).toBe(0);
     expect(result.freshness.sourceLatestUpdatedAt).toBeNull();
@@ -90,6 +92,7 @@ describe('DDP-009 booking summaries', () => {
   });
   it('selects historical boundaries without backdating the reporting timestamp', async () => {
     const result = await service.summary('month', undefined, '2026-08-01');
+
     expect(query).toHaveBeenCalledWith(expect.any(String), [
       'month',
       'Asia/Colombo',

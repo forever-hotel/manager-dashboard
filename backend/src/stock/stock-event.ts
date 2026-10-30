@@ -1,4 +1,5 @@
 import { isISO8601, isUUID } from 'class-validator';
+
 export const STOCK_STATUSES = ['AVAILABLE', 'LOW_STOCK', 'UNAVAILABLE', 'TEMPORARILY_DISABLED'] as const;
 export type StockStatus = (typeof STOCK_STATUSES)[number];
 export interface StockEvent {
@@ -28,10 +29,13 @@ export interface StockUpdate {
   occurredAt: string;
   alert: StockAlert;
 }
+
 export class InvalidStockEvent extends Error {}
+
 export function parseStockEvent(raw: unknown): StockEvent {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new InvalidStockEvent('Invalid stock envelope');
   const e = raw as Record<string, unknown>;
+
   if (
     e.type !== 'kitchen.stock.changed' ||
     typeof e.eventId !== 'string' ||

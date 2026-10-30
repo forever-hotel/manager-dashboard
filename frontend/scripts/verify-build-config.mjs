@@ -11,6 +11,7 @@ export function verifyBuildConfig(root = resolve(directory, '..')) {
   for (const [name, expected] of Object.entries(manifest)) {
     const contents = readFileSync(resolve(root, name), 'utf8').replace(/\r\n/g, '\n');
     const actual = createHash('sha256').update(contents).digest('hex');
+
     if (actual !== expected) {
       throw new Error(
         `Build configuration integrity failed: ${name}. Stop and review the change; do not regenerate hashes to bypass this check.`

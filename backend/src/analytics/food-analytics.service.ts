@@ -21,17 +21,21 @@ export interface FoodSummaryRow {
   sales_minor: string;
   invalid_amount_count: string;
 }
+
 function count(value: string) {
   const parsed = Number(value);
+
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(parsed)) throw new Error('Invalid count');
   return parsed;
 }
+
 @Injectable()
 export class FoodAnalyticsService {
   constructor(
     private readonly database: DataSource,
     @Inject(BOOKING_CLOCK) private readonly now: () => Date
   ) {}
+
   async summary(period: BookingPeriod, date?: string) {
     try {
       const asOf = this.now().toISOString();
@@ -41,6 +45,7 @@ export class FoodAnalyticsService {
         date ? `${date}T12:00:00.000Z` : asOf,
         INCLUDED_FOOD_STATUSES
       ]);
+
       if (!row || !row.trend.length || row.hours.length !== 24) throw new Error('Missing buckets');
       const total = count(row.total);
       const trend = row.trend.map(bucket => ({
@@ -51,12 +56,14 @@ export class FoodAnalyticsService {
         if (bucket.hour !== index) throw new Error('Invalid hour bucket');
         return { hour: bucket.hour, count: count(bucket.count) };
       });
+
       if (trend.reduce((n, b) => n + b.count, 0) !== total || hours.reduce((n, b) => n + b.count, 0) !== total)
         throw new Error('Inconsistent totals');
       const peak = Math.max(...hours.map(b => b.count));
       const deliveredCount = count(row.delivered_count),
         validDurationCount = count(row.valid_duration_count),
         excludedDurationCount = count(row.invalid_duration_count);
+
       if (
         count(row.invalid_amount_count) !== 0 ||
         validDurationCount + excludedDurationCount !== deliveredCount ||

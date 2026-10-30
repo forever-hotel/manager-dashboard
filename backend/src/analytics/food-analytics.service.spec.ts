@@ -2,7 +2,9 @@ import { DataSource } from 'typeorm';
 import { FoodAnalyticsService, FoodSummaryRow, INCLUDED_FOOD_STATUSES } from './food-analytics.service';
 import { FoodAnalyticsController } from './food-analytics.controller';
 import { FOOD_ORDERS_SQL } from './food-orders.sql';
+
 const now = new Date('2026-10-19T06:00:00Z');
+
 function row(): FoodSummaryRow {
   return {
     period_start: new Date('2026-10-18T18:30:00Z'),
@@ -21,8 +23,10 @@ function row(): FoodSummaryRow {
     queried_at: now
   };
 }
+
 function setup(value = row()) {
   const query = jest.fn().mockResolvedValue([value]);
+
   return {
     query,
     service: new FoodAnalyticsService({ query } as unknown as DataSource, () => now)
@@ -32,6 +36,7 @@ describe('DDP-023 food analytics', () => {
   it('returns zero-filled empty results and the documented policy', async () => {
     const { service, query } = setup();
     const result = await service.summary('day');
+
     expect(result).toMatchObject({
       total: 0,
       peakHours: [],
@@ -51,6 +56,7 @@ describe('DDP-023 food analytics', () => {
   });
   it('returns tied peak hours in ascending order and historical item names', async () => {
     const data = row();
+
     data.total = '4';
     data.trend[0].count = '4';
     data.hours[8].count = '2';
@@ -58,12 +64,14 @@ describe('DDP-023 food analytics', () => {
     data.items = [{ id: 'item-id', name: 'Historical name', quantity: '9' }];
     data.source_updated_at = now;
     const result = await setup(data).service.summary('week');
+
     expect(result.peakHours).toEqual([8, 19]);
     expect(result.popularItems).toEqual([{ menuItemId: 'item-id', name: 'Historical name', quantity: 9 }]);
     expect(result.freshness.sourceLatestUpdatedAt).toBe(now.toISOString());
   });
   it.each(['bad', '-1', '9007199254740992'])('rejects invalid/unsafe count %s', async value => {
     const data = row();
+
     data.total = value;
     await expect(setup(data).service.summary('day')).rejects.toMatchObject({
       status: 503
@@ -81,6 +89,7 @@ describe('DDP-023 food analytics', () => {
         status: 503
       });
     const { service, query } = setup();
+
     query.mockResolvedValueOnce([]);
     await expect(service.summary('day')).rejects.toMatchObject({ status: 503 });
     query.mockRejectedValue(new Error('private provider data'));
@@ -91,6 +100,7 @@ describe('DDP-023 food analytics', () => {
   });
   it('forwards the validated period through the controller', async () => {
     const { service } = setup();
+
     expect((await new FoodAnalyticsController(service).summary({ period: 'month' })).period).toBe('month');
   });
   it('reports delivery duration and delivered-order sales independently of placement totals', async () => {
@@ -104,6 +114,7 @@ describe('DDP-023 food analytics', () => {
     };
     const { service, query } = setup(value);
     const result = await service.summary('month', '2026-09-01');
+
     expect(result.delivery).toMatchObject({
       averageMinutes: 18.5,
       deliveredCount: 2,

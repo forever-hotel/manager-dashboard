@@ -1,4 +1,5 @@
 'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import {
   reportQuery,
@@ -8,6 +9,7 @@ import {
   type ReportType,
   type ReportFilters
 } from '@/lib/reports';
+
 export default function ReportDownload({
   type,
   filters = {},
@@ -34,8 +36,10 @@ export default function ReportDownload({
   const request = useRef<AbortController | null>(null);
   const lock = useRef(false);
   const urls = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
   useEffect(() => {
     const pending = urls.current;
+
     return () => {
       request.current?.abort();
       for (const [url, timer] of pending) {
@@ -49,9 +53,11 @@ export default function ReportDownload({
     if (lock.current || disabled) return;
     lock.current = true;
     const controller = new AbortController();
+
     request.current = controller;
     setState({ key, busy: format });
     let response: Response | undefined;
+
     try {
       const query = reportQuery(
         type,
@@ -60,6 +66,7 @@ export default function ReportDownload({
           ['format', format]
         ])
       );
+
       response = await fetch('/api/reports/' + type + '?' + query.toString(), {
         cache: 'no-store',
         credentials: 'same-origin',
@@ -68,12 +75,14 @@ export default function ReportDownload({
       if (!response.ok) throw new Error(exportError(response.status));
       const filename = reportFilename(type, format, response.headers.get('content-disposition'));
       const bytes = await readReport(response, format, type);
+
       if (controller.signal.aborted) return;
       const blob = new Blob([bytes], {
         type: format === 'pdf' ? 'application/pdf' : 'text/csv; charset=utf-8'
       });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
+
       anchor.href = url;
       anchor.download = filename;
       document.body.appendChild(anchor);
@@ -85,6 +94,7 @@ export default function ReportDownload({
           URL.revokeObjectURL(url);
           urls.current.delete(url);
         }, 1000);
+
         urls.current.set(url, timer);
       }
       setState({ key });
@@ -104,6 +114,7 @@ export default function ReportDownload({
     }
   }
   const active = state.key === key ? state : undefined;
+
   return (
     <div className="mt-3" role="group" aria-label={type + ' report downloads'} aria-busy={!!active?.busy}>
       <div className="flex gap-3">

@@ -6,6 +6,7 @@ export async function migrate(database: DataSource, role: string) {
   if (!/^[a-z_][a-z0-9_]{0,62}$/.test(role)) throw new Error('MAD_DB_ROLE must be a simple PostgreSQL identifier');
   const runner = database.createQueryRunner();
   let transactionStarted = false;
+
   try {
     await runner.connect();
     await runner.startTransaction();
@@ -40,10 +41,12 @@ export async function migrate(database: DataSource, role: string) {
         migration: new MadManagerAuth1790726400000()
       }
     ];
+
     for (const { version, migration } of migrations) {
       const applied = (await runner.query('SELECT version FROM mad_migrations WHERE version = $1', [version])) as {
         version: string;
       }[];
+
       if (!applied.length) {
         await migration.up(runner);
         await runner.query('INSERT INTO mad_migrations(version) VALUES ($1)', [version]);
@@ -62,6 +65,7 @@ export async function migrate(database: DataSource, role: string) {
     const staffColumns: unknown = await runner.query(
       "SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='staff_users' AND column_name='session_version'"
     );
+
     if (Array.isArray(staffColumns) && staffColumns.length) {
       await runner.query(`GRANT SELECT ON staff_users TO "${role}";
         GRANT UPDATE(password_hash,password_change_required,session_version,failed_attempts,locked_until,updated_at) ON staff_users TO "${role}";`);
@@ -80,6 +84,7 @@ export async function migrate(database: DataSource, role: string) {
       const found = (await runner.query('SELECT to_regclass($1)::text AS present', ['public.' + table])) as {
         present: string | null;
       }[];
+
       if (found[0].present) await runner.query(`GRANT SELECT ON "${table}" TO "${role}"`);
     }
     await runner.query(`DO $$ BEGIN

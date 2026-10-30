@@ -18,6 +18,7 @@ import { io, Socket } from 'socket.io-client';
 import { connect } from 'amqplib';
 import { TasksService } from '../src/tasks/tasks.service';
 import { seedLocalAuth } from './local-auth-fixture';
+
 type Summary = Awaited<ReturnType<TasksService['snapshot']>>;
 describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => {
   let admin: DataSource,
@@ -32,6 +33,7 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
 
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
@@ -39,6 +41,7 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
+
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
@@ -76,6 +79,7 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
         RealtimeModule
       ]
     }).compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.listen(0, '127.0.0.1');
@@ -97,6 +101,7 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
   });
   function get(query = '', token: string | null = provider.issue('manager')) {
     const req = request(app.getHttpServer()).get('/mad/tasks?' + query);
+
     if (token) req.set('Authorization', 'Bearer ' + token);
     return req;
   }
@@ -119,6 +124,7 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
       extraHeaders: { Origin: 'http://localhost:3000' },
       reconnection: false
     });
+
     await new Promise<void>((resolve, reject) => {
       client.once('connect', resolve);
       client.once('connect_error', reject);
@@ -129,10 +135,12 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
     for (const state of ['UNASSIGNED', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'ESCALATED'])
       await add(randomUUID(), state);
     const all = (await get().expect(200)).body as Summary;
+
     expect(all.total).toBe(5);
     expect(new Set(all.tasks.map(t => t.status)).size).toBe(5);
     const filtered = (await get('status=COMPLETED&worker=' + provider.ids.get('worker') + '&pageSize=1').expect(200))
       .body as Summary;
+
     expect(filtered.tasks[0]).toMatchObject({
       status: 'COMPLETED',
       assignee: { id: provider.ids.get('worker'), name: 'Fixture Staff' },
@@ -143,11 +151,13 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
     expect(filtered.tasks[0].completedAt).not.toBeNull();
     const first = (await get('pageSize=2').expect(200)).body as Summary;
     const second = (await get('pageSize=2&page=2').expect(200)).body as Summary;
+
     expect(new Set([...first.tasks, ...second.tasks].map(t => t.id)).size).toBe(4);
   });
   it('TC-MAD-042-AC3: rejects invalid filters, unauthorized sessions and mutations without changing source rows', async () => {
     await add();
     const before = await database.query<unknown[]>('SELECT * FROM wkms_tasks');
+
     for (const query of [
       'extra=1',
       'status=BAD',
@@ -177,6 +187,7 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
         [provider.issue('manager'), 403]
       ] as const) {
         const req = request(app.getHttpServer()).post('/mad/tasks/' + taskId + '/' + action);
+
         if (token) req.set('Authorization', 'Bearer ' + token);
         await req.expect(status);
       }
@@ -184,6 +195,7 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
     await get().expect(200);
     expect(await database.query('SELECT * FROM wkms_tasks')).toEqual(before);
     const runtime = app.get(DataSource);
+
     await expect(runtime.query("UPDATE wkms_tasks SET status='COMPLETED'")).rejects.toThrow();
     await database.query(`REVOKE SELECT ON wkms_tasks FROM "${role}"`);
     try {
@@ -203,11 +215,13 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
       version: room.version,
       occurredAt: room.updatedAt
     };
+
     await Promise.all([service.accept(event), service.accept(event)]);
     await database.query(
       "UPDATE wkms_tasks SET status='IN_PROGRESS',updated_at=updated_at+interval '1 second' WHERE task_id='67f4568c-89ab-4c12-b321-123456789012'"
     );
     const newer = ((await get().expect(200)).body as Summary).tasks[0];
+
     await service.accept({
       ...event,
       eventId: randomUUID(),
@@ -219,10 +233,12 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
       app.get(RealtimeGateway),
       app.get(TasksService)
     );
+
     await restarted.accept({ ...event, eventId: randomUUID() });
     const rows = await database.query<{ payload: { task: { status: string } } }[]>(
       'SELECT payload FROM mad_task_events WHERE delivered_at IS NULL'
     );
+
     expect(rows).toHaveLength(1);
     expect(rows[0].payload.task.status).toBe('IN_PROGRESS');
     expect(await database.query('SELECT version FROM mad_task_versions')).toEqual([{ version: String(newer.version) }]);
@@ -236,17 +252,20 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
   });
   it('TC-MAD-042-AC2: publishes a committed authoritative task update through RabbitMQ to an authorized socket', async () => {
     const url = process.env.TEST_RABBITMQ_URL;
+
     if (!url || new URL(url).pathname !== '/mad_test')
       throw new Error('Use an isolated mad_test RabbitMQ virtual host');
     await add(taskId, 'IN_PROGRESS');
     const room = ((await get().expect(200)).body as Summary).tasks[0];
     const config = app.get(ConfigService);
+
     config.set('RABBITMQ_URL', url);
     config.set('MAD_REALTIME_ENABLED', 'true');
     app.get(TaskEventsConsumer).onModuleInit();
     const connection = await connect(url);
     const channel = await connection.createConfirmChannel();
     let client: Socket | undefined;
+
     try {
       await channel.assertExchange('hotel.events', 'topic', { durable: true });
       await channel.assertQueue('mad.tasks', {
@@ -267,11 +286,13 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
       };
       const received = new Promise<unknown>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Task event not delivered')), 10000);
+
         client!.once('task.changed', (value: unknown) => {
           clearTimeout(timer);
           resolve(value);
         });
       });
+
       channel.publish('hotel.events', 'task.changed', Buffer.from(JSON.stringify(event)), {
         persistent: true,
         messageId: event.eventId
@@ -285,6 +306,7 @@ describe('DDP-042 task snapshots and updates with disposable PostgreSQL', () => 
       );
       client = await socket();
       const recovered = ((await get().expect(200)).body as Summary).tasks[0];
+
       expect(recovered).toMatchObject({ id: taskId, status: 'COMPLETED' });
       expect(recovered.version).toBeGreaterThan(room.version);
       expect(recovered.completedAt).not.toBeNull();

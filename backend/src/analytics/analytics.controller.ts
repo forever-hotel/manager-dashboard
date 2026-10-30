@@ -43,6 +43,7 @@ export class AnalyticsController {
     ]);
     const occupiedRoomNights = calendar.dates.reduce((sum, day) => sum + day.occupiedRooms, 0);
     const eligibleRoomNights = calendar.dates.reduce((sum, day) => sum + day.eligibleRooms, 0);
+
     return {
       bookings,
       revenue,

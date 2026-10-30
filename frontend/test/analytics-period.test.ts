@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { hotelDate, shiftAnalyticsDate } from '@/lib/analytics-period';
+
 describe('Hotel analytics periods', () => {
   it('uses Colombo dates across the UTC day boundary', () => {
     expect(hotelDate(new Date('2026-10-25T19:00:00Z'))).toBe('2026-10-26');

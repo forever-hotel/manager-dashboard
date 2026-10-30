@@ -4,6 +4,7 @@ import { WorkerPerformanceRow, WorkerPerformanceService } from './worker-perform
 import { WORKER_PERFORMANCE_SQL } from './worker-performance.sql';
 
 const now = new Date('2026-10-19T06:00:00Z');
+
 function worker(): WorkerPerformanceRow['workers'][number] {
   return {
     workerId: '0b26eaf5-74c4-4c8b-86ca-4340cd245665',
@@ -19,6 +20,7 @@ function worker(): WorkerPerformanceRow['workers'][number] {
     unexpectedCompletionCount: '0'
   };
 }
+
 function row(): WorkerPerformanceRow {
   return {
     period_start: now,
@@ -28,8 +30,10 @@ function row(): WorkerPerformanceRow {
     workers: [worker()]
   };
 }
+
 function setup(data = row()) {
   const query = jest.fn().mockResolvedValue([data]);
+
   return {
     query,
     service: new WorkerPerformanceService({ query } as unknown as DataSource, () => now)
@@ -39,6 +43,7 @@ describe('DDP-025 worker performance', () => {
   it('Given a worker without activity, returns zero counts and a null average with explicit cohorts', async () => {
     const { service, query } = setup();
     const result = await service.summary({ period: 'day' });
+
     expect(result).toMatchObject({
       durationStart: 'submitted_at',
       durationUnit: 'minutes',
@@ -75,6 +80,7 @@ describe('DDP-025 worker performance', () => {
       period: 'week',
       workerId: worker().workerId
     });
+
     expect(query).toHaveBeenCalledWith(WORKER_PERFORMANCE_SQL, [
       'week',
       'Asia/Colombo',
@@ -94,6 +100,7 @@ describe('DDP-025 worker performance', () => {
   });
   it('Given zero duration or exclusively invalid completions, distinguishes zero from null', async () => {
     const data = row();
+
     data.workers = [
       {
         ...worker(),
@@ -104,6 +111,7 @@ describe('DDP-025 worker performance', () => {
       { ...worker(), completedCount: '1', negativeDurationCount: '1' }
     ];
     const result = await setup(data).service.summary({ period: 'month' });
+
     expect(result.workers.map(w => w.averageCompletionMinutes)).toEqual([0, null]);
     expect(
       (
@@ -145,6 +153,7 @@ describe('DDP-025 worker performance', () => {
   });
   it('Given missing results or database failure, never fabricates an empty report or leaks SQL', async () => {
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ ...row(), workers: null }])
@@ -157,6 +166,7 @@ describe('DDP-025 worker performance', () => {
   });
   it('passes the selected calendar date separately from the current freshness clock', async () => {
     const { service, query } = setup();
+
     await service.summary({ period: 'month', date: '2026-09-01' });
     expect(query).toHaveBeenCalledWith(WORKER_PERFORMANCE_SQL, [
       'month',

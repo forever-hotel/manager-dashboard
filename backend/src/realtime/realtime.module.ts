@@ -10,6 +10,7 @@ import { RealtimeController } from './realtime.controller';
 import { RealtimeConsumer } from './realtime.consumer';
 import { RealtimeGateway } from './realtime.gateway';
 import { AnalyticsChangesWorker } from './analytics-changes.worker';
+
 @Module({
   imports: [AuthModule, RoomsModule, TasksModule],
   controllers: [RealtimeController],

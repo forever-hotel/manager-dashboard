@@ -5,20 +5,24 @@ import { OccupancyAnalyticsService } from '../analytics/occupancy-analytics.serv
 import { ReportQuery, ReportType } from './report-query';
 import { flattenReport, renderCsv, renderPdf } from './report-renderer';
 import { bookingReportPdf, bookingTrendCsv, type BookingReport } from './booking-report';
+
 @Injectable()
 export class ReportsService {
   private active = 0;
+
   constructor(
     private readonly bookings: BookingAnalyticsService,
     private readonly occupancy: OccupancyAnalyticsService,
     private readonly bookingDetails: BookingDetailsService
   ) {}
+
   async download(type: ReportType, query: ReportQuery) {
     if (this.active >= 2) throw new ServiceUnavailableException('Exports are busy. Retry shortly.');
     this.active++;
     try {
       let data: Record<string, unknown>;
       let bookingReport: BookingReport | undefined;
+
       switch (type) {
         case 'bookings': {
           const summary = query.date
@@ -30,6 +34,7 @@ export class ReportsService {
             1,
             query.format === 'pdf' ? 500 : 1
           );
+
           if (query.format === 'pdf' && details.bookingList.total > 500)
             throw new UnprocessableEntityException('Select a shorter period: at most 500 booking records per report.');
           bookingReport = { ...summary, ...details };
@@ -68,6 +73,7 @@ export class ReportsService {
               month: '2-digit',
               day: '2-digit'
             }).format(new Date(String(data.start)));
+
       return {
         buffer,
         filename: `${type}-${date}.${query.format}`,

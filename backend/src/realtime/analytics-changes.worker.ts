@@ -13,6 +13,7 @@ export const ANALYTICS_FINGERPRINT_SQL = `SELECT
     (SELECT order_id,status,placed_at,delivered_at,total_amount,updated_at FROM public.kms_food_orders) s) AS food,
   (SELECT md5(coalesce(string_agg(row_to_json(s)::text,',' ORDER BY s.order_item_id),'')) FROM
     (SELECT order_item_id,order_id,menu_item_id,name,quantity,updated_at FROM public.kms_food_order_items) s) AS items`;
+
 @Injectable()
 export class AnalyticsChangesWorker implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AnalyticsChangesWorker.name);
@@ -21,17 +22,20 @@ export class AnalyticsChangesWorker implements OnModuleInit, OnModuleDestroy {
   private timer?: ReturnType<typeof setTimeout>;
   private running?: Promise<void>;
   private stopped = false;
+
   constructor(
     private readonly database: DataSource,
     private readonly gateway: RealtimeGateway,
     private readonly config: ConfigService
   ) {}
+
   async tick() {
     try {
       const [current] =
         await this.database.query<{ bookings: string; payments: string; food: string; items: string }[]>(
           ANALYTICS_FINGERPRINT_SQL
         );
+
       if (!current) throw new Error();
       if (!this.previous || current.bookings !== this.previous.bookings || current.payments !== this.previous.payments)
         await this.gateway.send('analytics.changed', {});
@@ -47,6 +51,7 @@ export class AnalyticsChangesWorker implements OnModuleInit, OnModuleDestroy {
       this.gateway.analyticsHealthy = false;
     }
   }
+
   onModuleInit() {
     if (this.config.get<string>('MAD_REALTIME_ENABLED') !== 'true') return;
     const poll = () => {
@@ -57,8 +62,10 @@ export class AnalyticsChangesWorker implements OnModuleInit, OnModuleDestroy {
         }
       });
     };
+
     poll();
   }
+
   async onModuleDestroy() {
     this.stopped = true;
     clearTimeout(this.timer);

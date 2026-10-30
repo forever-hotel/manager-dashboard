@@ -7,6 +7,7 @@ import { NotificationIdentityDto, NotificationPageDto, ReadNotificationDto } fro
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { NotificationsController } from './notifications.controller';
 import type { AuthenticatedRequest } from '../auth/jwt-auth.guard';
+
 const id = '67f4568c-89ab-4c12-b321-123456789012';
 const item = {
   type: 'COMPLAINT' as const,
@@ -26,9 +27,11 @@ const row = {
   invalid: false,
   items: [item]
 };
+
 function setup() {
   const query = jest.fn().mockResolvedValue([row]);
   const transaction = jest.fn(async (work: (m: { query: typeof query }) => Promise<void>) => work({ query }));
+
   return {
     query,
     service: new NotificationsService({
@@ -40,6 +43,7 @@ function setup() {
 describe('DDP-043 authoritative notifications', () => {
   it.each(['LOW_STOCK', 'UNAVAILABLE', 'TEMPORARILY_DISABLED'])('includes the active stock state %s', async status => {
     const { query, service } = setup();
+
     query.mockResolvedValueOnce([
       {
         ...row,
@@ -54,6 +58,7 @@ describe('DDP-043 authoritative notifications', () => {
     const { query, service } = setup();
     const controller = new NotificationsController(service);
     const req = { user: { sub: id } } as AuthenticatedRequest;
+
     expect(await controller.list(req, new NotificationPageDto())).toMatchObject({
       total: 1,
       unread: 1,
@@ -106,6 +111,7 @@ describe('DDP-043 authoritative notifications', () => {
       { ...row, items: [] },
       { ...row, total: 2, complaints: 2, items: [item, item] }
     ];
+
     for (const patch of [
       { type: 'BAD' },
       { sourceId: 3 },
@@ -137,8 +143,10 @@ describe('DDP-043 authoritative notifications', () => {
   });
   it('marks only the requesting manager read, with conflict and recovery checks and no source writes', async () => {
     const { query, service } = setup();
+
     query.mockResolvedValueOnce([{ entity_id: id }]);
     const controller = new NotificationsController(service);
+
     expect(
       await controller.read(
         { user: { sub: id } } as AuthenticatedRequest,
@@ -187,6 +195,7 @@ describe('DDP-043 authoritative notifications', () => {
   });
   it('polls source changes, retains invalidations after send failure and recovers after storage errors', async () => {
     const { query, service } = setup();
+
     query.mockResolvedValueOnce([{ revision: 'a'.repeat(32) }]);
     expect(await service.fingerprint()).toBe('a'.repeat(32));
     for (const rows of [[], [{ revision: 'bad' }]]) {
@@ -200,6 +209,7 @@ describe('DDP-043 authoritative notifications', () => {
       { fingerprint } as unknown as NotificationsService,
       gateway as unknown as RealtimeGateway
     );
+
     await worker.tick();
     await worker.tick();
     expect(send).toHaveBeenCalledTimes(1);

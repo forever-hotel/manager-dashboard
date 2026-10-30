@@ -1,19 +1,23 @@
 import { Injectable, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+
 @Injectable()
 export class NotificationsWorker implements OnApplicationBootstrap, OnApplicationShutdown {
   private timer?: ReturnType<typeof setTimeout>;
   private running?: Promise<void>;
   private stopped = false;
   private previous?: string;
+
   constructor(
     private readonly notifications: NotificationsService,
     private readonly gateway: RealtimeGateway
   ) {}
+
   async tick() {
     try {
       const revision = await this.notifications.fingerprint();
+
       if (this.previous !== revision) {
         await this.gateway.send('notifications.changed', {
           revision,
@@ -26,6 +30,7 @@ export class NotificationsWorker implements OnApplicationBootstrap, OnApplicatio
       this.gateway.notificationsHealthy = false;
     }
   }
+
   onApplicationBootstrap() {
     const poll = () => {
       this.running = this.tick().finally(() => {
@@ -35,8 +40,10 @@ export class NotificationsWorker implements OnApplicationBootstrap, OnApplicatio
         }
       });
     };
+
     poll();
   }
+
   async onApplicationShutdown() {
     this.stopped = true;
     clearTimeout(this.timer);

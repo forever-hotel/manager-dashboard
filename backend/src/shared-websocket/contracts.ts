@@ -23,15 +23,19 @@ export interface Subsystem {
   roles: Record<string, LiveChannel[]>;
 }
 export type Subsystems = Record<string, Subsystem>;
+
 export function loadSubsystems(raw = process.env.WEBSOCKET_SUBSYSTEMS_JSON): Subsystems {
   const parsed: unknown = JSON.parse(raw ?? '{}');
+
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid subsystem registry');
   const result: Subsystems = {};
+
   for (const [id, entry] of Object.entries(parsed)) {
     if (!['mad', 'hw', 'fds', 'foss', 'kms', 'wkms'].includes(id) || !entry || typeof entry !== 'object')
       throw new Error('Invalid subsystem');
     const value = entry as Subsystem;
     const url = new URL(value.authUrl);
+
     if (
       !['http:', 'https:'].includes(url.protocol) ||
       url.username ||

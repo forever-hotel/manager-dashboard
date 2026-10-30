@@ -59,6 +59,7 @@ export class KitchenService {
     @Inject('KITCHEN_CLOCK')
     private readonly now: () => Date = () => new Date()
   ) {}
+
   async snapshot(query: KitchenQueryDto): Promise<KitchenSnapshot> {
     try {
       const asOf = this.now().toISOString();
@@ -69,6 +70,7 @@ export class KitchenService {
         asOf,
         query.activeOnly === 'true'
       ]);
+
       return parseKitchenSnapshot(row?.snapshot, query, asOf);
     } catch {
       throw new ServiceUnavailableException();

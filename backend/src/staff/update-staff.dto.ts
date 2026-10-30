@@ -2,6 +2,7 @@ import { Transform } from 'class-transformer';
 import { IsEmail, ValidateIf, IsBoolean, IsIn, IsInt, IsString, Length, Matches, Max, Min } from 'class-validator';
 
 import { STAFF_ROLES } from './create-staff.dto';
+
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
 export class UpdateStaffDto {

@@ -1,4 +1,5 @@
 'use client';
+
 import { useState } from 'react';
 import { type Period, compactMoney, money } from '@/lib/analytics';
 import { hotelDate } from '@/lib/analytics-period';
@@ -9,6 +10,7 @@ import { AnalyticsFailure } from './AnalyticsControls';
 import { PageHeader, SummaryCard, DataPanel, UnavailableRow } from './DashboardVisuals';
 import AnalyticsPeriodNavigation from './AnalyticsPeriodNavigation';
 import KitchenQueue from './KitchenQueue';
+
 export default function FoodAnalytics() {
   const [period, setPeriod] = useState<Period>('week');
   const [date, setDate] = useState(() => hotelDate());
@@ -22,6 +24,7 @@ export default function FoodAnalytics() {
   const range = data
     ? { from: hotelDate(new Date(data.start)), to: hotelDate(new Date(Date.parse(data.end) - 86400000)) }
     : undefined;
+
   return (
     <main className="dashboard-page food-analytics-page">
       <PageHeader title="Food orders" period={period} onPeriodChange={setPeriod} />

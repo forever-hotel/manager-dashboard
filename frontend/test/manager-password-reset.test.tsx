@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ManagerPasswordReset } from '@/components/ManagerPasswordReset';
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -13,6 +14,7 @@ describe('Manager email password recovery', () => {
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ message: 'Password changed. Sign in with your new password.' }))
       );
+
     vi.stubGlobal('fetch', send);
     render(<ManagerPasswordReset />);
     fireEvent.change(screen.getByLabelText('Manager email'), { target: { value: 'manager@example.invalid' } });

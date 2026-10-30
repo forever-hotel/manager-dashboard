@@ -40,6 +40,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
 
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
@@ -47,6 +48,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
+
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
@@ -85,6 +87,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
         RealtimeModule
       ]
     }).compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.listen(0, '127.0.0.1');
@@ -116,6 +119,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
       'SELECT (extract(epoch FROM updated_at)*1000000)::bigint::text AS version,stock_status::text AS status FROM kms_menu_items WHERE menu_item_id=$1',
       [itemId]
     );
+
     return {
       eventId: randomUUID(),
       type: 'kitchen.stock.changed',
@@ -143,6 +147,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
       extraHeaders: { Origin: 'http://localhost:3000' },
       reconnection: false
     });
+
     await new Promise<void>((resolve, reject) => {
       client.once('connect', resolve);
       client.once('connect_error', reject);
@@ -154,6 +159,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
     await add();
     const service = app.get(StockAlertsService);
     const first = await event();
+
     await Promise.all([service.accept(first), service.accept(first)]);
     expect(await database.query('SELECT count(*)::integer AS count FROM mad_stock_alerts WHERE active')).toEqual([
       { count: 1 }
@@ -163,6 +169,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
     await service.accept(await event());
     await source('AVAILABLE');
     const recovery = await event();
+
     await service.accept(recovery);
     expect(
       await database.query('SELECT active,stock_status,cleared_at IS NOT NULL AS cleared FROM mad_stock_alerts')
@@ -177,6 +184,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
     const [row] = await database.query<{ payload: StockUpdate }[]>(
       "SELECT payload FROM mad_stock_events WHERE delivery_state='pending'"
     );
+
     expect(row.payload.alert).toMatchObject({
       active: false,
       stockStatus: 'AVAILABLE',
@@ -193,10 +201,13 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
     await add('AVAILABLE');
     const service = app.get(StockAlertsService);
     const recovery = await event();
+
     await service.accept(recovery);
     const restarted = new StockAlertsService(app.get(DataSource));
+
     await restarted.accept(recovery);
     const before = await database.query<unknown[]>('SELECT * FROM mad_stock_alerts');
+
     await expect(restarted.accept({ ...recovery, stockStatus: 'LOW_STOCK' })).rejects.toThrow('identity reused');
     await expect(
       service.accept({
@@ -226,24 +237,29 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
     await add();
     const service = app.get(StockAlertsService);
     const first = await event();
+
     await service.accept(first);
     const consumer = app.get(StockEventsConsumer);
     const gateway = app.get(RealtimeGateway);
     const publish = jest.spyOn(gateway, 'publishStock').mockRejectedValueOnce(new Error('offline'));
+
     await expect(consumer.dispatch()).rejects.toThrow();
     expect(
       await database.query("SELECT count(*)::integer AS count FROM mad_stock_events WHERE delivery_state='pending'")
     ).toEqual([{ count: 1 }]);
     publish.mockRestore();
     const client = await socket();
+
     try {
       const received = new Promise<StockUpdate>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Stock update not delivered')), 5000);
+
         client.once('stock.alert.changed', (value: StockUpdate) => {
           clearTimeout(timer);
           resolve(value);
         });
       });
+
       await consumer.dispatch();
       expect(await received).toEqual({ changed: true });
       expect(
@@ -259,21 +275,25 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
       [provider.issue('first-login'), 403]
     ] as const) {
       const req = request(app.getHttpServer()).post('/mad/realtime/ticket');
+
       if (token) req.set('Authorization', 'Bearer ' + token);
       await req.expect(status);
     }
   }, 15000);
   it('TC-MAD-034-AC3: confirms broker persistence, dead-letters poison work and bounds transient failures across redelivery', async () => {
     const url = process.env.TEST_RABBITMQ_URL;
+
     if (!url || new URL(url).pathname !== '/mad_test') throw new Error('Use isolated mad_test RabbitMQ vhost');
     await add();
     const first = await event();
     const config = app.get(ConfigService);
+
     config.set('RABBITMQ_URL', url);
     const connection = await connect(url);
     const channel = await connection.createConfirmChannel();
     const consumer = app.get(StockEventsConsumer);
     let client: Socket | undefined;
+
     try {
       await channel.assertExchange('hotel.events', 'topic', { durable: true });
       await channel.assertQueue(STOCK_DEAD_QUEUE, {
@@ -292,11 +312,13 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
       client = await socket();
       const received = new Promise<StockUpdate>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Broker stock update missing')), 10000);
+
         client!.once('stock.alert.changed', (value: StockUpdate) => {
           clearTimeout(timer);
           resolve(value);
         });
       });
+
       channel.publish('hotel.events', STOCK_BINDING, Buffer.from(JSON.stringify(first)), {
         persistent: true,
         messageId: first.eventId
@@ -307,8 +329,10 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
       await channel.waitForConfirms();
       async function deadLetter(timeout: number) {
         const start = Date.now();
+
         while (Date.now() - start < timeout) {
           const row = await channel.get(STOCK_DEAD_QUEUE, { noAck: false });
+
           if (row) {
             channel.ack(row);
             return row;
@@ -323,6 +347,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
         eventId: randomUUID(),
         menuItemId: randomUUID()
       };
+
       channel.publish('hotel.events', STOCK_BINDING, Buffer.from(JSON.stringify(missing)), {
         persistent: true,
         messageId: missing.eventId
@@ -332,6 +357,7 @@ describe('DDP-034 stock alerts and recovery with disposable PostgreSQL', () => {
       const death = failed.properties.headers as {
         'x-death'?: { reason?: string }[];
       };
+
       expect(death['x-death']?.[0].reason).toBe('delivery_limit');
       expect(JSON.parse(failed.content.toString()) as unknown).toEqual(missing);
       expect(await database.query('SELECT count(*)::integer AS count FROM mad_stock_alerts WHERE active')).toEqual([

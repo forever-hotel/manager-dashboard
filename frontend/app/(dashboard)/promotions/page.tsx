@@ -7,6 +7,7 @@ export default async function PromotionsPage({
   searchParams: Promise<{ lowDemandDate?: string | string[] }>;
 }) {
   const query = await searchParams;
+
   return (
     <PromotionsDashboard
       initialDate={

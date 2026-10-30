@@ -10,6 +10,7 @@ import { staffPageFixture } from '../staff-fixture';
 import { notificationsFixture } from '../notifications-fixture';
 import { occupancy } from '../occupancy-fixture';
 import { lowDemand } from '../low-demand-fixture';
+
 async function login(page: Page, username = 'manager') {
   await page.goto('/login');
   await page.getByLabel('Username', { exact: true }).fill(username);
@@ -34,6 +35,7 @@ test.beforeEach(async ({ page }) => {
       '/api/analytics/occupancy': occupancy(url.searchParams.get('month') ?? new Date().toISOString().slice(0, 7)),
       '/api/analytics/low-booking-alerts': lowDemand()
     };
+
     if (Object.hasOwn(payload, url.pathname)) await route.fulfill({ json: payload[url.pathname] });
     else await route.continue();
   });
@@ -51,6 +53,7 @@ test('login protects pages, rejects bad credentials and stores only an HttpOnly 
   await login(page);
   await expect(page).toHaveURL(/\/analytics$/);
   const cookie = (await context.cookies()).find(cookie => cookie.name === 'mad_session');
+
   expect(cookie?.httpOnly).toBe(true);
   expect(await page.evaluate(() => document.cookie)).not.toContain('mad_session');
   await page.getByRole('button', { name: /Open account menu/ }).click();
@@ -89,6 +92,7 @@ test('mobile navigation retains every primary destination and closes with Escape
   await login(page);
   await expect(page).toHaveURL(/analytics/);
   const toggle = page.getByRole('button', { name: 'Open navigation', exact: true });
+
   await toggle.click();
   for (const name of [
     'Analytics',
@@ -108,6 +112,7 @@ test('login and manager recovery meet automated WCAG 2.1 AA checks', async ({ pa
   for (const path of ['/login', '/reset-password']) {
     await page.goto(path);
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+
     expect(results.violations).toEqual([]);
   }
 });
@@ -130,6 +135,7 @@ test('all eight dashboard sections render with accessible primary navigation', a
     await expect(page.getByRole('heading', { level: 1, name: title, exact: true })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Dashboard', exact: true })).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+
     expect(results.violations, `${path} automated accessibility`).toEqual([]);
   }
 });
@@ -140,6 +146,7 @@ test('staff actions use an accessible confirmation dialog and Escape preserves t
   await page.getByRole('button', { name: 'Actions for Test Worker' }).click();
   await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
   const dialog = page.getByRole('alertdialog');
+
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('invalidates existing sessions');
   await page.keyboard.press('Escape');
@@ -151,6 +158,7 @@ test('analytics exports complete CSV and PDF downloads with safe filenames', asy
   await page.route('**/api/reports/bookings?**', route => {
     const format = new URL(route.request().url()).searchParams.get('format');
     const body = format === 'pdf' ? '%PDF-1.4\n%%EOF' : '"Date","Bookings"\r\n"2026-10-26","4"\r\n';
+
     return route.fulfill({
       status: 200,
       headers: {
@@ -165,8 +173,10 @@ test('analytics exports complete CSV and PDF downloads with safe filenames', asy
   await expect(page).toHaveURL(/analytics/);
   for (const format of ['CSV', 'PDF']) {
     const result = page.waitForEvent('download');
+
     await page.getByRole('button', { name: 'Export ' + format, exact: true }).click();
     const file = await result;
+
     expect(file.suggestedFilename()).toBe('bookings-2026-10-26.' + format.toLowerCase());
     expect(await file.failure()).toBeNull();
   }

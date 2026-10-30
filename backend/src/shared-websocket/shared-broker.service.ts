@@ -2,19 +2,24 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { connect, type ChannelModel } from 'amqplib';
 import { SharedGateway } from './shared.gateway';
 import { eventChannels, REALTIME_EXCHANGE } from './contracts';
+
 @Injectable()
 export class SharedBroker implements OnModuleInit, OnModuleDestroy {
   private connection?: ChannelModel;
   private timer?: ReturnType<typeof setTimeout>;
   private stopped = false;
   ready = false;
+
   constructor(private readonly gateway: SharedGateway) {}
+
   onModuleInit() {
     void this.attach();
   }
+
   async attach() {
     try {
       const connection = await connect(process.env.RABBITMQ_URL ?? '', { timeout: 5000 });
+
       if (this.stopped) {
         await connection.close();
         return;
@@ -28,6 +33,7 @@ export class SharedBroker implements OnModuleInit, OnModuleDestroy {
         this.schedule();
       });
       const channel = await connection.createChannel();
+
       channel.on('error', () => {
         this.ready = false;
       });
@@ -54,6 +60,7 @@ export class SharedBroker implements OnModuleInit, OnModuleDestroy {
             name: string;
             healthy?: boolean;
           };
+
           if (!eventChannels[event.name] || message.fields.routingKey !== event.subsystem + '.' + event.name)
             throw new Error();
           // Only safe invalidations/status are sent, never producer payloads or personal data.
@@ -74,6 +81,7 @@ export class SharedBroker implements OnModuleInit, OnModuleDestroy {
       this.schedule();
     }
   }
+
   private schedule() {
     if (!this.stopped && !this.timer) {
       this.timer = setTimeout(() => {
@@ -83,6 +91,7 @@ export class SharedBroker implements OnModuleInit, OnModuleDestroy {
       this.timer.unref();
     }
   }
+
   async onModuleDestroy() {
     this.stopped = true;
     clearTimeout(this.timer);

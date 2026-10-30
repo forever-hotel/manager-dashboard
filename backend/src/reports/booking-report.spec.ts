@@ -1,4 +1,5 @@
 import { bookingReportPdf, bookingTrendCsv, type BookingReport } from './booking-report';
+
 const data = {
   period: 'week',
   timezone: 'Asia/Colombo',
@@ -41,6 +42,7 @@ describe('Presentation booking exports', () => {
       })),
       bookingList: { total: 35, page: 1, pageSize: 500 }
     });
+
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
     expect(pdf.subarray(-20).toString()).toContain('%%EOF');
     expect(pdf.toString('latin1')).toContain('Forever Hotel | Booking report');
@@ -54,6 +56,7 @@ describe('Presentation booking exports', () => {
       averageLengthOfStay: null,
       bookingList: { total: 0, page: 1, pageSize: 500 }
     });
+
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
   });
 });

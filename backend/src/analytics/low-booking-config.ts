@@ -8,6 +8,7 @@ export function lowBookingThreshold(value: unknown): number {
   )
     throw new Error('Configuration: LOW_BOOKING_THRESHOLD must be a number from 0 to 1');
   const threshold = Number(value);
+
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1)
     throw new Error('Configuration: LOW_BOOKING_THRESHOLD must be a number from 0 to 1');
   return threshold;

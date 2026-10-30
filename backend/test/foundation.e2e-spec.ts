@@ -24,6 +24,7 @@ class ProtectedFixtureController {
   get() {
     return { status: 'ok' };
   }
+
   @Get('failure')
   failure() {
     throw new HttpException(
@@ -47,8 +48,10 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
   const name = 'mad_test_' + suffix;
   const role = 'mad_test_app_' + suffix;
   const secret = 'integration-test-only-secret-at-least-32-characters';
+
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('TEST_DATABASE_URL must point to a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
@@ -56,6 +59,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const ownerUrl = new URL(url);
+
     ownerUrl.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: ownerUrl.toString() });
     await database.initialize();
@@ -66,6 +70,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
     );
     await Promise.all([migrate(database, role), migrate(database, role)]);
     const runtimeUrl = new URL(ownerUrl);
+
     runtimeUrl.username = role;
     runtimeUrl.password = 'integration-only';
     runtime = new DataSource({ type: 'postgres', url: runtimeUrl.toString() });
@@ -105,6 +110,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
         }
       ]
     }).compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.init();
@@ -121,11 +127,13 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
     }
   });
   const http = () => request(app.getHttpServer());
+
   it('redacts server exception codes and sends defensive response headers over HTTP', async () => {
     const login = await http()
       .get('/protected/failure')
       .set('Authorization', 'Bearer ' + provider.issue('manager'))
       .expect(503);
+
     expect(login.body).toEqual({
       code: 'SERVICE_UNAVAILABLE',
       message: 'Service temporarily unavailable. Please retry.'
@@ -138,6 +146,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
     const rows = await database.query<{ code_string: string }[]>(
       "SELECT code_string FROM mad_promotion_codes WHERE code_string='KEEP-ME'"
     );
+
     expect(rows).toHaveLength(1);
     expect(await database.query('SELECT version FROM mad_migrations')).toHaveLength(2);
     await migrate(database, role);
@@ -172,6 +181,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
     await database.query(`REVOKE SELECT ON mad_revoked_sessions FROM "${role}"`);
     try {
       const response = await http().get('/health/ready').expect(503);
+
       expect(response.body).toEqual({
         code: 'SERVICE_UNAVAILABLE',
         message: 'Service temporarily unavailable. Please retry.'
@@ -183,12 +193,14 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
   });
   it('rejects invalid login input with a stable validation envelope', async () => {
     const result = await http().post('/auth/login').send({ username: '', password: '', extra: 'secret' }).expect(400);
+
     expect(result.body).toMatchObject({ code: 'VALIDATION_ERROR' });
     expect(JSON.stringify(result.body)).not.toContain('secret');
     await http().post('/auth/login').send({ username: 'manager', password: 'wrong' }).expect(401);
   });
   it('allows manager access and denies missing sessions and workers', async () => {
     const manager = provider.issue('manager');
+
     await http()
       .get('/protected')
       .set('Authorization', 'Bearer ' + manager)
@@ -201,6 +213,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
   });
   it('denies sessions immediately after local deactivation', async () => {
     const token = provider.issue('manager');
+
     await http()
       .get('/auth/session')
       .set('Authorization', 'Bearer ' + token)
@@ -213,6 +226,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
   });
   it('persists local logout revocation without an external service', async () => {
     const token = provider.issue('manager');
+
     await database.query('UPDATE staff_users SET is_active=true WHERE username=$1', ['manager']);
     await http()
       .post('/auth/logout')
@@ -234,6 +248,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
       .get('/protected')
       .set('Authorization', 'Bearer ' + token)
       .expect(403);
+
     expect(blocked.body).toMatchObject({ code: 'PASSWORD_CHANGE_REQUIRED' });
     const changed = await http()
       .post('/auth/change-password')
@@ -243,6 +258,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
         newPassword: 'new-contract-password'
       })
       .expect(200);
+
     await http()
       .get('/protected')
       .set('Authorization', 'Bearer ' + (changed.body as { accessToken: string }).accessToken)
@@ -266,10 +282,13 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
   });
   it('creates a fresh schema and supports clean migration reruns', async () => {
     const fresh = 'mad_test_fresh_' + suffix;
+
     await admin.query(`CREATE DATABASE "${fresh}"`);
     const url = new URL(process.env.TEST_DATABASE_URL!);
+
     url.pathname = '/' + fresh;
     const source = new DataSource({ type: 'postgres', url: url.toString() });
+
     try {
       await source.initialize();
       await migrate(source, role);
@@ -288,10 +307,12 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
       INITIAL_MANAGER_PASSWORD: 'bootstrap-initial-password'
     };
     const start = () => new InitialManagerService(new ConfigService(settings), database).onApplicationBootstrap();
+
     await Promise.all([start(), start()]);
     const accounts = await database.query<{ password_change_required: boolean; session_version: number }[]>(
       "SELECT * FROM staff_users WHERE email='bootstrap@example.com'"
     );
+
     expect(accounts).toHaveLength(1);
     expect(accounts[0].password_change_required).toBe(true);
     const login = await http()
@@ -301,6 +322,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
         password: settings.INITIAL_MANAGER_PASSWORD
       })
       .expect(200);
+
     expect((login.body as { passwordChangeRequired: boolean }).passwordChangeRequired).toBe(true);
     await http()
       .get('/protected')
@@ -314,12 +336,14 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
         newPassword: 'bootstrap-changed-password'
       })
       .expect(200);
+
     expect((changed.body as { passwordChangeRequired: boolean }).passwordChangeRequired).toBe(false);
     settings.INITIAL_MANAGER_PASSWORD = 'different-environment-password';
     await Promise.all([start(), start()]);
     const saved = await database.query<{ password_change_required: boolean; session_version: number }[]>(
       "SELECT * FROM staff_users WHERE email='bootstrap@example.com'"
     );
+
     expect(saved).toHaveLength(1);
     expect(saved[0].password_change_required).toBe(false);
     expect(saved[0].session_version).toBe(1);
@@ -344,6 +368,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
         password: 'bootstrap-changed-password'
       })
       .expect(200);
+
     expect((returning.body as { passwordChangeRequired: boolean }).passwordChangeRequired).toBe(false);
     await http()
       .get('/protected')

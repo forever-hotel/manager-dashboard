@@ -2,9 +2,11 @@ import { isEmail } from 'class-validator';
 
 export function validateStaffConfig(env: Record<string, unknown>) {
   const enabled = env.STAFF_EMAIL_ENABLED ?? 'false';
+
   if (enabled !== 'true' && enabled !== 'false')
     throw new Error('Configuration: STAFF_EMAIL_ENABLED must be true or false');
   const key = env.STAFF_CREDENTIALS_KEY;
+
   if (
     key !== undefined &&
     key !== '' &&

@@ -6,7 +6,9 @@ import {
 } from './service-request-analytics.service';
 import { ServiceRequestAnalyticsController } from './service-request-analytics.controller';
 import { SERVICE_REQUESTS_SQL } from './service-requests.sql';
+
 const now = new Date('2026-10-19T06:00:00Z');
+
 function row(): ServiceRequestSummaryRow {
   return {
     period_start: now,
@@ -25,8 +27,10 @@ function row(): ServiceRequestSummaryRow {
     queried_at: now
   };
 }
+
 function setup(data = row()) {
   const query = jest.fn().mockResolvedValue([data]);
+
   return {
     query,
     service: new ServiceRequestAnalyticsService({ query } as unknown as DataSource, () => now)
@@ -36,6 +40,7 @@ describe('DDP-024 service-request analytics', () => {
   it('returns explicit cohorts, null average and zero-filled states', async () => {
     const { service, query } = setup();
     const result = await service.summary('day');
+
     expect(result).toMatchObject({
       total: 0,
       resolution: { averageMinutes: null, completedCount: 0 },
@@ -62,6 +67,7 @@ describe('DDP-024 service-request analytics', () => {
       source_updated_at: now
     };
     const result = await setup(data).service.summary('week');
+
     expect(result.resolution).toMatchObject({
       completedCount: 3,
       validDurationCount: 2,
@@ -122,6 +128,7 @@ describe('DDP-024 service-request analytics', () => {
   });
   it('sanitizes missing or failed source results and forwards controller periods', async () => {
     const { service, query } = setup();
+
     expect(
       (
         await new ServiceRequestAnalyticsController(service).summary({

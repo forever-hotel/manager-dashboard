@@ -28,15 +28,18 @@ export class StaffController {
     private readonly profiles: StaffProfilesService,
     private readonly directory: StaffDirectoryService
   ) {}
+
   @Get()
   list(@Query() query: StaffDirectoryDto) {
     return this.directory.list(query);
   }
+
   @Get(':id')
   get(@Param('id', new ParseUUIDPipe()) id: string, @Query() query: StaffDetailQueryDto) {
     void query;
     return this.directory.get(id);
   }
+
   @Patch(':id')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -45,6 +48,7 @@ export class StaffController {
   ) {
     return this.profiles.update(id, request.user.sub, patch);
   }
+
   @Delete(':id')
   remove(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -53,6 +57,7 @@ export class StaffController {
   ) {
     return this.profiles.remove(id, request.user.sub, body.version);
   }
+
   @Post()
   create(@Body() profile: CreateStaffDto) {
     return this.staff.create(profile);

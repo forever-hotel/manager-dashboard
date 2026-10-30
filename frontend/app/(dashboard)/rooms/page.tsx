@@ -1,4 +1,5 @@
 'use client';
+
 import HeaderNotifications from '@/components/HeaderNotifications';
 import { useOperationsSnapshot } from '@/components/useOperationsSnapshot';
 import { roomSnapshotSchema } from '@/lib/rooms';
@@ -20,6 +21,7 @@ export default function RoomsPage() {
   const floors = [...new Set(snapshot?.rooms.map(r => r.floor) ?? [])].sort((a, b) => a - b);
   const count = (status: keyof typeof statusConfig) =>
     snapshot ? snapshot.rooms.filter(r => r.status === status).length : '\u2014';
+
   return (
     <main className="dashboard-page">
       <div className="page-topbar">
@@ -80,6 +82,7 @@ export default function RoomsPage() {
                 'var(--color-warning-light)',
                 'var(--color-danger-light)'
               ];
+
               return (
                 <div key={label} className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: colors[i] }} />
@@ -99,6 +102,7 @@ export default function RoomsPage() {
                   .filter(r => r.floor === floor)
                   .map(room => {
                     const cfg = statusConfig[room.status];
+
                     return (
                       <div
                         key={room.id}

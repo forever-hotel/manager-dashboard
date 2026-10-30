@@ -4,10 +4,12 @@ import { validateStaffConfig } from '../staff/staff-config';
 export function validateEnvironment(env: Record<string, unknown>) {
   env = { ...env };
   const promotions = env.MAD_PROMOTIONS_PUBLISH_ENABLED ?? 'false';
+
   if (promotions !== 'true' && promotions !== 'false')
     throw new Error('Configuration: MAD_PROMOTIONS_PUBLISH_ENABLED must be true or false');
   env.MAD_PROMOTIONS_PUBLISH_ENABLED = promotions;
   const realtime = env.MAD_REALTIME_ENABLED ?? 'false';
+
   if (realtime !== 'true' && realtime !== 'false')
     throw new Error('Configuration: MAD_REALTIME_ENABLED must be true or false');
   env.MAD_REALTIME_ENABLED = realtime;
@@ -15,6 +17,7 @@ export function validateEnvironment(env: Record<string, unknown>) {
     try {
       if (typeof env.RABBITMQ_URL !== 'string') throw new Error();
       const url = new URL(env.RABBITMQ_URL);
+
       if (!['amqp:', 'amqps:'].includes(url.protocol) || !url.hostname) throw new Error();
     } catch {
       throw new Error('Configuration: RABBITMQ_URL must be an AMQP URL');
@@ -22,11 +25,13 @@ export function validateEnvironment(env: Record<string, unknown>) {
   }
   if (realtime === 'true') {
     const key = env.MAD_WEBSOCKET_RELAY_KEY;
+
     if (typeof key !== 'string' || key.length < 32)
       throw new Error('Configuration: MAD_WEBSOCKET_RELAY_KEY must contain at least 32 characters');
     try {
       if (typeof env.SHARED_WEBSOCKET_URL !== 'string') throw new Error();
       const url = new URL(env.SHARED_WEBSOCKET_URL);
+
       if (
         !['http:', 'https:'].includes(url.protocol) ||
         url.username ||
@@ -48,6 +53,7 @@ export function validateEnvironment(env: Record<string, unknown>) {
         throw new Error(`Configuration: ${key} is required when DATABASE_URL is absent`);
     }
     const dbPort = Number(env.DB_PORT ?? 5432);
+
     if (!Number.isInteger(dbPort) || dbPort < 1 || dbPort > 65535)
       throw new Error('Configuration: DB_PORT must be an integer from 1 to 65535');
     if (!/^[a-zA-Z0-9.-]+$/.test(env.DB_HOST as string)) throw new Error('Configuration: DB_HOST must be a hostname');
@@ -55,6 +61,7 @@ export function validateEnvironment(env: Record<string, unknown>) {
   }
   for (const key of ['DB_SSL', 'DB_SYNCHRONIZE', 'DB_LOGGING']) {
     const value = env[key] ?? 'false';
+
     if (value !== 'true' && value !== 'false') throw new Error(`Configuration: ${key} must be true or false`);
     env[key] = value;
   }
@@ -64,14 +71,18 @@ export function validateEnvironment(env: Record<string, unknown>) {
     throw new Error('Configuration: DB_LOGGING must be false in production to protect query parameters');
   const required = (name: string) => {
     const value = env[name];
+
     if (typeof value !== 'string' || !value.trim()) throw new Error(`Configuration: ${name} is required`);
     return value;
   };
+
   for (const name of ['DATABASE_URL', 'FRONTEND_URL']) {
     const value = required(name);
+
     try {
       const url = new URL(value);
       const protocols = name === 'DATABASE_URL' ? ['postgres:', 'postgresql:'] : ['http:', 'https:'];
+
       if (!protocols.includes(url.protocol) || !url.hostname || url.hash || url.search) throw new Error();
       if (
         name !== 'DATABASE_URL' &&
@@ -89,6 +100,7 @@ export function validateEnvironment(env: Record<string, unknown>) {
   }
   try {
     const authUrl = new URL(required('AUTH_SERVICE_URL'));
+
     if (
       !['http:', 'https:'].includes(authUrl.protocol) ||
       authUrl.username ||
@@ -102,6 +114,7 @@ export function validateEnvironment(env: Record<string, unknown>) {
     throw new Error('Configuration: AUTH_SERVICE_URL must be the gateway HTTP(S) origin');
   }
   const port = Number(env.PORT ?? 4000);
+
   if (!Number.isInteger(port) || port < 1 || port > 65535)
     throw new Error('Configuration: PORT must be an integer from 1 to 65535');
   return { ...env, PORT: port };

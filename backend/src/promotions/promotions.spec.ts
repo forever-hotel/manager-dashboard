@@ -39,13 +39,16 @@ const row: PromotionRow = {
   updated_at: now,
   room_type_ids: [roomId]
 };
+
 function setup() {
   const query = jest.fn<Promise<unknown[]>, [string, unknown[]?]>();
   const transaction = jest.fn((first: unknown, second?: (manager: EntityManager) => Promise<unknown>) => {
     const work = (second ?? first) as (manager: EntityManager) => Promise<unknown>;
+
     return work({ query } as unknown as EntityManager);
   });
   const service = new PromotionsService({ query, transaction } as unknown as DataSource, () => now);
+
   return { service, query, transaction };
 }
 describe('DDP-018 promotion validation', () => {
@@ -54,6 +57,7 @@ describe('DDP-018 promotion validation', () => {
       ...input,
       code: ' summer '
     });
+
     expect(dto.code).toBe('SUMMER');
     expect(await validate(dto)).toHaveLength(0);
     expect(normalizeCode(3)).toBe(3);
@@ -96,6 +100,7 @@ describe('DDP-018 promotion validation', () => {
       page: '2',
       pageSize: '100'
     });
+
     expect(await validate(valid)).toHaveLength(0);
     for (const change of [{ page: '' }, { page: '1.5' }, { page: ['1', '2'] }, { page: '-1' }, { pageSize: '101' }]) {
       expect((await validate(plainToInstance(PromotionPageDto, change))).length).toBeGreaterThan(0);
@@ -118,6 +123,7 @@ describe('DDP-018 service', () => {
     'creates %s and returns only the saved representation',
     async discountType => {
       const { service, query, transaction } = setup();
+
       query
         .mockResolvedValueOnce([{ room_type_id: roomId }])
         .mockResolvedValueOnce([])
@@ -125,6 +131,7 @@ describe('DDP-018 service', () => {
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ ...row, discount_type: discountType }]);
       const result = await service.create({ ...input, discountType });
+
       expect(result).toMatchObject({
         code: 'SUMMER',
         discountType,
@@ -148,12 +155,14 @@ describe('DDP-018 service', () => {
     'rejects cross-field violation before writes %j',
     async change => {
       const { service, transaction } = setup();
+
       await expect(service.create({ ...input, ...change })).rejects.toMatchObject({ status: 400 });
       expect(transaction).not.toHaveBeenCalled();
     }
   );
   it('rejects unknown room types and legacy duplicates before insert', async () => {
     const { service, query } = setup();
+
     query.mockResolvedValueOnce([]);
     await expect(service.create(input)).rejects.toMatchObject({ status: 400 });
     query.mockResolvedValueOnce([{ room_type_id: roomId }]).mockResolvedValueOnce([{ promo_id: roomId }]);
@@ -170,17 +179,20 @@ describe('DDP-018 service', () => {
     [new Error('private'), 503]
   ])('maps database error %j to %s without leaking details', async (error, status) => {
     const { service, query } = setup();
+
     query.mockRejectedValue(error);
     await expect(service.detail(roomId)).rejects.toMatchObject({ status });
   });
   it('returns detail or 404', async () => {
     const { service, query } = setup();
+
     query.mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
     expect(await service.detail(roomId)).toMatchObject({ id: roomId });
     await expect(service.detail(roomId)).rejects.toMatchObject({ status: 404 });
   });
   it('uses stable paginated snapshots for lists including empty pages', async () => {
     const { service, query, transaction } = setup();
+
     query.mockResolvedValueOnce([{ total: '1' }]).mockResolvedValueOnce([row]);
     expect(await service.list({ page: 1, pageSize: 20 })).toMatchObject({
       total: 1,
@@ -205,6 +217,7 @@ describe('DDP-018 service', () => {
     'filters %s before pagination and excludes expired records',
     async view => {
       const { service, query } = setup();
+
       query.mockResolvedValueOnce([{ total: '0' }]).mockResolvedValueOnce([]);
       await service.list({ page: 2, pageSize: 20, view });
       expect(query.mock.calls[0][0]).toContain('p.valid_until > $1');
@@ -243,6 +256,7 @@ describe('DDP-019 versioned promotion lifecycle', () => {
         status: action === 'activate' ? ('ACTIVE' as const) : ('INACTIVE' as const),
         deleted_at: action === 'delete' ? now : null
       };
+
       query
         .mockResolvedValueOnce([row])
         .mockResolvedValueOnce([])
@@ -271,12 +285,14 @@ describe('DDP-019 versioned promotion lifecycle', () => {
     [[{ ...row, current_redemptions: 10 }], 0, 409]
   ] as const)('rejects ineligible or stale transitions without writes', async (rows, version, status) => {
     const { service, query } = setup();
+
     query.mockResolvedValueOnce([...rows]);
     await expect(service.changeState(roomId, version, 'activate')).rejects.toMatchObject({ status });
     expect(query).toHaveBeenCalledTimes(1);
   });
   it('replaces editable fields and room associations, retaining redemptions', async () => {
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([row])
       .mockResolvedValueOnce([{ room_type_id: roomId }])
@@ -295,6 +311,7 @@ describe('DDP-019 versioned promotion lifecycle', () => {
   it('rejects limits below redeemed count, unknown types and conflicting codes', async () => {
     for (const scenario of ['limit', 'room', 'code']) {
       const { service, query } = setup();
+
       query.mockResolvedValueOnce([{ ...row, current_redemptions: 5 }]);
       if (scenario !== 'limit') query.mockResolvedValueOnce(scenario === 'room' ? [] : [{ room_type_id: roomId }]);
       if (scenario === 'code') query.mockResolvedValueOnce([{ promo_id: 'other' }]);
@@ -310,6 +327,7 @@ describe('DDP-019 versioned promotion lifecycle', () => {
   });
   it('surfaces publication failure so the enclosing transaction rolls back', async () => {
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([row])
       .mockResolvedValueOnce([])
@@ -332,6 +350,7 @@ describe('DDP-020 draft creation and publication visibility', () => {
   });
   it('inserts an inactive draft and queues only its inactive snapshot', async () => {
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([{ room_type_id: roomId }])
       .mockResolvedValueOnce([])
@@ -340,6 +359,7 @@ describe('DDP-020 draft creation and publication visibility', () => {
       .mockResolvedValueOnce([{ ...row, status: 'INACTIVE' }])
       .mockResolvedValueOnce([]);
     const result = await service.create({ ...input, status: 'INACTIVE' });
+
     expect(result.status).toBe('INACTIVE');
     expect(query.mock.calls[2][1]?.[7]).toBe('INACTIVE');
     expect(JSON.parse(String(query.mock.calls[5][1]?.[4])) as unknown).toMatchObject({

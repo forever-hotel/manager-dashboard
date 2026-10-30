@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { periodSchema } from './analytics';
+
 const count = z.number().int().nonnegative().safe();
 const duration = z.number().nonnegative().nullable();
 const date = z.iso.datetime({ offset: true });
@@ -130,6 +131,7 @@ export const workerSchema = z
     freshness
   })
   .refine(s => new Set(s.workers.map(w => w.workerId)).size === s.workers.length);
+
 export function localBoundary(value: string) {
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Colombo',

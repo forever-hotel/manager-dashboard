@@ -1,7 +1,9 @@
 import { LoginForm } from '@/components/LoginForm';
 import { backend } from '@/lib/backend';
 import Link from 'next/link';
+
 export const dynamic = 'force-dynamic';
+
 export default async function LoginPage({
   searchParams
 }: {
@@ -9,8 +11,10 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const health = await backend('/health/ready');
+
   if (health.status !== 200) {
     const query = new URLSearchParams();
+
     if (params.next) query.set('next', params.next);
     if (params.reason) query.set('reason', params.reason);
     return (

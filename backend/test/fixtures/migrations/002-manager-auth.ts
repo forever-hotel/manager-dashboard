@@ -19,6 +19,7 @@ export class MadManagerAuth1790726400000 implements MigrationInterface {
       REVOKE ALL ON mad_manager_accounts FROM PUBLIC;
     `);
   }
+
   down(): Promise<void> {
     return Promise.reject(new Error('Destructive rollback is disabled; use a reviewed forward migration.'));
   }

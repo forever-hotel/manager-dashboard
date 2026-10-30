@@ -5,6 +5,7 @@ import { GET } from '@/app/api/tasks/route';
 import { POST } from '@/app/api/realtime/ticket/route';
 import { backend } from '@/lib/backend';
 import { tasksSnapshot } from './tasks-fixture';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const req = (query = '', cookie = true, origin = 'http://localhost:3000') =>
   new NextRequest('http://localhost/api/tasks?' + query, {
@@ -24,6 +25,7 @@ describe('DDP-028 protected task routes', () => {
       data: { ...tasksSnapshot(), private: 'secret' }
     });
     const response = await GET(req('status=ASSIGNED'));
+
     expect(await response.json()).toEqual(tasksSnapshot());
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(backend).toHaveBeenCalledWith('/mad/tasks?page=1&pageSize=20&status=ASSIGNED', 'GET', 'private');
@@ -56,6 +58,7 @@ describe('DDP-028 protected task routes', () => {
       data: { private: 'secret' }
     });
     const response = await GET(req());
+
     expect(response.status).toBe([401, 403].includes(status) ? status : 503);
     expect(JSON.stringify(await response.json())).not.toContain('secret');
     expect((await POST(req())).status).toBe([401, 403].includes(status) ? status : 503);
@@ -74,6 +77,7 @@ describe('DDP-028 protected task routes', () => {
       data: { ticket: 'a'.repeat(43) }
     });
     const result = await POST(req());
+
     expect(await result.json()).toEqual({
       ticket: 'a'.repeat(43),
       socketUrl: 'http://localhost:4000'

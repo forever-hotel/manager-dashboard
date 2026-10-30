@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/analytics/low-booking-alerts/route';
 import { backend } from '@/lib/backend';
 import { lowDemand } from './low-demand-fixture';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const req = (query = '', cookie = true) =>
   new NextRequest('http://localhost/api/analytics/low-booking-alerts' + query, {
@@ -17,6 +18,7 @@ describe('DDP-057 low-demand BFF', () => {
       data: { ...lowDemand(), private: 'secret' }
     });
     const result = await GET(req());
+
     expect(result.status).toBe(200);
     expect(await result.json()).toEqual(lowDemand());
     expect(result.headers.get('cache-control')).toBe('no-store');
@@ -33,6 +35,7 @@ describe('DDP-057 low-demand BFF', () => {
       data: { private: 'secret' }
     });
     const result = await GET(req());
+
     expect(result.status).toBe([401, 403].includes(status) ? status : 503);
     expect(JSON.stringify(await result.json())).not.toContain('secret');
   });

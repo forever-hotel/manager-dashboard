@@ -7,6 +7,7 @@ import { KitchenService } from './kitchen.service';
 @UseGuards(JwtAuthGuard)
 export class KitchenController {
   constructor(private readonly kitchen: KitchenService) {}
+
   @Get('orders')
   orders(@Query() query: KitchenQueryDto) {
     return this.kitchen.snapshot(query);

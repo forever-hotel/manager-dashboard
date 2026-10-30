@@ -1,15 +1,18 @@
 'use client';
+
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { safeDestination } from '@/lib/auth';
 import { navigate } from '@/lib/navigation';
+
 const schema = z.object({
   currentPassword: z.string().min(1, 'Current password is required.').max(1024),
   newPassword: z.string().min(12, 'Use at least 12 characters.').max(1024)
 });
 type Values = z.infer<typeof schema>;
+
 export function ChangePasswordForm({ next }: { next?: string }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
@@ -31,6 +34,7 @@ export function ChangePasswordForm({ next }: { next?: string }) {
         signal: AbortSignal.timeout(10000),
         body: JSON.stringify(data)
       });
+
       if (!response.ok)
         throw new Error(
           response.status >= 500
@@ -38,6 +42,7 @@ export function ChangePasswordForm({ next }: { next?: string }) {
             : 'Unable to change password. Check your current password and use a different new password.'
         );
       const result: unknown = await response.json();
+
       if (
         !result ||
         typeof result !== 'object' ||

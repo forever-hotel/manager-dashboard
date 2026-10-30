@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { isUUID } from 'class-validator';
+
 export interface Session {
   sub: string;
   username: string;
@@ -19,6 +20,7 @@ export interface Session {
 @Injectable()
 export class AuthService {
   constructor(private readonly config: ConfigService) {}
+
   private async call(path: string, method: string, token?: string, body?: unknown) {
     try {
       const origin = this.config.getOrThrow<string>('AUTH_SERVICE_URL');
@@ -30,6 +32,7 @@ export class AuthService {
         ...(body === undefined ? {} : { body: JSON.stringify(body) })
       });
       const data: unknown = await response.json();
+
       if (response.status === 401) throw new UnauthorizedException();
       if (response.status === 403) throw new ForbiddenException(data && typeof data === 'object' ? data : undefined);
       if (response.status === 400) throw new BadRequestException();
@@ -45,8 +48,10 @@ export class AuthService {
       throw new ServiceUnavailableException();
     }
   }
+
   async session(token: string, allowPasswordChange = false): Promise<Session> {
     const body = (await this.call('session', 'GET', token)) as Partial<Session> | null;
+
     if (
       !body ||
       typeof body.sub !== 'string' ||
@@ -66,12 +71,15 @@ export class AuthService {
       });
     return body as Session;
   }
+
   login(body: { username: string; password: string }) {
     return this.call('login', 'POST', undefined, body);
   }
+
   changePassword(token: string, body: { currentPassword: string; newPassword: string }) {
     return this.call('change-password', 'POST', token, body);
   }
+
   logout(token: string) {
     return this.call('logout', 'POST', token, {});
   }

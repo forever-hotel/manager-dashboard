@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { GET, POST, PATCH } from '@/app/api/staff/[[...path]]/route';
 import { backend } from '@/lib/backend';
 import { staffFixture, staffPageFixture, staffId, staffInputFixture } from './staff-fixture';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const context = (path: string[] = []) => ({
   params: Promise.resolve({ path })
@@ -31,6 +32,7 @@ describe('DDP-029 staff proxy', () => {
       data: { ...staffPageFixture(), password: 'secret' }
     });
     const response = await GET(req(), context());
+
     expect(await response.json()).toEqual(staffPageFixture());
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(backend).toHaveBeenCalledWith('/mad/staff?page=1&pageSize=20', 'GET', 'private', undefined);
@@ -51,6 +53,7 @@ describe('DDP-029 staff proxy', () => {
       }
     });
     const response = await POST(req('POST', staffInputFixture()), context());
+
     expect(response.status).toBe(201);
     expect(JSON.stringify(await response.json())).not.toContain('secret');
     vi.mocked(backend).mockResolvedValue({ status: 200, data: staffFixture() });
@@ -89,6 +92,7 @@ describe('DDP-029 staff proxy', () => {
       data: { password: 'secret' }
     });
     const response = await GET(req(), context());
+
     expect(response.status).toBe(status === 500 ? 503 : status);
     expect(JSON.stringify(await response.json())).not.toContain('secret');
   });

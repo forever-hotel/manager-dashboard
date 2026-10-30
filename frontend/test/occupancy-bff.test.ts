@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/analytics/occupancy/route';
 import { backend } from '@/lib/backend';
 import { occupancy } from './occupancy-fixture';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const req = (query = 'month=2024-02', cookie = true) =>
   new NextRequest(`http://localhost/api/analytics/occupancy?${query}`, {
@@ -17,6 +18,7 @@ describe('DDP-016 protected occupancy BFF contract', () => {
       data: { ...occupancy(), secret: 'private' }
     });
     const result = await GET(req());
+
     expect(result.status).toBe(200);
     expect(await result.json()).toEqual(occupancy());
     expect(result.headers.get('cache-control')).toBe('no-store');
@@ -45,6 +47,7 @@ describe('DDP-016 protected occupancy BFF contract', () => {
       data: { secret: 'private' }
     });
     const result = await GET(req());
+
     expect(result.status).toBe(status === 401 || status === 403 ? status : 503);
     expect(result.headers.get('cache-control')).toBe('no-store');
     expect(JSON.stringify(await result.json())).not.toContain('private');

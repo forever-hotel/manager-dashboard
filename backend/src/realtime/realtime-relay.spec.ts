@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { connect } from 'amqplib';
 import { RealtimeGateway } from './realtime.gateway';
+
 jest.mock('amqplib', () => ({ connect: jest.fn() }));
 describe('MAD relay to the shared service', () => {
   it('confirms persistent invalidations without publishing source payloads', async () => {
@@ -12,12 +13,14 @@ describe('MAD relay to the shared service', () => {
     );
     const channel = { on: jest.fn(), assertExchange: jest.fn(), assertQueue: jest.fn(), bindQueue: jest.fn(), publish };
     const close = jest.fn().mockResolvedValue(undefined);
+
     jest.mocked(connect).mockResolvedValue({
       on: jest.fn(),
       createConfirmChannel: () => Promise.resolve(channel),
       close
     } as unknown as Awaited<ReturnType<typeof connect>>);
     const relay = new RealtimeGateway(new ConfigService({ RABBITMQ_URL: 'amqp://localhost/test' }));
+
     await relay.send('room.status.changed', { room: { guest: 'PRIVATE' } });
     expect(publish).toHaveBeenCalledWith(
       'hotel.realtime',

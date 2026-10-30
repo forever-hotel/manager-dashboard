@@ -29,6 +29,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
 
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
@@ -36,6 +37,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
+
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
@@ -84,6 +86,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       .overrideProvider(BOOKING_CLOCK)
       .useValue(() => clock)
       .compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.init();
@@ -133,6 +136,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     await seed('2026-09-27');
     await seed('2026-09-28');
     const result = await summary('day');
+
     expect(result).toMatchObject({
       total: 1,
       start: '2026-09-26T18:30:00.000Z',
@@ -151,6 +155,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     await seed('2026-09-27');
     await seed('2026-09-28');
     const result = await summary('week');
+
     expect(result.total).toBe(2);
     expect(result.trend.map(b => b.date)).toEqual([
       '2026-09-21',
@@ -174,6 +179,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     await seed(last);
     await seed(outside);
     const result = await summary('month');
+
     expect(result.total).toBe(2);
     expect(result.trend).toHaveLength(size);
     expect(result.trend[0].date).toBe(first);
@@ -186,6 +192,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     ['month', 30]
   ])('TC-DDP-009-AC2: zero-fills empty %s', async (period, size) => {
     const result = await summary(String(period));
+
     expect(result.total).toBe(0);
     expect(result.trend).toHaveLength(Number(size));
     expect(result.trend.every(b => b.count === 0)).toBe(true);
@@ -196,6 +203,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     'TC-DDP-009-AC2: rejects invalid query %s',
     async query => {
       const response = await get(query).expect(400);
+
       expect(response.body).toMatchObject({ code: 'VALIDATION_ERROR' });
     }
   );
@@ -206,14 +214,17 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
 
   it('TC-DDP-009-AC3: applies latest status and deduplicates replayed source rows', async () => {
     const confirmed = await seed('2026-09-27');
+
     await seed('2026-09-27', 'CONFIRMED', confirmed);
     await seed('2026-09-27', 'CHECKED_IN');
     await seed('2026-09-27', 'CHECKED_OUT');
     await seed('2026-09-27', 'PENDING');
     await seed('2026-09-27', 'CANCELLED');
     const cancelled = await seed('2026-09-27');
+
     await seed('2026-09-27', 'CANCELLED', cancelled, '2026-09-26T13:00:00Z');
     const result = await summary('day');
+
     expect(result.total).toBe(3);
     expect(result.total).toBe(result.trend.reduce((n, b) => n + b.count, 0));
     expect(await database.query('SELECT COUNT(*)::int AS count FROM hw_booking_snapshots')).toEqual([{ count: 8 }]);
@@ -221,8 +232,10 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
 
   it('TC-DDP-009-AC3: deduplicates before date filtering and excludes tied cancellation', async () => {
     const rescheduled = await seed('2026-09-27');
+
     await seed('2026-10-01', 'CONFIRMED', rescheduled, '2026-09-26T13:00:00Z');
     const tie = await seed('2026-09-27');
+
     await seed('2026-09-27', 'CANCELLED', tie);
     expect((await summary('day')).total).toBe(0);
   });
@@ -253,6 +266,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     await database.query(`REVOKE SELECT ON mad_booking_analytics FROM "${role}"`);
     try {
       const response = await get().expect(503);
+
       expect(response.body).toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
       expect(JSON.stringify(response.body)).not.toContain('mad_booking_analytics');
     } finally {
@@ -285,12 +299,14 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
   it('TC-MAD-056-AC1/AC3: counts LKR cents once by paid_at and excludes refunded/failed/pending payments', async () => {
     clock = new Date('2026-09-27T04:00:00Z');
     const booking = randomUUID();
+
     await payment(10001, '2026-09-25T18:30:00Z');
     await payment(10001, '2026-09-26T18:30:00Z', 'COMPLETED', booking);
     await payment(10001, '2026-09-27T18:29:59Z', 'COMPLETED', booking);
     await payment(99999, '2026-09-27T18:30:00Z');
     for (const status of ['REFUNDED', 'FAILED', 'PENDING']) await payment(99999, '2026-09-27T04:00:00Z', status);
     const response = await analytics('revenue').expect(200);
+
     response.body = (response.body as { revenue: unknown }).revenue;
     expect(response.body).toMatchObject({
       currency: 'LKR',
@@ -307,6 +323,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       bookings: Summary;
       revenue: { start: string; end: string; asOf: string };
     };
+
     expect(result.bookings.start).toBe(result.revenue.start);
     expect(result.bookings.end).toBe(result.revenue.end);
     expect(result.bookings.asOf).toBe(result.revenue.asOf);
@@ -393,6 +410,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
   it('overview reads recent shared-schema booking rows and excludes cancellations from stay averages', async () => {
     const guest = randomUUID(),
       type = randomUUID();
+
     await database.query("INSERT INTO guests VALUES ($1,'Analytics guest')", [guest]);
     await database.query("INSERT INTO room_types VALUES ($1,'Analytics suite')", [type]);
     await database.query(
@@ -404,6 +422,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       averageLengthOfStay: number;
       recentBookings: { guestName: string; roomType: string; status: string }[];
     };
+
     expect(body.averageLengthOfStay).toBe(2);
     expect(body.recentBookings).toHaveLength(2);
     expect(body.recentBookings[0]).toMatchObject({
@@ -417,6 +436,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
     await seed('2026-09-27');
     const response = await get('?period=month&date=2026-08-01').expect(200);
     const body = response.body as Summary;
+
     expect(body.total).toBe(1);
     expect(body.start).toBe('2026-07-31T18:30:00.000Z');
     expect(body.end).toBe('2026-08-31T18:30:00.000Z');
@@ -424,6 +444,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
   });
   it('paginates booking records instead of silently stopping at five', async () => {
     const type = randomUUID();
+
     await database.query("INSERT INTO room_types VALUES ($1,'Suite')", [type]);
     for (let i = 0; i < 7; i++)
       await database.query(
@@ -438,6 +459,7 @@ describe('DDP-009 booking API with disposable PostgreSQL', () => {
       bookingList: { total: number; page: number; pageSize: number };
       recentBookings: unknown[];
     };
+
     expect(body.bookingList).toEqual({ total: 7, page: 2, pageSize: 5 });
     expect(body.recentBookings).toHaveLength(2);
   });

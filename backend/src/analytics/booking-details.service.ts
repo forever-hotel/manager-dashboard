@@ -31,9 +31,11 @@ export interface RecentBooking {
   source: string;
   status: string;
 }
+
 @Injectable()
 export class BookingDetailsService {
   constructor(private readonly database: DataSource) {}
+
   async details(start: string, end: string, page = 1, pageSize = 5) {
     try {
       const [row] = await this.database.query<
@@ -46,6 +48,7 @@ export class BookingDetailsService {
         pageSize,
         (page - 1) * pageSize
       ]);
+
       if (
         !row ||
         (row.average_nights !== null && (!Number.isFinite(row.average_nights) || row.average_nights <= 0)) ||
@@ -53,6 +56,7 @@ export class BookingDetailsService {
       )
         throw new Error('Invalid booking details');
       const total = Number(row.total_bookings);
+
       if (!Number.isSafeInteger(total) || total < 0) throw new Error('Invalid booking total');
       return {
         averageLengthOfStay: row.average_nights,

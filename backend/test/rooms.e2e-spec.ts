@@ -18,6 +18,7 @@ import { io, Socket } from 'socket.io-client';
 import { connect } from 'amqplib';
 import { RoomsService } from '../src/rooms/rooms.service';
 import { seedLocalAuth } from './local-auth-fixture';
+
 type Summary = Awaited<ReturnType<RoomsService['snapshot']>>;
 describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => {
   let admin: DataSource,
@@ -32,6 +33,7 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
 
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
@@ -39,6 +41,7 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
+
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
@@ -78,6 +81,7 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
         RealtimeModule
       ]
     }).compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.listen(0, '127.0.0.1');
@@ -100,6 +104,7 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
   });
   function get(query = '', token: string | null = provider.issue('manager')) {
     const req = request(app.getHttpServer()).get('/mad/rooms/status?' + query);
+
     if (token) req.set('Authorization', 'Bearer ' + token);
     return req;
   }
@@ -121,6 +126,7 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
       extraHeaders: { Origin: 'http://localhost:3000' },
       reconnection: false
     });
+
     await new Promise<void>((resolve, reject) => {
       client.once('connect', resolve);
       client.once('connect_error', reject);
@@ -132,6 +138,7 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
       await add(String(101 + i), state);
     const response = await get().expect(200);
     const body = response.body as Summary;
+
     expect(body.rooms.map(r => r.label)).toEqual(['Occupied', 'Vacant', 'Under Maintenance', 'Requires Cleaning']);
     expect(body.rooms.map(r => r.id)).toEqual(['101', '102', '103', '104']);
     expect(body.rooms[0]).toMatchObject({
@@ -145,6 +152,7 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
   it('rejects filters and unauthorized callers and never writes FDS source data', async () => {
     await add('101');
     const before = await database.query<unknown[]>('SELECT * FROM rooms');
+
     for (const query of ['status=VACANT', 'page=1', 'extra=1']) await get(query).expect(400);
     for (const [token, status] of [
       [null, 401],
@@ -164,6 +172,7 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
     const ticket = await request(app.getHttpServer())
       .post('/mad/realtime/ticket')
       .set('Authorization', 'Bearer ' + provider.issue('worker'));
+
     expect(ticket.status).toBe(403);
   });
   it('TC-MAD-027-AC3: distinguishes empty rooms from unavailable FDS data', async () => {
@@ -189,11 +198,13 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
       version: room.version,
       occurredAt: room.updatedAt
     };
+
     await Promise.all([service.accept(event), service.accept(event)]);
     await database.query(
       "UPDATE rooms SET status='OCCUPIED',updated_at=updated_at+interval '1 second' WHERE room_number='101'"
     );
     const newer = ((await get().expect(200)).body as Summary).rooms[0];
+
     await service.accept({
       ...event,
       eventId: randomUUID(),
@@ -205,10 +216,12 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
       app.get(RealtimeGateway),
       app.get(RoomsService)
     );
+
     await restarted.accept({ ...event, eventId: randomUUID() });
     const rows = await database.query<{ payload: { room: { status: string } } }[]>(
       'SELECT payload FROM mad_room_events WHERE delivered_at IS NULL'
     );
+
     expect(rows).toHaveLength(1);
     expect(rows[0].payload.room.status).toBe('OCCUPIED');
     expect(await database.query('SELECT version FROM mad_room_versions')).toEqual([{ version: String(newer.version) }]);
@@ -222,17 +235,20 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
   });
   it('TC-MAD-027-AC2: publishes a committed authoritative room update through RabbitMQ to an authorized socket', async () => {
     const url = process.env.TEST_RABBITMQ_URL;
+
     if (!url || new URL(url).pathname !== '/mad_test')
       throw new Error('Use an isolated mad_test RabbitMQ virtual host');
     await add('101', 'REQUIRES_CLEANING');
     const room = ((await get().expect(200)).body as Summary).rooms[0];
     const config = app.get(ConfigService);
+
     config.set('RABBITMQ_URL', url);
     config.set('MAD_REALTIME_ENABLED', 'true');
     app.get(RoomEventsConsumer).onModuleInit();
     const connection = await connect(url);
     const channel = await connection.createConfirmChannel();
     let client: Socket | undefined;
+
     try {
       await channel.assertExchange('hotel.events', 'topic', { durable: true });
       await channel.assertQueue('mad.rooms', {
@@ -253,11 +269,13 @@ describe('DDP-027 room snapshots and updates with disposable PostgreSQL', () => 
       };
       const received = new Promise<unknown>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Room event not delivered')), 10000);
+
         client!.once('room.status.changed', (value: unknown) => {
           clearTimeout(timer);
           resolve(value);
         });
       });
+
       channel.publish('hotel.events', 'room.status.changed', Buffer.from(JSON.stringify(event)), {
         persistent: true,
         messageId: event.eventId

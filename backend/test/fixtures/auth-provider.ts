@@ -31,15 +31,18 @@ interface Account {
   failed_attempts: number;
   locked_until: Date | null;
 }
+
 @Injectable()
 export class AuthService {
   constructor(
     private readonly tokens: TokenService,
     private readonly database: DataSource
   ) {}
+
   private digest(token: string) {
     return createHash('sha256').update(token).digest('hex');
   }
+
   private async storage<T>(work: () => Promise<T>): Promise<T> {
     try {
       return await work();
@@ -48,6 +51,7 @@ export class AuthService {
       throw new ServiceUnavailableException();
     }
   }
+
   private describe(account: Account, claims: StaffClaims): Session {
     if (!account.is_active || account.session_version !== claims.ver) throw new UnauthorizedException();
     if (claims.role !== 'MANAGER' || account.role !== 'MANAGER') throw new ForbiddenException();
@@ -59,6 +63,7 @@ export class AuthService {
       passwordChangeRequired: account.password_change_required
     };
   }
+
   async session(token: string, allowPasswordChange = false): Promise<Session> {
     const claims = this.tokens.verify(token);
     const rows = await this.storage(() =>
@@ -67,8 +72,10 @@ export class AuthService {
         [claims.sub, this.digest(token)]
       )
     );
+
     if (!rows[0]) throw new UnauthorizedException();
     const session = this.describe(rows[0], claims);
+
     if (session.passwordChangeRequired && !allowPasswordChange)
       throw new ForbiddenException({
         code: 'PASSWORD_CHANGE_REQUIRED',
@@ -76,24 +83,30 @@ export class AuthService {
       });
     return session;
   }
+
   private locked(account: Account) {
     return account.locked_until !== null && new Date(account.locked_until).getTime() > Date.now();
   }
+
   private async failure(manager: EntityManager, account: Account) {
     // The row is locked by the caller, so simultaneous guesses cannot lose increments.
     const attempts = account.locked_until ? 1 : account.failed_attempts + 1;
+
     await manager.query(
       "UPDATE staff_users SET failed_attempts=$2, locked_until=CASE WHEN $2 >= 5 THEN now()+interval '15 minutes' ELSE NULL END, updated_at=now() WHERE worker_id=$1",
       [account.worker_id, attempts]
     );
   }
+
   private issue(account: Account) {
     const accessToken = this.tokens.issue(account.worker_id, account.session_version);
+
     return {
       accessToken,
       ...this.describe(account, this.tokens.verify(accessToken))
     };
   }
+
   async login(body: { username: string; password: string }) {
     const result = await this.storage(() =>
       this.database.transaction(async manager => {
@@ -103,6 +116,7 @@ export class AuthService {
         );
         const account = rows[0];
         const valid = await verifyPassword(body.password, account?.password_hash);
+
         if (!account || !account.is_active || this.locked(account)) return null;
         if (!valid) {
           await this.failure(manager, account);
@@ -115,9 +129,11 @@ export class AuthService {
         return this.issue(account);
       })
     );
+
     if (!result) throw new UnauthorizedException();
     return result;
   }
+
   async changePassword(token: string, body: { currentPassword: string; newPassword: string }) {
     if (!validPassword(body.newPassword) || body.currentPassword === body.newPassword)
       throw new BadRequestException('Use a different password with 12 to 1024 characters.');
@@ -128,12 +144,14 @@ export class AuthService {
           claims.sub
         ]);
         const account = rows[0];
+
         if (!account) throw new UnauthorizedException();
         this.describe(account, claims);
         const revoked = await manager.query<{ token_hash: string }[]>(
           'SELECT token_hash FROM mad_revoked_sessions WHERE token_hash=$1',
           [this.digest(token)]
         );
+
         if (revoked.length || this.locked(account)) throw new UnauthorizedException();
         if (!(await verifyPassword(body.currentPassword, account.password_hash))) {
           await this.failure(manager, account);
@@ -148,11 +166,14 @@ export class AuthService {
         return this.issue(updated[0]);
       })
     );
+
     if (!result) throw new UnauthorizedException();
     return result;
   }
+
   async logout(token: string) {
     const claims = this.tokens.verify(token);
+
     if (claims.role !== 'MANAGER') throw new ForbiddenException();
     await this.storage(() =>
       this.database.query(

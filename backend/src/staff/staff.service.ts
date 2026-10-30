@@ -11,6 +11,7 @@ export class StaffService {
     private readonly database: DataSource,
     private readonly cipher: CredentialCipher
   ) {}
+
   async create(profile: CreateStaffDto) {
     try {
       const staffId = randomUUID();
@@ -25,6 +26,7 @@ export class StaffService {
         role: profile.role
       });
       const passwordHash = await hash(password, 12);
+
       await this.database.transaction(async manager => {
         await manager.query(
           `INSERT INTO public.staff_users

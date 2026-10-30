@@ -1,7 +1,9 @@
 'use client';
+
 import { useId } from 'react';
 import type { Period } from '@/lib/analytics';
 import { hotelDate, shiftAnalyticsDate } from '@/lib/analytics-period';
+
 export default function AnalyticsPeriodNavigation({
   period,
   date,
@@ -22,6 +24,7 @@ export default function AnalyticsPeriodNavigation({
     new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(
       new Date(value + 'T12:00:00Z')
     );
+
   return (
     <div className="analytics-period-navigation" aria-label={scope + ' dates'}>
       <button
@@ -43,6 +46,7 @@ export default function AnalyticsPeriodNavigation({
         value={period === 'month' ? date.slice(0, 7) : date}
         onChange={event => {
           const value = period === 'month' ? event.target.value + '-01' : event.target.value;
+
           if (/^\d{4}-\d{2}-\d{2}$/.test(value)) onChange(value);
         }}
       />

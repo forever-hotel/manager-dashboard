@@ -4,6 +4,7 @@ import { RealtimeModule } from '../realtime/realtime.module';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 import { NotificationsWorker } from './notifications.worker';
+
 @Module({
   imports: [AuthModule, RealtimeModule],
   controllers: [NotificationsController],

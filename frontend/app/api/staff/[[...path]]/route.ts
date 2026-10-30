@@ -4,16 +4,20 @@ import { SESSION_COOKIE } from '@/lib/auth';
 import { backend } from '@/lib/backend';
 import { serverConfig } from '@/lib/environment';
 import { staffQuery, staffInput, staffPatch, staffDetail, staffProfile, staffPage, staffReceipt } from '@/lib/staff';
+
 type Context = { params: Promise<{ path?: string[] }> };
 const reply = (data: unknown, status: number) =>
   NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
+
 async function handle(request: NextRequest, context: Context) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
+
   if (!token) return reply({ code: 'UNAUTHENTICATED' }, 401);
   const path = (await context.params).path ?? [];
   const id = z.uuid().safeParse(path[0]).success;
   const detail = path.length === 1 && id;
   const method = request.method;
+
   if (!(
     (method === 'GET' && (path.length === 0 || detail)) ||
     (method === 'POST' && path.length === 0) ||
@@ -22,10 +26,13 @@ async function handle(request: NextRequest, context: Context) {
     return reply({ code: 'NOT_FOUND' }, 404);
   let query = '',
     body: unknown;
+
   if (method === 'GET' && path.length === 0) {
     const params = request.nextUrl.searchParams;
+
     if ([...params.keys()].some(k => params.getAll(k).length !== 1)) return reply({ code: 'VALIDATION_ERROR' }, 400);
     const parsed = staffQuery.safeParse(Object.fromEntries(params));
+
     if (!parsed.success) return reply({ code: 'VALIDATION_ERROR' }, 400);
     query = '?' + new URLSearchParams(parsed.data).toString();
   } else if (request.nextUrl.search) return reply({ code: 'VALIDATION_ERROR' }, 400);
@@ -38,6 +45,7 @@ async function handle(request: NextRequest, context: Context) {
       return reply({ code: 'FORBIDDEN' }, 403);
     try {
       const raw = await request.text();
+
       if (raw.length > 16384) return reply({ code: 'PAYLOAD_TOO_LARGE' }, 413);
       const parsed = (
         method === 'DELETE'
@@ -46,6 +54,7 @@ async function handle(request: NextRequest, context: Context) {
             ? staffPatch
             : staffInput
       ).safeParse(JSON.parse(raw));
+
       if (!parsed.success) return reply({ code: 'VALIDATION_ERROR' }, 400);
       body = parsed.data;
     } catch {
@@ -54,8 +63,10 @@ async function handle(request: NextRequest, context: Context) {
   }
   const result = await backend('/mad/staff' + (path.length ? '/' + path.join('/') : '') + query, method, token, body);
   const expected = method === 'POST' ? 201 : 200;
+
   if (result.status !== expected) {
     const status = [400, 401, 403, 404, 409].includes(result.status) ? result.status : 503;
+
     return reply(
       {
         code: (
@@ -83,11 +94,13 @@ async function handle(request: NextRequest, context: Context) {
             ? staffDetail
             : staffPage;
   const parsed = schema.safeParse(result.data);
+
   if (method === 'GET' && parsed.success) {
     if (detail && 'staffId' in parsed.data && parsed.data.staffId.toLowerCase() !== path[0].toLowerCase())
       return reply({ code: 'SERVICE_UNAVAILABLE' }, 503);
     if (!detail && 'items' in parsed.data) {
       const params = new URLSearchParams(query);
+
       if (
         parsed.data.page !== Number(params.get('page')) ||
         parsed.data.pageSize !== Number(params.get('pageSize')) ||

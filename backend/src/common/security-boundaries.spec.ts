@@ -39,11 +39,14 @@ const controllers = [
 ];
 const routes = controllers.flatMap(controller => {
   const prefix = Reflect.getMetadata(PATH_METADATA, controller) as string;
+
   return Object.getOwnPropertyNames(controller.prototype).flatMap(name => {
     const handler = controller.prototype[name] as object;
     const method = Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod | undefined;
+
     if (method === undefined) return [];
     const paths = Reflect.getMetadata(PATH_METADATA, handler) as string | string[];
+
     return (Array.isArray(paths) ? paths : [paths]).map(path => ({
       controller,
       method: method === RequestMethod.ALL ? 'post' : RequestMethod[method].toLowerCase(),
@@ -69,9 +72,11 @@ describe('DDP-035 protected REST boundaries', () => {
     session_version: 0
   };
   const originalFetch = global.fetch;
+
   beforeAll(async () => {
     global.fetch = jest.fn((_url, init) => {
       const authorization = new Headers(init?.headers).get('authorization');
+
       try {
         jwt.verify(authorization?.slice(7) ?? '', { secret, issuer: 'mad', audience: 'mad', algorithms: ['HS256'] });
       } catch {
@@ -105,6 +110,7 @@ describe('DDP-035 protected REST boundaries', () => {
     })
       .useMocker(() => ({}))
       .compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.init();
@@ -115,6 +121,7 @@ describe('DDP-035 protected REST boundaries', () => {
   });
   function token(expired = false) {
     const now = Math.floor(Date.now() / 1000) - (expired ? 30000 : 0);
+
     return jwt.sign(
       {
         sub: account.worker_id,
@@ -139,8 +146,10 @@ describe('DDP-035 protected REST boundaries', () => {
       ] as const) {
         const client = request(app.getHttpServer());
         const send = client[method as 'get' | 'post' | 'put' | 'patch' | 'delete'](path);
+
         if (authorization) send.set('Authorization', authorization);
         const response = await send.send({}).expect(status);
+
         expect((response.body as { code: string }).code).toBe(status === 401 ? 'UNAUTHENTICATED' : 'FORBIDDEN');
         expect(response.headers['cache-control']).toBe('no-store');
         expect(response.headers['x-content-type-options']).toBe('nosniff');

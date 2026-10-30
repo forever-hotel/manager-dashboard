@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { io } from 'socket.io-client';
 import TaskQueue from '@/components/TaskQueue';
 import { tasksSnapshot } from './tasks-fixture';
+
 vi.mock('socket.io-client', () => ({ io: vi.fn() }));
 let handlers: Record<string, (value?: unknown) => void>;
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -58,6 +59,7 @@ describe('DDP-028 task queue', () => {
     await screen.findByText(/21.* tasks/);
     await screen.findByText('101');
     const expected = '/api/tasks?page=2&pageSize=20&status=ASSIGNED&workerName=Worker+One';
+
     await act(async () => {
       handlers['task.changed']();
       handlers.connect();

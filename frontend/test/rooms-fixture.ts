@@ -1,4 +1,5 @@
 import { roomStatuses } from '@/lib/rooms';
+
 export const roomsSnapshot = () => ({
   rooms: roomStatuses.map((status, index) => ({
     id: String(101 + index),

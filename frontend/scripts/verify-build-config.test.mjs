@@ -11,9 +11,11 @@ const manifest = JSON.parse(readFileSync(new URL('./build-config-integrity.json'
 
 test('reviewed configuration passes and Windows line endings are accepted', () => {
   const fixture = mkdtempSync(resolve(tmpdir(), 'mad-config-check-'));
+
   try {
     for (const name of Object.keys(manifest)) {
       const contents = readFileSync(resolve(root, name), 'utf8').replace(/\r\n/g, '\n');
+
       writeFileSync(resolve(fixture, name), contents.replace(/\n/g, '\r\n'));
     }
     assert.doesNotThrow(() => verifyBuildConfig(fixture));
@@ -22,6 +24,7 @@ test('reviewed configuration passes and Windows line endings are accepted', () =
       const original = readFileSync(path, 'utf8');
       // Text only: if imported this would throw. The verifier must never execute it.
       const injected = original + '\nthrow new Error("UNTRUSTED_CODE_EXECUTED");\n';
+
       writeFileSync(path, injected);
       assert.throws(() => verifyBuildConfig(fixture), /Build configuration integrity failed/);
       assert.equal(readFileSync(path, 'utf8'), injected);

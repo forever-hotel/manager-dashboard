@@ -32,6 +32,7 @@ describe('DDP-050 structured audit and health', () => {
       }
     };
     const next = jest.fn();
+
     telemetry.observe(req as unknown as Request, res as unknown as Response, next);
     res.emit('finish');
     res.emit('close');
@@ -54,6 +55,7 @@ describe('DDP-050 structured audit and health', () => {
     const sink = jest.fn();
     const telemetry = new OperationsTelemetry(sink, () => now);
     const res = response();
+
     res.writableFinished = false;
     telemetry.observe(
       {
@@ -81,8 +83,10 @@ describe('DDP-050 structured audit and health', () => {
       throw new Error('private sink error');
     });
     const telemetry = new OperationsTelemetry(sink);
+
     for (const method of ['GET', 'HEAD', 'OPTIONS', 'POST']) {
       const res = response();
+
       telemetry.observe({ method, path: '/mad/staff' } as Request, res as unknown as Response, () => {});
       expect(() => res.emit('finish')).not.toThrow();
     }

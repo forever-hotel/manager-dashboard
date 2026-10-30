@@ -1,9 +1,11 @@
 'use client';
+
 import Pagination from './Pagination';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { replaceLocation } from '@/lib/navigation';
 import { notificationsSchema, type NotificationItem } from '@/lib/notifications';
 import { useOperationsSnapshot } from './useOperationsSnapshot';
+
 function useNotificationsState() {
   const [page, setPage] = useState(1);
   const live = useOperationsSnapshot(
@@ -28,6 +30,7 @@ function useNotificationsState() {
         body: JSON.stringify({ revision: item.revision }),
         signal: AbortSignal.timeout(8000)
       });
+
       if ([401, 403].includes(result.status)) {
         setDenied(true);
         throw new Error('Please sign in again.');
@@ -57,16 +60,21 @@ function useNotificationsState() {
   };
 }
 const NotificationsContext = createContext<ReturnType<typeof useNotificationsState> | null>(null);
+
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const value = useNotificationsState();
+
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }
+
 export function useNotifications() {
   return useContext(NotificationsContext);
 }
 const button = 'font-normal text-xs text-ink underline focus-visible:outline-2 focus-visible:outline-offset-2';
+
 export function NotificationsBanner() {
   const state = useNotifications();
+
   if (!state) return null;
   return (
     <section
@@ -102,14 +110,17 @@ export function NotificationsBanner() {
     </section>
   );
 }
+
 export default function NotificationsPanel({ initialPage = 1 }: { initialPage?: number }) {
   const state = useNotifications();
   const setPage = state?.setPage;
+
   useEffect(() => {
     setPage?.(initialPage);
   }, [initialPage, setPage]);
   if (!state) return <p role="alert">Notifications are unavailable.</p>;
   const data = state.snapshot;
+
   return (
     <main className="dashboard-page">
       <div className="flex items-center gap-3 mb-6">

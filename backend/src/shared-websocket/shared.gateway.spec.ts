@@ -1,7 +1,9 @@
 import type { Server, Socket } from 'socket.io';
 import { SharedGateway } from './shared.gateway';
 import { SharedAuthService } from './shared-auth.service';
+
 const key = 'shared-gateway-test-key-at-least-32';
+
 function setup() {
   const session = jest.fn().mockResolvedValue({
     sub: 'manager',
@@ -19,6 +21,7 @@ function setup() {
   const gateway = new SharedGateway(auth as unknown as SharedAuthService);
   let middleware!: (socket: Socket, next: (error?: Error) => void) => void;
   let connection!: (socket: Socket) => void;
+
   gateway.afterInit({
     use: (fn: typeof middleware) => {
       middleware = fn;
@@ -40,11 +43,13 @@ function setup() {
     }
   } as unknown as Socket;
   const authorize = () => new Promise<Error | undefined>(resolve => middleware(socket, resolve));
+
   return { gateway, socket, emit, disconnect, session, handlers, authorize, connection };
 }
 describe('shared socket authentication and subscription isolation', () => {
   it('uses owner authentication, one-use tickets and permitted subsystem channels', async () => {
     const t = setup();
+
     try {
       await expect(t.gateway.ticket('mad', 'private', 'incorrect')).rejects.toMatchObject({ status: 401 });
       t.socket.handshake.auth.ticket = (await t.gateway.ticket('mad', 'private', key)).ticket;
@@ -58,6 +63,7 @@ describe('shared socket authentication and subscription isolation', () => {
       t.gateway.deliver('mad', 'room.status.changed', { changed: true });
       expect(t.emit).toHaveBeenCalledWith('room.status.changed', { changed: true });
       const ack = jest.fn();
+
       t.handlers.subscribe(['stock'], ack);
       expect(ack).toHaveBeenCalledWith({ ok: false });
       t.session.mockRejectedValue(new Error('revoked'));
@@ -70,8 +76,10 @@ describe('shared socket authentication and subscription isolation', () => {
   it('rejects expired tickets and wrong origins', async () => {
     const t = setup();
     const clock = jest.spyOn(Date, 'now');
+
     try {
       const now = Date.now();
+
       t.socket.handshake.auth.ticket = (await t.gateway.ticket('mad', 'private', key)).ticket;
       clock.mockReturnValue(now + 31000);
       expect(await t.authorize()).toBeInstanceOf(Error);

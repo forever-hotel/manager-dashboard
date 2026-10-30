@@ -3,8 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClientLayout } from '@/components/ClientLayout';
 import { Sidebar } from '@/components/Sidebar';
 import { replaceLocation } from '@/lib/navigation';
+
 vi.mock('@/lib/navigation', () => ({ replaceLocation: vi.fn() }));
+
 import { SessionBoundary } from '@/components/SessionBoundary';
+
 vi.mock('next/navigation', () => ({
   usePathname: () => '/rooms',
   useRouter: () => ({ refresh: vi.fn() })
@@ -37,6 +40,7 @@ describe('Dashboard shell', () => {
     fireEvent.click(screen.getByRole('button', { name: /Open account menu/ }));
     for (const name of ['Notifications', 'Task queue']) expect(screen.getByRole('link', { name })).toBeVisible();
     const rooms = screen.getByRole('link', { name: 'Room status' });
+
     expect(rooms).toHaveAttribute('aria-current', 'page');
     fireEvent.click(rooms);
     expect(screen.getByRole('button', { name: 'Open navigation' })).toHaveAttribute('aria-expanded', 'false');
@@ -45,6 +49,7 @@ describe('Dashboard shell', () => {
   it('dismisses account tools on outside interaction and when selecting a destination', () => {
     render(<Sidebar open close={() => {}} username="manager" />);
     const trigger = screen.getByRole('button', { name: /Open account menu/ });
+
     fireEvent.click(trigger);
     expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Reports' })).not.toBeInTheDocument();
@@ -70,6 +75,7 @@ describe('Dashboard shell', () => {
       </ClientLayout>
     );
     const trigger = screen.getByRole('button', { name: 'Open navigation' });
+
     trigger.focus();
     fireEvent.click(trigger);
     expect(document.getElementById('dashboard-content')).toHaveAttribute('inert');
@@ -87,6 +93,7 @@ describe('Dashboard shell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     const toggle = screen.getByRole('button', { name: 'Close navigation' });
     const logout = screen.getByRole('button', { name: /Open account menu/ });
+
     toggle.focus();
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
     expect(logout).toHaveFocus();
@@ -145,6 +152,7 @@ describe('Dashboard shell', () => {
         <p>Protected content</p>
       </SessionBoundary>
     );
+
     view.unmount();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(6000);

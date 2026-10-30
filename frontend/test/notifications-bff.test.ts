@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { GET, PATCH } from '@/app/api/notifications/[[...path]]/route';
 import { backend } from '@/lib/backend';
 import { notificationsFixture, notificationId } from './notifications-fixture';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const context = (path: string[] = []) => ({
   params: Promise.resolve({ path })
@@ -35,6 +36,7 @@ describe('DDP-043 notification BFF', () => {
       data: { ...notificationsFixture(), private: 'hidden' }
     });
     const response = await GET(request(), context());
+
     expect(await response.json()).toEqual(notificationsFixture());
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(backend).toHaveBeenCalledWith('/mad/notifications?page=1&pageSize=20', 'GET', 'private', undefined);
@@ -61,11 +63,13 @@ describe('DDP-043 notification BFF', () => {
       data: { private: 'secret' }
     });
     const response = await GET(request(), context());
+
     expect(response.status).toBe(status >= 500 ? 503 : status);
     expect(JSON.stringify(await response.json())).not.toContain('secret');
   });
   it('rejects inconsistent counts, duplicates, forged links and page mismatches', async () => {
     const data = notificationsFixture();
+
     for (const source of [
       {},
       { ...data, total: 0 },
@@ -82,6 +86,7 @@ describe('DDP-043 notification BFF', () => {
   });
   it('requires same-origin JSON and a current revision to mark read', async () => {
     const target = context(['COMPLAINT', notificationId, 'read']);
+
     expect((await PATCH(patch({}, 'https://untrusted.invalid'), target)).status).toBe(403);
     expect((await PATCH(patch({}), target)).status).toBe(400);
     expect((await PATCH(patch({ revision: 'SUBMITTED:0', resolve: true }), target)).status).toBe(400);

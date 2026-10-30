@@ -1,4 +1,5 @@
 'use client';
+
 import Pagination from './Pagination';
 import ReportDownload from './ReportDownload';
 import { PageHeader, SummaryCard, DataPanel, UnavailableRow } from './DashboardVisuals';
@@ -18,6 +19,7 @@ import {
   type Overview,
   type Period
 } from '@/lib/analytics';
+
 const shortDate = (date: string) =>
   new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(date));
 const label = (value: string) =>
@@ -26,16 +28,20 @@ const label = (value: string) =>
     .replaceAll('_', ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
 type State = { date: string; page: number; period: Period; data?: Overview; error?: number };
+
 export default function AnalyticsDashboard() {
   const [period, setPeriod] = useState<Period>('week');
   const [date, setDate] = useState(() => hotelDate());
   const [page, setPage] = useState(1);
   const [attempt, setAttempt] = useState(0);
+
   useRealtimeRefresh('analytics', () => setAttempt(value => value + 1));
   const [state, setState] = useState<State>({ period: 'week', date: hotelDate(), page: 1 });
+
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
+
     loadAnalytics(period, controller.signal, { date, page })
       .then(data => {
         if (active) setState({ period, date, page, data });
@@ -72,6 +78,7 @@ export default function AnalyticsDashboard() {
     setDate(value);
     setPage(1);
   };
+
   return (
     <main className="dashboard-page analytics-page">
       <PageHeader title="Analytics" period={period} onPeriodChange={choose} />
@@ -202,11 +209,13 @@ export default function AnalyticsDashboard() {
     </main>
   );
 }
+
 function BookingTrend({ data, date }: { data: Overview; date: string }) {
   const period = data.bookings.period;
   const trend = data.bookings.trend;
   const max = Math.max(1, ...trend.map(row => row.count));
   const monthly = data.bookings.period === 'month';
+
   return (
     <DataPanel
       title={period === 'day' ? 'Daily bookings' : period === 'week' ? 'Weekly bookings' : 'Monthly bookings'}

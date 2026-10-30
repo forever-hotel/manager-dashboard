@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import { RealtimeGateway } from './realtime.gateway';
 import { RoomsService } from '../rooms/rooms.service';
 import type { RoomStatus } from '../rooms/rooms.service';
+
 export interface RoomEvent {
   eventId: string;
   type: 'room.status.changed';
@@ -18,6 +19,7 @@ export interface RoomEvent {
 export function parseRoomEvent(raw: unknown): RoomEvent {
   if (!raw || typeof raw !== 'object') throw new Error('Invalid event');
   const e = raw as Record<string, unknown>;
+
   if (
     e.type !== 'room.status.changed' ||
     typeof e.eventId !== 'string' ||
@@ -41,6 +43,7 @@ export function parseRoomEvent(raw: unknown): RoomEvent {
     occurredAt: e.occurredAt
   };
 }
+
 @Injectable()
 export class RoomEventsConsumer implements OnModuleInit, OnModuleDestroy {
   private connection?: ChannelModel;
@@ -48,15 +51,18 @@ export class RoomEventsConsumer implements OnModuleInit, OnModuleDestroy {
   private timer?: ReturnType<typeof setTimeout>;
   private stopped = false;
   private busy = false;
+
   constructor(
     private readonly config: ConfigService,
     private readonly database: DataSource,
     private readonly gateway: RealtimeGateway,
     private readonly rooms: RoomsService
   ) {}
+
   onModuleInit() {
     if (this.config.get<string>('MAD_REALTIME_ENABLED') === 'true') void this.tick();
   }
+
   async accept(event: RoomEvent) {
     const snapshot = await this.rooms.snapshot(event.roomId);
     const room = snapshot.rooms[0];
@@ -70,12 +76,14 @@ export class RoomEventsConsumer implements OnModuleInit, OnModuleDestroy {
         'SELECT EXISTS(SELECT 1 FROM mad_room_events WHERE event_id=$1) AS exists',
         [event.eventId]
       );
+
       if (seen.exists) return;
       const [last] = await manager.query<{ version: string }[]>(
         'SELECT version FROM mad_room_versions WHERE room_id=$1',
         [event.roomId]
       );
       const stale = last && Number(last.version) >= event.version;
+
       await manager.query(
         'INSERT INTO mad_room_events(event_id,room_id,version,payload,delivered_at) VALUES ($1,$2,$3,$4,CASE WHEN $5 THEN now() ELSE NULL END)',
         [event.eventId, event.roomId, event.version, JSON.stringify(event), Boolean(stale)]
@@ -92,10 +100,13 @@ export class RoomEventsConsumer implements OnModuleInit, OnModuleDestroy {
         );
     });
   }
+
   private async attach() {
     const url = this.config.get<string>('RABBITMQ_URL');
+
     if (!url) throw new Error('Missing broker');
     const connection = await connect(url, { timeout: 5000 });
+
     if (this.stopped) {
       await connection.close();
       throw new Error('Stopped');
@@ -112,6 +123,7 @@ export class RoomEventsConsumer implements OnModuleInit, OnModuleDestroy {
       }
     });
     const channel = await connection.createChannel();
+
     this.channel = channel;
     channel.on('error', () => {
       this.gateway.roomsHealthy = false;
@@ -142,6 +154,7 @@ export class RoomEventsConsumer implements OnModuleInit, OnModuleDestroy {
           return;
         }
         let event: RoomEvent;
+
         try {
           if (message.content.length > 8192) throw new Error();
           event = parseRoomEvent(JSON.parse(message.content.toString()) as unknown);
@@ -167,15 +180,18 @@ export class RoomEventsConsumer implements OnModuleInit, OnModuleDestroy {
       { noAck: false }
     );
   }
+
   async dispatch() {
     const rows = await this.database.query<{ event_id: string; payload: RoomEvent }[]>(
       'SELECT event_id,payload FROM mad_room_events WHERE delivered_at IS NULL ORDER BY received_at,event_id LIMIT 100'
     );
+
     for (const row of rows) {
       await this.gateway.publishRoom(row.payload);
       await this.database.query('UPDATE mad_room_events SET delivered_at=now() WHERE event_id=$1', [row.event_id]);
     }
   }
+
   private async tick() {
     if (this.stopped || this.busy) return;
     this.busy = true;
@@ -204,6 +220,7 @@ export class RoomEventsConsumer implements OnModuleInit, OnModuleDestroy {
       }
     }
   }
+
   async onModuleDestroy() {
     this.stopped = true;
     clearTimeout(this.timer);

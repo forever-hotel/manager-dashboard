@@ -3,6 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { StaffDirectoryService } from './staff-directory.service';
 import { StaffDirectoryDto } from './staff-directory.dto';
+
 const id = '67f4568c-89ab-4c12-b321-123456789012';
 const staff = {
   staffId: id,
@@ -28,6 +29,7 @@ describe('DDP-044 staff directory', () => {
         const service = new StaffDirectoryService({
           query
         } as unknown as DataSource);
+
         expect(
           (
             await service.list(
@@ -46,6 +48,7 @@ describe('DDP-044 staff directory', () => {
     const service = new StaffDirectoryService({
       query
     } as unknown as DataSource);
+
     expect(
       await service.list(
         Object.assign(new StaffDirectoryDto(), {
@@ -80,6 +83,7 @@ describe('DDP-044 staff directory', () => {
     const service = new StaffDirectoryService({
       query
     } as unknown as DataSource);
+
     expect(await service.get(id)).toMatchObject({ deliveryStatus: 'failed' });
     await expect(service.get(id)).rejects.toMatchObject({ status: 404 });
     for (let i = 0; i < 3; i++)
@@ -114,6 +118,7 @@ describe('DDP-044 staff directory', () => {
     const service = new StaffDirectoryService({
       query
     } as unknown as DataSource);
+
     query.mockResolvedValueOnce([
       {
         items: [
@@ -160,6 +165,7 @@ describe('DDP-044 staff directory', () => {
       { items: [], total: 1 },
       { items: [staff, staff], total: 2 }
     ];
+
     for (const patch of [
       { staffId: 'bad' },
       { role: 'MANAGER' },

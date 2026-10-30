@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import KitchenQueue from '@/components/KitchenQueue';
 import { kitchenSnapshotSchema } from '@/lib/kitchen';
 import { kitchenOrderId, kitchenSnapshot } from './kitchen-fixture';
+
 vi.mock('socket.io-client', () => ({ io: vi.fn() }));
 let handlers: Record<string, (value?: unknown) => void>;
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -64,6 +65,7 @@ describe('DDP-026 live kitchen', () => {
     expect(within(screen.getByLabelText('Ready for Delivery')).getByText('Room 101')).toBeVisible();
     expect(screen.getAllByText('Room 101')).toHaveLength(1);
     const calls = fetchMock.mock.calls.length;
+
     await act(async () => {
       handlers['kitchen.order.changed'](event);
       handlers['kitchen.order.changed']({ ...event, version: 2 });
@@ -128,6 +130,7 @@ describe('DDP-026 live kitchen', () => {
     expect(screen.getByRole('status')).toHaveTextContent('five attempts');
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
     const ticketCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).includes('ticket')).length;
+
     expect(ticketCalls()).toBe(6); // Initial connection plus five retries.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60000);
@@ -142,6 +145,7 @@ describe('DDP-026 live kitchen', () => {
   it.each([401, 403])('never restores a late kitchen snapshot after ticket rejection %s', async status => {
     const socketCallsBefore = vi.mocked(io).mock.calls.length;
     let finish!: (response: Response) => void;
+
     fetchMock.mockImplementation((url: string) =>
       url.includes('ticket')
         ? Promise.resolve(new Response('{}', { status }))

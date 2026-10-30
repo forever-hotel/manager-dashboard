@@ -2,6 +2,7 @@ import { monthDates, type Occupancy } from '@/lib/occupancy';
 
 export function occupancy(month = '2024-02'): Occupancy {
   const dates = monthDates(month);
+
   return {
     from: dates[0],
     to: dates[dates.length - 1],

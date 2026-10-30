@@ -1,4 +1,5 @@
 import { validateEnvironment } from './environment';
+
 describe('Startup configuration', () => {
   const valid = {
     DATABASE_URL: 'postgresql://mad:password@localhost:5432/mad',
@@ -7,6 +8,7 @@ describe('Startup configuration', () => {
     SHARED_WEBSOCKET_URL: 'http://localhost:4100',
     MAD_WEBSOCKET_RELAY_KEY: 'shared-socket-test-key-at-least-32-characters'
   };
+
   it('requires explicit publication enablement and a broker URL when enabled', () => {
     expect(validateEnvironment(valid)).toMatchObject({
       MAD_PROMOTIONS_PUBLISH_ENABLED: 'false'

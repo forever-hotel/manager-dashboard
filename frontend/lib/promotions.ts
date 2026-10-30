@@ -25,6 +25,7 @@ const fields = {
     .refine(ids => new Set(ids).size === ids.length),
   maxRedemptions: integer
 };
+
 function terms(
   value: {
     discountType: string;
@@ -76,6 +77,7 @@ export const roomSchema = z.object({
   maxGuests: z.number().int()
 });
 export type RoomType = z.infer<typeof roomSchema>;
+
 export function pageSchema<T extends z.ZodType>(item: T) {
   return z.object({
     items: z.array(item),
@@ -108,6 +110,7 @@ export class PromotionError extends Error {
     );
   }
 }
+
 export async function promotionRequest<T>(
   path: string,
   schema: z.ZodType<T>,
@@ -127,6 +130,7 @@ export async function promotionRequest<T>(
           body: JSON.stringify(body)
         })
   });
+
   if (!response.ok) throw new PromotionError(response.status);
   return schema.parse(await response.json());
 }
@@ -153,6 +157,7 @@ export const emptyForm: PromotionForm = {
 export function hotelInput(iso: string) {
   return new Date(Date.parse(iso) + 330 * 60000).toISOString().slice(0, 10);
 }
+
 export function formFrom(p: Promotion): PromotionForm {
   return {
     code: p.code,
@@ -164,12 +169,15 @@ export function formFrom(p: Promotion): PromotionForm {
     roomTypeIds: p.roomTypeIds
   };
 }
+
 export function formPayload(form: PromotionForm) {
   const date = (value: string, exclusiveEnd = false) => {
     if (!z.iso.date().safeParse(value).success || value.startsWith('0000')) return '';
     const day = exclusiveEnd ? new Date(Date.parse(value) + 86400000).toISOString().slice(0, 10) : value;
+
     return day + 'T00:00:00+05:30';
   };
+
   return {
     ...form,
     discountValue: Number(form.discountValue),

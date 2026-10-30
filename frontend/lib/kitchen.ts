@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 export const kitchenStatuses = ['PLACED', 'IN_PREPARATION', 'READY', 'DELIVERED'] as const;
 export const kitchenOrderSchema = z.object({
   id: z.uuid(),

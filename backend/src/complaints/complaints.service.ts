@@ -31,6 +31,7 @@ const fields = `c.complaint_id AS id,c.room_number AS "roomNumber",c.severity::t
   c.submitted_at AS "submittedAt",c.status,c.resolved_at AS "resolvedAt"`;
 const select = `SELECT ${fields},COALESCE(s.version,0) AS version FROM public.foss_complaints c
   LEFT JOIN public.mad_complaint_state s ON s.complaint_id=c.complaint_id`;
+
 export function complaintView(row: ComplaintRow) {
   return {
     id: row.id,
@@ -46,6 +47,7 @@ export function complaintView(row: ComplaintRow) {
     version: row.version
   };
 }
+
 export function requireTransition(from: ComplaintStatus, to: ResolveComplaintDto['status']) {
   if (!((from === 'SUBMITTED' && to === 'UNDER_REVIEW') || (from === 'UNDER_REVIEW' && to === 'RESOLVED')))
     throw new BadRequestException(
@@ -59,6 +61,7 @@ export class ComplaintsService {
     private readonly database: DataSource,
     @Inject(COMPLAINT_CLOCK) private readonly now: () => Date
   ) {}
+
   private async guarded<T>(work: () => Promise<T>): Promise<T> {
     try {
       return await work();
@@ -68,6 +71,7 @@ export class ComplaintsService {
       throw new ServiceUnavailableException();
     }
   }
+
   list(query: ComplaintQueryDto) {
     if (query.date && !query.period) throw new BadRequestException('A period is required with a date.');
     return this.guarded(() =>
@@ -75,6 +79,7 @@ export class ComplaintsService {
         const values: unknown[] = [],
           filters: string[] = [];
         let summary: { open: number; review: number; resolved: number; averageMinutes: number | null } | undefined;
+
         if (query.period) {
           const anchor = query.date ? `${query.date}T12:00:00.000Z` : this.now().toISOString();
           const [bounds] = await manager.query<{ start: Date; end: Date }[]>(
@@ -84,6 +89,7 @@ export class ComplaintsService {
              FROM (SELECT date_trunc($1,$2::timestamptz AT TIME ZONE 'Asia/Colombo') AS local_start) b`,
             [query.period, anchor]
           );
+
           values.push(bounds.start, bounds.end);
           filters.push('c.submitted_at >= $1 AND c.submitted_at < $2');
           const [stats] = await manager.query<
@@ -97,6 +103,7 @@ export class ComplaintsService {
              FROM public.foss_complaints`,
             [bounds.start, bounds.end]
           );
+
           summary = {
             open: Number(stats.open),
             review: Number(stats.review),
@@ -131,6 +138,7 @@ export class ComplaintsService {
             ` ORDER BY c.submitted_at DESC,c.complaint_id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
           [...values, query.pageSize, (query.page - 1) * query.pageSize]
         );
+
         return {
           items: rows.map(complaintView),
           total: Number(count.total),
@@ -141,10 +149,12 @@ export class ComplaintsService {
       })
     );
   }
+
   detail(id: string) {
     return this.guarded(() =>
       this.database.transaction('REPEATABLE READ', async manager => {
         const [row] = await manager.query<ComplaintRow[]>(select + ' WHERE c.complaint_id=$1', [id]);
+
         if (!row) throw new NotFoundException('Complaint not found.');
         const history = await manager.query<
           {
@@ -160,6 +170,7 @@ export class ComplaintsService {
         FROM public.mad_complaint_history WHERE complaint_id=$1 ORDER BY version`,
           [id]
         );
+
         return {
           ...complaintView(row),
           history: history.map(entry => ({
@@ -170,6 +181,7 @@ export class ComplaintsService {
       })
     );
   }
+
   update(id: string, actorId: string, input: ResolveComplaintDto) {
     return this.guarded(() =>
       this.database.transaction(async manager => {
@@ -179,12 +191,14 @@ export class ComplaintsService {
           `SELECT ${fields} FROM public.foss_complaints c WHERE c.complaint_id=$1 FOR UPDATE OF c`,
           [id]
         );
+
         if (!row) throw new NotFoundException('Complaint not found.');
         const [state] = await manager.query<{ version: number }[]>(
           'SELECT version FROM public.mad_complaint_state WHERE complaint_id=$1',
           [id]
         );
         const version = state?.version ?? 0;
+
         if (version !== input.version) throw new ConflictException('Complaint changed. Reload before retrying.');
         requireTransition(row.status, input.status);
         const now = this.now(),

@@ -1,19 +1,24 @@
 'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { SessionBoundary } from './SessionBoundary';
 import { Session } from '@/lib/auth';
+
 export function ClientLayout({ children, session }: { children: React.ReactNode; session: Session }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     if (!open) return;
     const trigger = toggle.current;
     const previousOverflow = document.body.style.overflow;
+
     document.body.style.overflow = 'hidden';
     const navigation = document.getElementById('dashboard-navigation');
     const controls = () =>
       Array.from(navigation?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? []);
+
     controls()[0]?.focus();
     const keyboard = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -24,6 +29,7 @@ export function ClientLayout({ children, session }: { children: React.ReactNode;
       const items = [trigger, ...controls()].filter((item): item is HTMLElement => item !== null);
       const first = items[0];
       const last = items.at(-1);
+
       if (!items.includes(document.activeElement as HTMLElement)) {
         event.preventDefault();
         first?.focus();
@@ -38,6 +44,7 @@ export function ClientLayout({ children, session }: { children: React.ReactNode;
     const resize = () => {
       if (window.innerWidth >= 768) setOpen(false);
     };
+
     document.addEventListener('keydown', keyboard);
     window.addEventListener('resize', resize);
     return () => {

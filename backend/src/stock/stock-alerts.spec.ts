@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { StockAlertsService } from './stock-alerts.service';
 import { parseStockEvent, STOCK_STATUSES } from './stock-event';
+
 const id = '67f4568c-89ab-4c12-b321-123456789012';
 const item = '77f4568c-89ab-4c12-b321-123456789012';
 const event = {
@@ -28,9 +29,11 @@ const saved = {
   raisedAt: new Date(event.occurredAt),
   clearedAt: null
 };
+
 function setup() {
   const query = jest.fn().mockResolvedValue([]);
   const transaction = jest.fn(async (work: (manager: { query: typeof query }) => Promise<void>) => work({ query }));
+
   return {
     query,
     transaction,
@@ -70,6 +73,7 @@ describe('DDP-034 stock contract and durable alert processing', () => {
   });
   it('persists source-authoritative alert and its notification in one transaction', async () => {
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
@@ -97,6 +101,7 @@ describe('DDP-034 stock contract and durable alert processing', () => {
   });
   it('coalesces a delayed event to a newer Available source and emits recovery', async () => {
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
@@ -125,6 +130,7 @@ describe('DDP-034 stock contract and durable alert processing', () => {
   });
   it('skips matching duplicates without reading the source and rejects identity reuse', async () => {
     const { service, query } = setup();
+
     query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ same: true }]);
     await service.accept(event);
     expect(query).toHaveBeenCalledTimes(2);
@@ -137,6 +143,7 @@ describe('DDP-034 stock contract and durable alert processing', () => {
   });
   it('stores stale receipts without updating counts or dispatching stale alerts', async () => {
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
@@ -167,6 +174,7 @@ describe('DDP-034 stock contract and durable alert processing', () => {
       { ...source, status: 'AVAILABLE' }
     ]) {
       const { service, query } = setup();
+
       query
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
@@ -177,9 +185,11 @@ describe('DDP-034 stock contract and durable alert processing', () => {
   });
   it('refuses acknowledgement when storage fails or returns no persisted alert', async () => {
     const failed = setup();
+
     failed.query.mockRejectedValue(new Error('DB offline'));
     await expect(failed.service.accept(event)).rejects.toThrow('DB offline');
     const { service, query } = setup();
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])

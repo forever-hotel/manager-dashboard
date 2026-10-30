@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 export const complaintStatus = z.enum(['SUBMITTED', 'UNDER_REVIEW', 'RESOLVED']);
 export const complaintSchema = z.object({
   id: z.uuid(),
@@ -79,9 +80,11 @@ export const statusLabel = {
   RESOLVED: 'Resolved'
 };
 export const COMPLAINT_CHANGED_EVENT = 'mad:complaint-status-changed';
+
 export function nextStatus(status: Complaint['status']) {
   return status === 'SUBMITTED' ? 'UNDER_REVIEW' : status === 'UNDER_REVIEW' ? 'RESOLVED' : null;
 }
+
 export class ComplaintError extends Error {
   constructor(public status: number) {
     super(
@@ -99,6 +102,7 @@ export class ComplaintError extends Error {
     );
   }
 }
+
 export async function complaintRequest<T>(
   path: string,
   schema: z.ZodType<T>,
@@ -118,6 +122,7 @@ export async function complaintRequest<T>(
           body: JSON.stringify(body)
         })
   });
+
   if (!response.ok) throw new ComplaintError(response.status);
   return schema.parse(await response.json());
 }

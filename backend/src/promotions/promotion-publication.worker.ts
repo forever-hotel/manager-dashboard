@@ -18,6 +18,7 @@ export class PromotionPublicationWorker implements OnApplicationBootstrap, OnApp
   private readonly logger = new Logger(PromotionPublicationWorker.name);
   private timer?: ReturnType<typeof setInterval>;
   private running?: Promise<void>;
+
   constructor(
     private readonly config: ConfigService,
     private readonly database: DataSource,
@@ -36,6 +37,7 @@ export class PromotionPublicationWorker implements OnApplicationBootstrap, OnApp
           this.running = undefined;
         });
     };
+
     this.timer = setInterval(tick, 250);
     this.timer.unref();
     tick();
@@ -53,6 +55,7 @@ export class PromotionPublicationWorker implements OnApplicationBootstrap, OnApp
             WHERE older.promo_id=o.promo_id AND older.promotion_version<o.promotion_version
               AND older.published_at IS NULL)
         ORDER BY o.created_at,o.event_id LIMIT 1 FOR UPDATE OF o SKIP LOCKED`);
+
       if (!row) return;
       const message: PromotionMessage = {
         eventId: row.event_id,
@@ -62,6 +65,7 @@ export class PromotionPublicationWorker implements OnApplicationBootstrap, OnApp
         occurredAt: row.created_at.toISOString(),
         promotion: row.payload
       };
+
       try {
         if (
           row.payload.id !== row.promo_id ||
@@ -72,6 +76,7 @@ export class PromotionPublicationWorker implements OnApplicationBootstrap, OnApp
         await this.broker.publish(message);
       } catch {
         const delay = Math.min(3600, 2 ** Math.min(row.attempts, 12));
+
         await manager.query(
           `UPDATE public.mad_promotion_outbox
           SET attempts=LEAST(attempts::bigint+1,2147483647)::integer,

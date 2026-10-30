@@ -1,4 +1,5 @@
 'use client';
+
 import Pagination from './Pagination';
 import { useEffect, useState } from 'react';
 import { taskLabels, taskStatuses, tasksSnapshotSchema } from '@/lib/tasks';
@@ -12,6 +13,7 @@ export default function TaskQueue() {
   const [draft, setDraft] = useState('');
   const [page, setPage] = useState(1);
   const query = new URLSearchParams({ page: String(page), pageSize: '20' });
+
   if (status) query.set('status', status);
   if (worker) query.set('workerName', worker);
   const { snapshot, message, retry } = useOperationsSnapshot(
@@ -20,11 +22,13 @@ export default function TaskQueue() {
     'tasks.transport.status',
     'task.changed'
   );
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setWorker(draft.trim());
       setPage(1);
     }, 350);
+
     return () => clearTimeout(timer);
   }, [draft]);
   return (

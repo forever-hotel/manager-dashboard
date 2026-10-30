@@ -22,12 +22,14 @@ SELECT start,finish,previous_start,current::text,previous::text,
  CASE WHEN previous=0 THEN NULL ELSE round((current-previous)*100/previous,2)::text END AS percentage,
  invalid::text FROM bounds CROSS JOIN totals
 `;
+
 @Injectable()
 export class RevenueAnalyticsService {
   constructor(
     private readonly database: DataSource,
     @Inject(BOOKING_CLOCK) private readonly now: () => Date
   ) {}
+
   async summary(period: BookingPeriod, asOf?: string, date?: string) {
     try {
       asOf ??= this.now().toISOString();
@@ -43,11 +45,13 @@ export class RevenueAnalyticsService {
         }[]
       >(REVENUE_SQL, [period, BOOKING_TIMEZONE, date ? `${date}T12:00:00.000Z` : asOf]);
       const row = rows[0];
+
       if (rows.length !== 1 || !row || row.invalid !== '0' || !/^\d+$/.test(row.current) || !/^\d+$/.test(row.previous))
         throw new Error('Invalid payment data');
       const current = Number(row.current),
         previous = Number(row.previous);
       const percentage = row.percentage === null ? null : Number(row.percentage);
+
       if (
         ![current, previous].every(value => Number.isSafeInteger(value) && value >= 0) ||
         (previous === 0

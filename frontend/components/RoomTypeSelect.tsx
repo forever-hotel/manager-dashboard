@@ -1,6 +1,8 @@
 'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import type { RoomType } from '@/lib/promotions';
+
 export default function RoomTypeSelect({
   rooms,
   value,
@@ -21,6 +23,7 @@ export default function RoomTypeSelect({
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (!open) return;
     input.current?.focus();
@@ -33,6 +36,7 @@ export default function RoomTypeSelect({
         trigger.current?.focus();
       }
     };
+
     document.addEventListener('pointerdown', outside);
     document.addEventListener('keydown', escape);
     return () => {
@@ -41,6 +45,7 @@ export default function RoomTypeSelect({
     };
   }, [open]);
   const matching = rooms.filter(room => room.name.toLowerCase().includes(search.trim().toLowerCase()));
+
   return (
     <div ref={root} className="room-type-select">
       <button

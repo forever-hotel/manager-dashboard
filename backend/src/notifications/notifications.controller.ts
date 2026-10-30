@@ -7,13 +7,16 @@ import {
   NotificationPageDto,
   ReadNotificationDto
 } from './notifications.dto';
+
 @Controller('mad/notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}
+
   @Get() list(@Req() req: AuthenticatedRequest, @Query() query: NotificationPageDto) {
     return this.notifications.snapshot(req.user.sub, query);
   }
+
   @Patch(':type/:id/read') read(
     @Req() req: AuthenticatedRequest,
     @Param() identity: NotificationIdentityDto,

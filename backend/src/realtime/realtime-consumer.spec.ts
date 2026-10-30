@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { InvalidKitchenEvent, RealtimeConsumer } from './realtime.consumer';
 import { RealtimeGateway } from './realtime.gateway';
+
 jest.mock('amqplib', () => ({ connect: jest.fn() }));
 const event = {
   eventId: '67f4568c-89ab-4c12-b321-123456789012',
@@ -37,6 +38,7 @@ describe('DDP-039 durable broker lifecycle', () => {
       createChannel: jest.fn().mockResolvedValue(channel as unknown as Channel),
       close: jest.fn().mockResolvedValue(undefined)
     });
+
     jest.mocked(connect).mockResolvedValue(connection as unknown as ChannelModel);
     const config = new ConfigService({
       MAD_REALTIME_ENABLED: 'true',
@@ -52,10 +54,12 @@ describe('DDP-039 durable broker lifecycle', () => {
       { query } as unknown as DataSource,
       gateway as unknown as RealtimeGateway
     );
+
     return { channel, connection, config, query, gateway, consumer };
   }
   it('declares durable routing with explicit acknowledgements and dead-letters invalid messages', async () => {
     const { consumer, channel, gateway } = setup();
+
     consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);
     try {
@@ -64,8 +68,10 @@ describe('DDP-039 durable broker lifecycle', () => {
       expect(channel.prefetch).toHaveBeenCalledWith(1);
       expect(channel.consume).toHaveBeenCalledWith('mad.kitchen', expect.any(Function), { noAck: false });
       const receive = channel.consume.mock.calls[0][1];
+
       for (const content of [Buffer.from('bad JSON'), Buffer.alloc(8193), Buffer.from('{}')]) {
         const message = { content } as ConsumeMessage;
+
         receive(message);
         expect(channel.nack).toHaveBeenLastCalledWith(message, false, false);
       }
@@ -73,6 +79,7 @@ describe('DDP-039 durable broker lifecycle', () => {
       const message = {
         content: Buffer.from(JSON.stringify(event))
       } as ConsumeMessage;
+
       receive(message);
       await jest.advanceTimersByTimeAsync(1);
       expect(accepted).toHaveBeenCalledWith(event);
@@ -83,11 +90,13 @@ describe('DDP-039 durable broker lifecycle', () => {
   });
   it('closes the connection without ack on persistence failure so RabbitMQ can requeue', async () => {
     const { consumer, channel, connection, gateway } = setup();
+
     consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);
     try {
       jest.spyOn(consumer, 'accept').mockRejectedValue(new Error('DB unavailable'));
       const receive = channel.consume.mock.calls[0][1];
+
       receive({
         content: Buffer.from(JSON.stringify(event))
       } as ConsumeMessage);
@@ -101,6 +110,7 @@ describe('DDP-039 durable broker lifecycle', () => {
   });
   it('dead-letters conflicting event identities without acknowledging or reconnecting', async () => {
     const { consumer, channel, connection } = setup();
+
     consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);
     try {
@@ -108,6 +118,7 @@ describe('DDP-039 durable broker lifecycle', () => {
       const message = {
         content: Buffer.from(JSON.stringify(event))
       } as ConsumeMessage;
+
       channel.consume.mock.calls[0][1](message);
       await jest.advanceTimersByTimeAsync(1);
       expect(channel.nack).toHaveBeenCalledWith(message, false, false);
@@ -119,6 +130,7 @@ describe('DDP-039 durable broker lifecycle', () => {
   });
   it('handles broker errors, consumer cancellation and reconnects after connection close', async () => {
     const { consumer, channel, connection, gateway } = setup();
+
     consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);
     try {
@@ -127,6 +139,7 @@ describe('DDP-039 durable broker lifecycle', () => {
       connection.emit('error', new Error('connection error'));
       expect(gateway.healthy).toBe(false);
       const receive = channel.consume.mock.calls[0][1];
+
       receive(null);
       expect(connection.close).toHaveBeenCalled();
       channel.emit('close');
@@ -139,6 +152,7 @@ describe('DDP-039 durable broker lifecycle', () => {
   });
   it('retries connection failures with bounded delay, and stays offline if disabled or unconfigured', async () => {
     const { consumer, config, gateway } = setup();
+
     jest.mocked(connect).mockRejectedValueOnce(new Error('offline'));
     consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);
@@ -150,6 +164,7 @@ describe('DDP-039 durable broker lifecycle', () => {
     consumer.onModuleInit();
     expect(connect).toHaveBeenCalledTimes(2);
     const other = setup();
+
     other.config.set('RABBITMQ_URL', '');
     other.consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);

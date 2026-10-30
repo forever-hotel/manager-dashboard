@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LoginForm } from '@/components/LoginForm';
 
 import { navigate } from '@/lib/navigation';
+
 vi.mock('@/lib/navigation', () => ({ navigate: vi.fn() }));
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -28,6 +29,7 @@ describe('Reference login design with real authentication', () => {
       target: { value: 'test-password' }
     });
     const button = screen.getByRole('button', { name: 'Sign in' });
+
     fireEvent.click(button);
     fireEvent.click(button);
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));

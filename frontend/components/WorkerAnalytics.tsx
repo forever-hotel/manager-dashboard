@@ -1,4 +1,5 @@
 'use client';
+
 import Pagination from './Pagination';
 import { useMemo, useState } from 'react';
 import type { Period } from '@/lib/analytics';
@@ -10,6 +11,7 @@ import { PageHeader, SummaryCard, DataPanel, UnavailableRow } from './DashboardV
 import AnalyticsPeriodNavigation from './AnalyticsPeriodNavigation';
 import { statusColor } from '@/lib/status-color';
 import Link from 'next/link';
+
 export default function WorkerAnalytics() {
   const [period, setPeriod] = useState<Period>('week');
   const [date, setDate] = useState(hotelDate);

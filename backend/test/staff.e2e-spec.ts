@@ -75,10 +75,12 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     const rows = await database.query<{ count: string }[]>(
       "SELECT count(*) FROM staff_users WHERE email LIKE '%@example.com'"
     );
+
     return Number(rows[0].count);
   }
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
@@ -86,6 +88,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
+
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
@@ -122,6 +125,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
         StaffModule
       ]
     }).compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.init();
@@ -150,6 +154,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
         deliveryId: string;
         deliveryStatus: string;
       };
+
       expect(Object.keys(body).sort()).toEqual(['deliveryId', 'deliveryStatus', 'staffId']);
       expect(body.deliveryStatus).toBe('pending');
       const [account] = await database.query<
@@ -165,6 +170,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
         [body.deliveryId]
       );
       const credentials = cipher.decrypt(body.deliveryId, delivery.encrypted_credentials);
+
       expect(credentials.email).toBe(profile.email);
       expect(credentials.username).toBe(account.username);
       expect(account.role).toBe(staffRole);
@@ -180,9 +186,11 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       ...profile,
       email: ' STAFF@EXAMPLE.COM '
     }).expect(409);
+
     expect(response.body).toMatchObject({ code: 'CONFLICT' });
     expect(await count()).toBe(1);
     const rows = await database.query<unknown[]>('SELECT delivery_id FROM mad_staff_deliveries');
+
     expect(rows).toHaveLength(1);
   });
   it.each([
@@ -198,6 +206,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     { unexpected: true }
   ])('TC-MAD-012-AC2: invalid input %j creates nothing', async change => {
     const response = await post({ ...profile, ...change }).expect(400);
+
     expect(response.body).toMatchObject({ code: 'VALIDATION_ERROR' });
     expect(await count()).toBe(0);
   });
@@ -212,6 +221,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     'TC-MAD-012-AC2: missing %s is rejected without a write',
     async field => {
       const body: Record<string, unknown> = { ...profile };
+
       delete body[field];
       await post(body).expect(400);
       expect(await count()).toBe(0);
@@ -219,21 +229,25 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
   );
   it('TC-MAD-012-AC3: concurrent requests enforce email and username uniqueness', async () => {
     const duplicate = await Promise.all([post(), post()]);
+
     expect(duplicate.map(r => r.status).sort()).toEqual([201, 409]);
     const results = await Promise.all([
       post({ ...profile, email: 'two@example.com' }),
       post({ ...profile, email: 'three@example.com' })
     ]);
+
     expect(results.map(r => r.status)).toEqual([201, 201]);
     const rows = await database.query<{ username: string }[]>(
       "SELECT username FROM staff_users WHERE email LIKE '%@example.com'"
     );
+
     expect(new Set(rows.map(r => r.username)).size).toBe(3);
   });
   it('rolls back account creation if the delivery insert fails', async () => {
     await database.query(`REVOKE INSERT ON mad_staff_deliveries FROM "${role}"`);
     try {
       const response = await post().expect(503);
+
       expect(response.body).toEqual({
         code: 'SERVICE_UNAVAILABLE',
         message: 'Service temporarily unavailable. Please retry.'
@@ -252,10 +266,12 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       cipher,
       { send }
     );
+
     await worker.processOnce();
     const [failed] = await database.query<{ status: string; encrypted_credentials: string }[]>(
       'SELECT * FROM mad_staff_deliveries'
     );
+
     expect(failed.status).toBe('failed');
     expect(failed.encrypted_credentials).toBeTruthy();
     await database.query('UPDATE mad_staff_deliveries SET next_attempt_at=now()');
@@ -267,6 +283,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
         attempts: number;
       }[]
     >('SELECT * FROM mad_staff_deliveries');
+
     expect(sent).toMatchObject({
       status: 'sent',
       encrypted_credentials: null,
@@ -283,6 +300,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       'SELECT password_hash,session_version FROM staff_users WHERE worker_id=$1',
       [staffId]
     );
+
     await database.query('UPDATE mad_staff_deliveries SET attempts=4');
     const send = jest.fn().mockRejectedValue(new Error('private provider content'));
     const worker = new StaffDeliveryWorker(
@@ -291,12 +309,14 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       cipher,
       { send }
     );
+
     await worker.processOnce();
     await worker.processOnce();
     expect(send).toHaveBeenCalledTimes(1);
     const [delivery] = await database.query<Record<string, unknown>[]>(
       'SELECT status,attempts,encrypted_credentials,last_error_code FROM mad_staff_deliveries'
     );
+
     expect(delivery).toEqual({
       status: 'cancelled',
       attempts: 5,
@@ -307,6 +327,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       'SELECT password_hash,session_version FROM staff_users WHERE worker_id=$1',
       [staffId]
     );
+
     expect(after).toEqual(before);
     expect(await count()).toBe(1);
   });
@@ -315,11 +336,13 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     await database.query("UPDATE mad_staff_deliveries SET created_at=now()-interval '24 hours'");
     const send = jest.fn();
     const worker = new StaffDeliveryWorker(runtime, new ConfigService(config), cipher, { send });
+
     await worker.processOnce();
     expect(send).not.toHaveBeenCalled();
     const [delivery] = await database.query<Record<string, unknown>[]>(
       'SELECT status,encrypted_credentials,last_error_code FROM mad_staff_deliveries'
     );
+
     expect(delivery).toEqual({
       status: 'cancelled',
       encrypted_credentials: null,
@@ -340,10 +363,12 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       cipher,
       { send }
     );
+
     await worker.processOnce();
     const [leased] = await database.query<Record<string, unknown>[]>(
       'SELECT status,encrypted_credentials FROM mad_staff_deliveries'
     );
+
     expect(leased.status).toBe('pending');
     expect(leased.encrypted_credentials).toBeTruthy();
     await database.query("UPDATE mad_staff_deliveries SET lease_until=now()-interval '1 second'");
@@ -351,6 +376,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     const [expired] = await database.query<Record<string, unknown>[]>(
       'SELECT status,encrypted_credentials FROM mad_staff_deliveries'
     );
+
     expect(expired).toEqual({
       status: 'cancelled',
       encrypted_credentials: null
@@ -370,11 +396,13 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       'SELECT password_hash,session_version,password_change_required,failed_attempts,locked_until FROM staff_users WHERE worker_id=$1',
       [id]
     );
+
     return row;
   }
   it('does not expose manager-triggered staff password reset', async () => {
     const { staffId } = (await post().expect(201)).body as { staffId: string };
     const before = await snapshot(staffId);
+
     await request(app.getHttpServer())
       .post('/mad/staff/' + staffId + '/reset-password')
       .set('Authorization', 'Bearer ' + token())
@@ -400,6 +428,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       deliveryId: string;
     };
     const original = (await readProfile(staffId).expect(200)).body as StaffProfile;
+
     expect(original.version).toBe(0);
     expect(Object.keys(original).sort()).toEqual(
       [
@@ -436,6 +465,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
         nic: '199912345678'
       }).expect(200)
     ).body as StaffProfile;
+
     expect(Array.isArray(changed)).toBe(false);
     expect(Object.keys(changed).sort()).toEqual(
       Object.keys(original)
@@ -466,6 +496,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
         credential_version: number;
       }[]
     >('SELECT * FROM mad_staff_deliveries WHERE worker_id=$1', [staffId]);
+
     expect(pending.delivery_id).not.toBe(deliveryId);
     expect(pending.credential_version).toBe(1);
     expect(cipher.decrypt(pending.delivery_id, pending.encrypted_credentials)).toEqual({
@@ -485,6 +516,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       cipher,
       { send }
     );
+
     await worker.processOnce();
     expect(send).toHaveBeenCalledWith({
       ...oldCredentials,
@@ -499,6 +531,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
         { sub: staffId, role: 'RECEPTIONIST', ver: version, jti: randomUUID() },
         { issuer: 'mad', audience: 'mad', expiresIn: '8h' }
       );
+
     await readProfile(staffId, staffToken(0)).expect(403);
     await edit(staffId, { version: 0, role: 'WORKER' }).expect(200);
     await readProfile(staffId, staffToken(0)).expect(401);
@@ -512,6 +545,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       'SELECT status,encrypted_credentials FROM mad_staff_deliveries WHERE worker_id=$1',
       [staffId]
     );
+
     expect(delivery).toEqual({
       status: 'cancelled',
       encrypted_credentials: null
@@ -520,6 +554,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
   });
   it('TC-MAD-014-AC3: duplicate emails and stale/concurrent edits do not overwrite another edit', async () => {
     const { staffId } = (await post().expect(201)).body as { staffId: string };
+
     await post({ ...profile, email: 'other@example.com' }).expect(201);
     await edit(staffId, { version: 0, email: ' OTHER@EXAMPLE.COM ' }).expect(409);
     expect((await readProfile(staffId)).body).toMatchObject({
@@ -530,8 +565,10 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       edit(staffId, { version: 0, name: 'First Edit' }),
       edit(staffId, { version: 0, name: 'Second Edit' })
     ]);
+
     expect(responses.map(r => r.status).sort()).toEqual([200, 409]);
     const saved = responses.find(r => r.status === 200)?.body as StaffProfile;
+
     expect((await readProfile(staffId)).body).toEqual({
       ...saved,
       deliveryStatus: 'pending'
@@ -542,6 +579,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
   it('TC-DDP-014-NEGATIVE: rejects bad input, forbidden targets and unauthorized reads/edits without writes', async () => {
     const { staffId } = (await post().expect(201)).body as { staffId: string };
     const before = (await readProfile(staffId)).body as StaffProfile;
+
     for (const body of [
       {},
       { version: 0 },
@@ -581,6 +619,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
   it('TC-DDP-014-ATOMIC: queue failures roll back profile, permissions and version together', async () => {
     const { staffId } = (await post().expect(201)).body as { staffId: string };
     const before = (await readProfile(staffId)).body as StaffProfile;
+
     await database.query(`REVOKE UPDATE ON mad_staff_deliveries FROM "${role}"`);
     try {
       await edit(staffId, { version: 0, isActive: false }).expect(503);
@@ -605,6 +644,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     const second = await get('search=Test&pageSize=2&page=2').expect(200);
     const one = first.body as { items: { staffId: string }[]; total: number };
     const two = second.body as { items: { staffId: string }[] };
+
     expect(one.total).toBe(4);
     expect(new Set([...one.items, ...two.items].map(x => x.staffId)).size).toBe(4);
     expect([...one.items, ...two.items].map(x => x.staffId)).toEqual(
@@ -614,22 +654,28 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     expect((await get('search=Test&page=100').expect(200)).body as unknown).toMatchObject({ total: 4, items: [] });
     for (const role of STAFF_ROLES) {
       const result = await get('search=Test&role=' + role).expect(200);
+
       expect((result.body as { total: number }).total).toBe(1);
     }
     const id = one.items[0].staffId;
+
     await edit(id, { version: 0, isActive: false }).expect(200);
     const inactive = await get('search=Test&status=inactive').expect(200);
+
     expect((inactive.body as { total: number }).total).toBe(1);
     const detail = await readProfile(id).expect(200);
+
     expect(detail.body).toMatchObject({
       deliveryStatus: 'cancelled',
       isActive: false
     });
     const user = (detail.body as { username: string }).username;
+
     expect((await get('search=' + encodeURIComponent(user)).expect(200)).body as unknown).toMatchObject({ total: 1 });
     for (const field of ['password', 'password_hash', 'encrypted_credentials', 'lease_token', 'last_error_code'])
       expect(JSON.stringify(detail.body)).not.toContain('"' + field + '"');
     const encoded = JSON.stringify(first.body);
+
     for (const field of ['password_hash', 'encrypted_credentials', 'lease_token']) expect(encoded).not.toContain(field);
     expect((await get('search=%25').expect(200)).body as unknown).toMatchObject({ total: 0 });
   });
@@ -671,6 +717,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
   it('TC-MAD-044-AC3: directory reads never mutate accounts and denied delivery access is unavailable', async () => {
     const { staffId } = (await post().expect(201)).body as { staffId: string };
     const before = await snapshot(staffId);
+
     await readProfile(staffId).expect(200);
     await request(app.getHttpServer())
       .get('/mad/staff?status=active')

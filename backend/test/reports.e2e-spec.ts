@@ -27,8 +27,10 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
     role = 'ddp_reports_app_' + suffix;
   const secret = 'worker-integration-only-secret-at-least-32-characters';
   const clock = new Date('2026-10-20T06:00:00Z');
+
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
@@ -36,6 +38,7 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
+
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
@@ -85,6 +88,7 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
         { provide: BOOKING_CLOCK, useValue: () => clock }
       ]
     }).compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.init();
@@ -107,6 +111,7 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
 
   function get(type: string, query = 'format=csv', token: string | null = provider.issue('manager')) {
     const req = request(app.getHttpServer()).get('/mad/reports/' + type + '?' + query);
+
     if (token) req.set('Authorization', 'Bearer ' + token);
     return req;
   }
@@ -116,6 +121,7 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
       [randomUUID(), randomUUID()]
     );
     const booking = await get('bookings').expect(200);
+
     expect(booking.text).toContain('"2026-10-20","1"');
     expect(booking.text).toContain('Date');
     expect(booking.headers['content-type']).toContain('text/csv');
@@ -126,16 +132,19 @@ describe('DDP-030 report exports with disposable PostgreSQL', () => {
     for (const type of ['bookings', 'occupancy']) {
       const query = type === 'occupancy' ? '&from=2026-10-20&to=2026-10-20' : '';
       const csv = await get(type, 'format=csv' + query).expect(200);
+
       expect(csv.text).toContain(type === 'bookings' ? 'Date' : '"timezone","Asia/Colombo"');
       const pdf = await get(type, 'format=pdf' + query)
         .buffer(true)
         .parse((res, callback) => {
           const chunks: Buffer[] = [];
+
           res.on('data', (chunk: Buffer) => chunks.push(chunk));
           res.on('end', () => callback(null, Buffer.concat(chunks)));
           res.on('error', callback);
         })
         .expect(200);
+
       expect((pdf.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
       expect(pdf.headers['content-type']).toContain('application/pdf');
       expect(pdf.headers['content-disposition']).toContain('.pdf');

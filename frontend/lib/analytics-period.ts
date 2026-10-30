@@ -1,4 +1,5 @@
 import type { Period } from './analytics';
+
 export function hotelDate(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Colombo',
@@ -6,10 +7,13 @@ export function hotelDate(now = new Date()) {
     month: '2-digit',
     day: '2-digit'
   }).formatToParts(now);
+
   return ['year', 'month', 'day'].map(type => parts.find(p => p.type === type)!.value).join('-');
 }
+
 export function shiftAnalyticsDate(date: string, period: Period, step: number): string | null {
   const value = new Date(date + 'T12:00:00Z');
+
   if (period === 'month') {
     value.setUTCDate(1);
     value.setUTCMonth(value.getUTCMonth() + step);

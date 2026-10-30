@@ -19,11 +19,13 @@ describe('First-login password page', () => {
     expiresAt: 9999999999,
     passwordChangeRequired: true
   };
+
   it('shows the password form while the database flag is true', async () => {
     vi.mocked(requireSession).mockImplementation(() => Promise.resolve(session));
     const page = await ChangePasswordPage({
       searchParams: Promise.resolve({ next: '/rooms' })
     });
+
     expect(page.props).toMatchObject({ next: '/rooms' });
   });
   it('opens the dashboard after the password has been changed', async () => {

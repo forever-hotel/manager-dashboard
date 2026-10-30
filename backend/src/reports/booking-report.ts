@@ -3,6 +3,7 @@ import { UnprocessableEntityException } from '@nestjs/common';
 import type { BookingAnalyticsService } from '../analytics/booking-analytics.service';
 import type { BookingDetailsService } from '../analytics/booking-details.service';
 import { csvCell, MAX_REPORT_BYTES } from './report-renderer';
+
 export type BookingReport = Awaited<ReturnType<BookingAnalyticsService['summary']>> &
   Awaited<ReturnType<BookingDetailsService['details']>>;
 const navy = '#1A3C5E',
@@ -24,10 +25,13 @@ const date = (text: string) =>
   }).format(new Date(text.length === 10 ? text + 'T12:00:00Z' : text));
 const amount = (minor: number) =>
   new Intl.NumberFormat('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(minor / 100);
+
 export function bookingTrendCsv(data: BookingReport) {
   const rows = [['Date', 'Bookings'], ...data.trend.map(row => [row.date, String(row.count)])];
+
   return Buffer.from('\ufeff' + rows.map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n', 'utf8');
 }
+
 export function bookingReportPdf(data: BookingReport): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -39,6 +43,7 @@ export function bookingReportPdf(data: BookingReport): Promise<Buffer> {
     });
     const chunks: Buffer[] = [];
     let bytes = 0;
+
     doc.on('data', (chunk: Buffer) => {
       bytes += chunk.length;
       if (bytes > MAX_REPORT_BYTES) {
@@ -62,9 +67,11 @@ export function bookingReportPdf(data: BookingReport): Promise<Buffer> {
         /[\u0d80-\u0dff]/.test(value) ? 'Sinhala' : /[\u0b80-\u0bff]/.test(value) ? 'Tamil' : 'Body';
       function text(value: string, x: number, y: number, width: number, size = 9, color = ink) {
         const runs: { font: string; text: string }[] = [];
+
         for (const char of value) {
           const chosen = /[\u200c\u200d]/.test(char) ? (runs.at(-1)?.font ?? 'Body') : font(char);
           const previous = runs.at(-1);
+
           if (previous?.font === chosen) previous.text += char;
           else runs.push({ font: chosen, text: char });
         }
@@ -98,8 +105,10 @@ export function bookingReportPdf(data: BookingReport): Promise<Buffer> {
           data.averageLengthOfStay === null ? 'No eligible stays' : data.averageLengthOfStay.toFixed(1) + ' nights'
         ]
       ];
+
       cards.forEach(([title, value], i) => {
         const x = 32 + i * (cardWidth + 12);
+
         doc.roundedRect(x, 107, cardWidth, 61, 6).lineWidth(0.6).fillAndStroke('#F5F3EF', border);
         text(title, x + 12, 118, cardWidth - 24, 8, muted);
         text(value, x + 12, 134, cardWidth - 24, 17, navy);
@@ -110,6 +119,7 @@ export function bookingReportPdf(data: BookingReport): Promise<Buffer> {
       function tableHeader(y: number) {
         doc.rect(32, y, width, 26).fill(navy);
         let x = 32;
+
         labels.forEach((label, i) => {
           text(label, x + 7, y + 8, columns[i] - 14, 7.5, '#FFFFFF');
           x += columns[i];
@@ -117,6 +127,7 @@ export function bookingReportPdf(data: BookingReport): Promise<Buffer> {
         return y + 26;
       }
       let y = tableHeader(205);
+
       if (!data.recentBookings.length) {
         doc.rect(32, y, width, 52).fill('#F9F7F4');
         text('No bookings check in during the selected period.', 44, y + 18, width - 24, 10, muted);
@@ -142,6 +153,7 @@ export function bookingReportPdf(data: BookingReport): Promise<Buffer> {
                 .heightOfString(cell, { width: columns[i] - 14 }) + 10
           )
         );
+
         if (y + height > doc.page.height - 62) {
           doc.addPage();
           heading();
@@ -149,6 +161,7 @@ export function bookingReportPdf(data: BookingReport): Promise<Buffer> {
         }
         doc.rect(32, y, width, height).fill(index % 2 ? '#F9F7F4' : '#FFFFFF');
         let x = 32;
+
         cells.forEach((cell, i) => {
           const color =
             i === 7
@@ -158,6 +171,7 @@ export function bookingReportPdf(data: BookingReport): Promise<Buffer> {
                   ? '#1A6B3C'
                   : navy
               : ink;
+
           text(cell, x + 7, y + 8, columns[i] - 14, 7.5, color);
           x += columns[i];
         });
@@ -170,10 +184,12 @@ export function bookingReportPdf(data: BookingReport): Promise<Buffer> {
         y += height;
       });
       const range = doc.bufferedPageRange();
+
       for (let i = 0; i < range.count; i++) {
         doc.switchToPage(i);
         doc.page.margins.bottom = 0;
         const footer = doc.page.height - 44;
+
         doc
           .moveTo(32, footer - 7)
           .lineTo(32 + width, footer - 7)

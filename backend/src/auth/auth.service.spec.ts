@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
+
 describe('Gateway authentication adapter', () => {
   const service = new AuthService(new ConfigService({ AUTH_SERVICE_URL: 'http://gateway.test' }));
   const session = {
@@ -10,6 +11,7 @@ describe('Gateway authentication adapter', () => {
     passwordChangeRequired: false
   };
   const original = global.fetch;
+
   afterEach(() => {
     global.fetch = original;
   });
@@ -20,6 +22,7 @@ describe('Gateway authentication adapter', () => {
     response(session);
     expect(await service.session('opaque-token')).toEqual(session);
     const [url, init] = (fetch as jest.Mock).mock.calls[0] as [string, RequestInit];
+
     expect(url).toBe('http://gateway.test/mad/auth/session');
     expect(new Headers(init.headers).get('authorization')).toBe('Bearer opaque-token');
   });

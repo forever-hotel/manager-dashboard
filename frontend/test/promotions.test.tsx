@@ -12,20 +12,25 @@ import {
 import { page, promotion, room } from './promotions-fixture';
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+
 function setup(items = [promotion()]) {
   const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const path = String(url);
+
     if (init?.method && init.method !== 'GET') return json(promotion({ version: 1 }));
     if (path.includes('/room-types')) return json(page([room]));
     if (path.includes('?')) return json(page(items));
     return json(items[0]);
   });
+
   vi.stubGlobal('fetch', fetcher);
   return fetcher;
 }
+
 async function ready() {
   await screen.findByRole('button', { name: 'Actions for OFFER26' });
 }
+
 function fill() {
   for (const [label, value] of [
     ['Promo code', 'new26'],
@@ -44,6 +49,7 @@ const mutations = (fetcher: ReturnType<typeof setup>) =>
 describe('DDP-020 promotion management', () => {
   it('TC-MAD-057-AC2: opens the existing create form with only dates prefilled and makes no mutation', async () => {
     const fetcher = setup();
+
     render(<PromotionsDashboard initialDate="2028-02-29" />);
     await ready();
     expect(screen.getByLabelText('Valid from')).toHaveValue('2028-02-29');
@@ -70,12 +76,14 @@ describe('DDP-020 promotion management', () => {
     'TC-MAD-020-AC1: creates via %s with every field and hotel-time boundaries',
     async button => {
       const fetcher = setup();
+
       render(<PromotionsDashboard />);
       await ready();
       fill();
       fireEvent.click(screen.getByRole('button', { name: button }));
       await screen.findByText(/Saved OFFER26/);
       const [url, init] = mutations(fetcher)[0];
+
       expect(url).toBe('/api/promotions');
       expect(init?.method).toBe('POST');
       expect(JSON.parse(String(init?.body))).toEqual({
@@ -93,6 +101,7 @@ describe('DDP-020 promotion management', () => {
   );
   it('TC-MAD-020-AC2: validates fields without losing values or sending writes', async () => {
     const fetcher = setup();
+
     render(<PromotionsDashboard />);
     await ready();
     fill();
@@ -106,6 +115,7 @@ describe('DDP-020 promotion management', () => {
   });
   it('TC-MAD-020-AC2: reloads a conflicting version and preserves unsaved input', async () => {
     const fetcher = setup();
+
     render(<PromotionsDashboard />);
     await ready();
     fireEvent.click(screen.getByRole('button', { name: 'Actions for OFFER26' }));
@@ -125,6 +135,7 @@ describe('DDP-020 promotion management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await screen.findByText(/Saved OFFER26/);
     const [, init] = mutations(fetcher).at(-1)!;
+
     expect(init?.method).toBe('PUT');
     expect(JSON.parse(String(init?.body))).toMatchObject({
       version: 7,
@@ -135,6 +146,7 @@ describe('DDP-020 promotion management', () => {
     'TC-MAD-020-AC1: %s sends the version and confirms destructive changes',
     async action => {
       const fetcher = setup([promotion({ status: action === 'Activate' ? 'INACTIVE' : 'ACTIVE' })]);
+
       render(<PromotionsDashboard />);
       await ready();
       fireEvent.click(screen.getByRole('button', { name: 'Actions for OFFER26' }));
@@ -143,6 +155,7 @@ describe('DDP-020 promotion management', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Confirm ' + action.toLowerCase() }));
       await screen.findByText(/Saved OFFER26:/);
       const [url, init] = mutations(fetcher)[0];
+
       expect(url).toBe('/api/promotions/' + promotion().id + (action === 'Delete' ? '' : '/' + action.toLowerCase()));
       expect(init?.method).toBe(action === 'Delete' ? 'DELETE' : 'POST');
       expect(JSON.parse(String(init?.body))).toEqual({ version: 0 });
@@ -152,6 +165,7 @@ describe('DDP-020 promotion management', () => {
   );
   it('cancelling deletion leaves records and history untouched', async () => {
     const fetcher = setup();
+
     vi.mocked(window.confirm).mockReturnValue(false);
     render(<PromotionsDashboard />);
     await ready();
@@ -163,6 +177,7 @@ describe('DDP-020 promotion management', () => {
   });
   it('defaults to active and switches to inactive for reactivation without browser dialogs', async () => {
     const fetcher = setup();
+
     render(<PromotionsDashboard />);
     await ready();
     expect(fetcher).toHaveBeenCalledWith('/api/promotions?page=1&pageSize=20&view=active', expect.anything());
@@ -185,6 +200,7 @@ describe('DDP-020 promotion management', () => {
   );
   it.each([400, 401, 403, 404, 503])('preserves form after save failure %s', async status => {
     const fetcher = setup();
+
     render(<PromotionsDashboard />);
     await ready();
     fill();
@@ -195,6 +211,7 @@ describe('DDP-020 promotion management', () => {
   });
   it('handles loading, empty state and retryable list failure', async () => {
     const fetcher = setup([]);
+
     fetcher.mockRejectedValueOnce(new Error('offline'));
     render(<PromotionsDashboard />);
     expect(screen.getByText('Loading promotions...')).toBeVisible();
@@ -207,12 +224,14 @@ describe('DDP-020 promotion management', () => {
     render(<PromotionsDashboard />);
     await ready();
     const table = within(screen.getByRole('table'));
+
     expect(table.getByText('LKR 123.45')).toBeVisible();
     expect(table.getByText('5 / 100')).toBeVisible();
     expect(table.getByText('Suite')).toBeVisible();
   });
   it('paginates and prevents duplicate submissions while saving', async () => {
     const fetcher = setup();
+
     fetcher.mockResolvedValueOnce(json(page([promotion()], 21)));
     render(<PromotionsDashboard />);
     await ready();
@@ -223,6 +242,7 @@ describe('DDP-020 promotion management', () => {
     await ready();
     fill();
     let finish!: (response: Response) => void;
+
     fetcher.mockImplementationOnce(
       () =>
         new Promise<Response>(resolve => {
@@ -231,6 +251,7 @@ describe('DDP-020 promotion management', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Save & activate' }));
     const saving = screen.getByRole('button', { name: 'Saving...' });
+
     expect(saving).toBeDisabled();
     fireEvent.click(saving);
     expect(mutations(fetcher)).toHaveLength(1);
@@ -239,11 +260,13 @@ describe('DDP-020 promotion management', () => {
   });
   it('converts an inclusive single date and month/year boundaries into exclusive midnight timestamps', () => {
     const base = formFrom(promotion());
+
     for (const [day, next] of [
       ['2028-02-29', '2028-03-01'],
       ['2028-12-31', '2029-01-01']
     ]) {
       const payload = formPayload({ ...base, validFrom: day, validUntil: day });
+
       expect(payload.validFrom).toBe(day + 'T00:00:00+05:30');
       expect(payload.validUntil).toBe(next + 'T00:00:00+05:30');
       expect(Date.parse(payload.validUntil) - Date.parse(payload.validFrom)).toBe(86400000);
@@ -256,6 +279,7 @@ describe('DDP-020 promotion management', () => {
   it('round-trips hotel dates and rejects invalid boundaries, currency and duplicate selections', async () => {
     const p = promotion();
     const payload = formPayload(formFrom(p));
+
     expect(payload.validFrom).toBe('2026-10-01T00:00:00+05:30');
     expect(payload.validUntil).toBe('2099-11-02T00:00:00+05:30');
     expect(createSchema.safeParse(payload).success).toBe(true);

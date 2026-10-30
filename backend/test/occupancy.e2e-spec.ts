@@ -1,5 +1,7 @@
 import type { LowBookingAlertsService } from '../src/analytics/low-booking-alerts.service';
+
 type AlertSummary = Awaited<ReturnType<LowBookingAlertsService['alerts']>>;
+
 import { BOOKING_CLOCK } from '../src/analytics/booking-analytics.service';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -32,6 +34,7 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
 
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
@@ -39,6 +42,7 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
+
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
@@ -74,6 +78,7 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
       .overrideProvider(BOOKING_CLOCK)
       .useValue(() => new Date('2026-09-26T18:30:00Z'))
       .compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.init();
@@ -135,12 +140,15 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
   it('TC-DDP-010-AC1: counts overlapping physical rooms once and excludes checkout day', async () => {
     const first = await room();
     const second = await room();
+
     await room('2020-01-01', null, first); // Duplicate inventory join row.
     const allocation = await stay(first, '2026-09-26', '2026-09-28');
+
     await stay(first, '2026-09-26', '2026-09-28', 'CONFIRMED', allocation);
     await stay(first, '2026-09-27', '2026-09-29', 'CHECKED_IN');
     await stay(second, '2026-09-27', '2026-09-28', 'CHECKED_OUT');
     const result = await calendar();
+
     expect(result.dates).toEqual([
       { date: '2026-09-27', occupiedRooms: 2, eligibleRooms: 2, rate: 1 },
       { date: '2026-09-28', occupiedRooms: 1, eligibleRooms: 2, rate: 0.5 },
@@ -157,10 +165,12 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
 
   it('TC-DDP-010-AC1: uses current allocations and excludes cancelled, pending and unknown statuses', async () => {
     const first = await room();
+
     for (const status of ['CANCELLED', 'PENDING', 'UNKNOWN', null]) {
       await stay(first, '2026-09-27', '2026-09-30', status);
     }
     const allocation = await stay(first, '2026-09-27', '2026-09-30');
+
     expect((await calendar()).dates[0].occupiedRooms).toBe(1);
     await database.query('UPDATE hw_occupancy_allocations SET status=$1 WHERE allocation_id=$2', [
       'CANCELLED',
@@ -182,6 +192,7 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
       ['2026-09-27', '2026-09-27', ['2026-09-27']]
     ] as const) {
       const result = await calendar(`?from=${from}&to=${to}`);
+
       expect(result.dates.map(day => day.date)).toEqual(expected);
       expect(result.dates.every(day => day.occupiedRooms === 0 && day.rate === 0)).toBe(true);
     }
@@ -212,6 +223,7 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
     const retired = await room('2020-01-01', '2026-09-28');
     const future = await room('2026-09-29');
     const inactive = await room('2020-01-01', '2026-09-27');
+
     for (const id of [first, retired, future, inactive, randomUUID()]) {
       await stay(id, '2026-09-27', '2026-09-30');
     }
@@ -226,6 +238,7 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
 
   it('TC-DDP-010-AC3: returns a null rate for an available empty inventory', async () => {
     const result = await calendar();
+
     expect(result.dates).toHaveLength(3);
     expect(result.dates.every(day => day.eligibleRooms === 0 && day.occupiedRooms === 0 && day.rate === null)).toBe(
       true
@@ -256,9 +269,11 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
 
   it.each(['rooms', 'allocations', 'maintenance'])('returns 503 when %s is absent or unreadable', async source => {
     const view = `mad_occupancy_${source}`;
+
     await database.query(`REVOKE SELECT ON ${view} FROM "${role}"`);
     try {
       const response = await get().expect(503);
+
       expect(response.body).toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
       expect(JSON.stringify(response.body)).not.toContain(view);
     } finally {
@@ -278,9 +293,11 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
 
   it('TC-DDP-011-AC1/AC2: returns low dates and excludes rates exactly at the threshold', async () => {
     const rooms = await Promise.all(Array.from({ length: 5 }, () => room()));
+
     await stay(rooms[0], '2026-09-27', '2026-10-11');
     await stay(rooms[1], '2026-09-28', '2026-10-11');
     const response = await alerts().expect(200);
+
     expect(response.body).toMatchObject({
       from: '2026-09-27',
       to: '2026-10-10',
@@ -295,6 +312,7 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
   });
   it('TC-DDP-011-AC2: marks all zero-capacity dates unavailable without promotions', async () => {
     const response = await alerts().expect(200);
+
     expect((response.body as AlertSummary).alerts).toEqual([]);
     expect((response.body as AlertSummary).unavailableDates).toHaveLength(14);
     expect((response.body as AlertSummary).unavailableDates[0]).toMatchObject({
@@ -329,13 +347,16 @@ describe('DDP-010 occupancy API with disposable PostgreSQL', () => {
   });
   it('uses room creation as a transparent fallback without requiring availability inserts', async () => {
     const id = randomUUID();
+
     await database.query("INSERT INTO rooms(room_number,created_at) VALUES ($1,'2026-09-26T18:30:00Z')", [id]);
     await database.query('INSERT INTO hw_occupancy_rooms(room_id,active_from) VALUES ($1,NULL)', [id]);
     await stay(id, '2026-09-27', '2026-09-29');
     const result: unknown = await runtime.query(`SELECT * FROM public.rooms`);
+
     expect(result).toHaveLength(1);
     const service = new OccupancyAnalyticsService(runtime);
     const calendar = await service.calendar({ from: '2026-09-26', to: '2026-09-28' });
+
     expect(calendar.roomsUsingCreationDate).toBe(1);
     expect(calendar.dates.map(day => day.eligibleRooms)).toEqual([0, 1, 1]);
     expect(calendar.dates.map(day => day.rate)).toEqual([null, 1, 1]);

@@ -1,4 +1,5 @@
 'use client';
+
 import ReportDownload from './ReportDownload';
 import { useRealtimeRefresh } from './useRealtimeRefresh';
 import { DataPanel } from './DashboardVisuals';
@@ -20,12 +21,15 @@ export default function OccupancyCalendar({
 }) {
   const [month, setMonth] = useState(initialMonth);
   const [attempt, setAttempt] = useState(0);
+
   useRealtimeRefresh('analytics', () => setAttempt(value => value + 1));
   const [state, setState] = useState<State>({ month: initialMonth });
   const [selected, setSelected] = useState<string>();
+
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
+
     loadOccupancy(month, controller.signal)
       .then(data => {
         if (active) setState({ month, data });
@@ -58,6 +62,7 @@ export default function OccupancyCalendar({
     }
   };
   const inspected = data?.dates.find(day => day.date === selected);
+
   return (
     <DataPanel
       title={

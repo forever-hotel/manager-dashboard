@@ -2,12 +2,14 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChangePasswordForm } from '@/components/ChangePasswordForm';
 import { navigate } from '@/lib/navigation';
+
 vi.mock('@/lib/navigation', () => ({ navigate: vi.fn() }));
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn());
   vi.mocked(navigate).mockClear();
 });
 afterEach(() => vi.unstubAllGlobals());
+
 function fill() {
   fireEvent.change(screen.getByLabelText('Current password'), { target: { value: ' old password ' } });
   fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'new password123' } });
@@ -22,6 +24,7 @@ describe('Required first-login password change', () => {
   });
   it('preserves password whitespace, prevents duplicate submission and opens the allowed destination', async () => {
     let finish!: (response: Response) => void;
+
     vi.mocked(fetch).mockReturnValue(
       new Promise(resolve => {
         finish = resolve;
@@ -30,6 +33,7 @@ describe('Required first-login password change', () => {
     render(<ChangePasswordForm next="/rooms" />);
     fill();
     const button = screen.getByRole('button', { name: 'Change password' });
+
     fireEvent.click(button);
     fireEvent.click(button);
     await waitFor(() => expect(fetch).toHaveBeenCalledOnce());

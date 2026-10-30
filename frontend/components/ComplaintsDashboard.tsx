@@ -1,4 +1,5 @@
 'use client';
+
 import Pagination from './Pagination';
 import RowActions from '@/components/RowActions';
 import { PageHeader, SummaryCard } from './DashboardVisuals';
@@ -20,6 +21,7 @@ import {
   type Complaint,
   type ComplaintDetail
 } from '@/lib/complaints';
+
 const button = 'font-normal text-xs text-ink underline';
 const control = 'w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink';
 const formatDate = (iso: string) => new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Colombo' });
@@ -27,6 +29,7 @@ const errorText = (e: unknown) =>
   e instanceof ComplaintError
     ? e.message
     : 'Service unavailable. Reload before retrying; a save may already have completed.';
+
 export default function ComplaintsDashboard({
   initialWorkerId = '',
   initialStatus = '',
@@ -67,11 +70,13 @@ export default function ComplaintsDashboard({
   const panel = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
   const detailController = useRef<AbortController | null>(null);
+
   useEffect(() => () => detailController.current?.abort(), []);
   useEffect(() => {
     if (!selectedId) return;
     const dialog = panel.current;
     const previous = document.activeElement;
+
     dialog?.showModal();
     dialog?.focus();
     return () => {
@@ -83,6 +88,7 @@ export default function ComplaintsDashboard({
     const controller = new AbortController();
     let active = true;
     const query = new URLSearchParams({ page: String(page), pageSize: '20', period, date: selectedDate });
+
     for (const [key, value] of Object.entries(filters)) if (value) query.set(key, value);
     complaintRequest('?' + query, complaintPageSchema, 'GET', undefined, controller.signal)
       .then(data => {
@@ -116,11 +122,13 @@ export default function ComplaintsDashboard({
   async function loadDetail(id: string) {
     detailController.current?.abort();
     const controller = new AbortController();
+
     detailController.current = controller;
     setDetailLoading(true);
     setDetailError('');
     try {
       const value = await complaintRequest('/' + id, complaintDetailSchema, 'GET', undefined, controller.signal);
+
       if (!controller.signal.aborted) {
         setDetail(value);
         setConflict(false);
@@ -134,6 +142,7 @@ export default function ComplaintsDashboard({
   useEffect(() => {
     if (!initialComplaintId) return;
     const controller = new AbortController();
+
     detailController.current = controller;
     void complaintRequest('/' + initialComplaintId, complaintDetailSchema, 'GET', undefined, controller.signal)
       .then(value => {
@@ -170,6 +179,7 @@ export default function ComplaintsDashboard({
     if (saving || (note && !window.confirm('Discard the unsaved note?'))) return;
     dismissAction();
     const target = document.getElementById('complaint-open-' + selectedId);
+
     if (target) target.focus();
     else if (opener.current?.isConnected) opener.current.focus();
     else document.getElementById('complaint-period')?.focus();
@@ -181,6 +191,7 @@ export default function ComplaintsDashboard({
       status: nextStatus(detail.status),
       note
     });
+
     if (!parsed.success) {
       setDetailError(parsed.error.issues[0].message);
       return;
@@ -191,6 +202,7 @@ export default function ComplaintsDashboard({
     setNotice('');
     try {
       const saved = await complaintRequest('/' + detail.id, complaintSchema, 'PATCH', parsed.data);
+
       dismissAction();
       setNotice(`Saved: ${statusLabel[saved.status]}.`);
       window.dispatchEvent(

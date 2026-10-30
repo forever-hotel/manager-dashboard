@@ -1,6 +1,8 @@
 'use client';
+
 import Link from 'next/link';
 import { useRef, useState, type FormEvent } from 'react';
+
 export function ManagerPasswordReset() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -39,6 +41,7 @@ export function ManagerPasswordReset() {
         )
       });
       const body: unknown = await response.json();
+
       if (!body || typeof body !== 'object' || !('message' in body) || typeof body.message !== 'string')
         throw new Error('Service unavailable. Please retry.');
       if (!response.ok) throw new Error(body.message);

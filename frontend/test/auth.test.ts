@@ -2,6 +2,7 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import { isSession, safeDestination } from '@/lib/auth';
 import { httpUrl, serverConfig } from '@/lib/environment';
 import { backend } from '@/lib/backend';
+
 describe('Configuration, redirects and server transport', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -32,6 +33,7 @@ describe('Configuration, redirects and server transport', () => {
       expiresAt: Math.floor(Date.now() / 1000) + 100,
       passwordChangeRequired: false
     };
+
     expect(isSession(value)).toBe(true);
     for (const change of [
       { sub: 1 },
@@ -66,6 +68,7 @@ describe('Configuration, redirects and server transport', () => {
     vi.stubEnv('BACKEND_API_URL', 'http://localhost:4000');
     vi.stubEnv('BACKEND_API_MODE', 'direct');
     const fetcher = vi.fn().mockResolvedValue(new Response('{"ok":true}'));
+
     vi.stubGlobal('fetch', fetcher);
     expect(await backend('/test', 'POST', 'token', { a: 1 })).toEqual({
       status: 200,
@@ -87,6 +90,7 @@ describe('Configuration, redirects and server transport', () => {
     vi.stubEnv('BACKEND_API_URL', 'http://localhost:8080');
     vi.stubEnv('BACKEND_API_MODE', 'gateway');
     const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response('{}')));
+
     vi.stubGlobal('fetch', fetcher);
     for (const [path, target] of [
       ['/auth/login', '/mad/auth/login'],

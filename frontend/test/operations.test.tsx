@@ -1,10 +1,12 @@
 vi.mock('@/components/useRealtimeRefresh', () => ({ useRealtimeRefresh: () => undefined }));
+
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import OperationsAnalytics from '@/components/OperationsAnalytics';
 import WorkerAnalytics from '@/components/WorkerAnalytics';
 import TasksPage from '@/app/(dashboard)/tasks/page';
 import { foodFixture, serviceFixture, workerFixture } from './operations-fixture';
+
 vi.mock('@/components/KitchenQueue', () => ({
   default: () => <div>Live kitchen queue</div>
 }));
@@ -106,6 +108,7 @@ describe('DDP-032 operations views', () => {
       const query = new URL(url, 'http://localhost').searchParams;
       const page = Number(query.get('page'));
       const size = page === 1 ? 20 : 1;
+
       return new Response(
         JSON.stringify({
           view: query.get('view'),
@@ -135,6 +138,7 @@ describe('DDP-032 operations views', () => {
   });
   it('AC3: ignores stale period responses and supports retry', async () => {
     let finish!: (r: Response) => void;
+
     fetchMock.mockImplementationOnce(
       () =>
         new Promise<Response>(r => {
@@ -162,6 +166,7 @@ describe('DDP-033 worker view', () => {
     const table = await screen.findByRole('table', {
       name: 'Worker performance in minutes, current filters'
     });
+
     expect(table).toHaveTextContent('Worker One');
     expect(table).toHaveTextContent('N/A');
     expect(within(table).getByRole('columnheader', { name: 'Open complaints' })).toBeVisible();
@@ -197,6 +202,7 @@ describe('DDP-033 worker view', () => {
   });
   it('shows a return link only for the Worker Performance task entry', async () => {
     const view = render(await TasksPage({ searchParams: Promise.resolve({ from: 'worker-performance' }) }));
+
     expect(screen.getByRole('link', { name: 'Back to Worker Performance' })).toHaveAttribute(
       'href',
       '/worker-performance'

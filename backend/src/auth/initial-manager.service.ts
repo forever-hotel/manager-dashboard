@@ -6,6 +6,7 @@ import { hashPassword, validPassword } from './password';
 @Injectable()
 export class InitialManagerService implements OnApplicationBootstrap {
   private readonly logger = new Logger(InitialManagerService.name);
+
   constructor(
     private readonly config: ConfigService,
     private readonly database: DataSource
@@ -15,6 +16,7 @@ export class InitialManagerService implements OnApplicationBootstrap {
     const email = this.config.get<string>('INITIAL_MANAGER_EMAIL')?.trim().toLowerCase();
     const username = this.config.get<string>('INITIAL_MANAGER_USERNAME')?.trim().toLowerCase();
     const password = this.config.get<string>('INITIAL_MANAGER_PASSWORD');
+
     if (!email && !username && !password) return;
     if (!email || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new Error(
@@ -29,6 +31,7 @@ export class InitialManagerService implements OnApplicationBootstrap {
           'SELECT role FROM public.staff_users WHERE lower(email)=$1',
           [email]
         );
+
         if (existing.length) {
           if (existing.length !== 1 || existing[0].role !== 'MANAGER') throw new Error('Conflicting staff identity');
           // Never reset passwords, first-login state, activation or usernames,
@@ -47,6 +50,7 @@ export class InitialManagerService implements OnApplicationBootstrap {
            ON CONFLICT DO NOTHING RETURNING worker_id`,
           [email, username, passwordHash]
         );
+
         if (!inserted.length) throw new Error('Conflicting staff identity');
       });
       this.logger.log('Initial manager checked; existing account credentials are preserved.');

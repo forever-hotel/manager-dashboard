@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 export const staffRoles = ['RECEPTIONIST', 'WORKER', 'KITCHEN_STAFF', 'KITCHEN_MANAGER'] as const;
 export const staffLabels = {
   RECEPTIONIST: 'Receptionist',

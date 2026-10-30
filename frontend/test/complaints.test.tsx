@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ComplaintsDashboard from '@/components/ComplaintsDashboard';
 import { COMPLAINT_CHANGED_EVENT, complaintPatchSchema, nextStatus } from '@/lib/complaints';
 import { complaint, complaintPage } from './complaints-fixture';
+
 beforeEach(() => {
   vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function (this: HTMLDialogElement) {
     this.setAttribute('open', '');
@@ -12,6 +13,7 @@ beforeEach(() => {
   });
 });
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
+
 function setup() {
   let current = complaint();
   const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
@@ -20,6 +22,7 @@ function setup() {
         note: string;
         status: 'UNDER_REVIEW' | 'RESOLVED';
       };
+
       current = complaint({
         status: body.status,
         version: current.version + 1,
@@ -39,9 +42,11 @@ function setup() {
     }
     return json(String(url).includes('?') ? complaintPage([current]) : current);
   });
+
   vi.stubGlobal('fetch', fetcher);
   return fetcher;
 }
+
 async function open() {
   fireEvent.click(
     await screen.findByRole('button', {
@@ -56,6 +61,7 @@ const patches = (fetcher: ReturnType<typeof setup>) =>
 describe('DDP-022 complaint register', () => {
   it('opens the specific complaint linked by a notification without changing it', async () => {
     const fetcher = setup();
+
     render(<ComplaintsDashboard initialComplaintId={complaint().id} />);
     expect(await screen.findByLabelText('Internal note (manager only)')).toBeVisible();
     expect(fetcher.mock.calls.some(([url]) => String(url) === '/api/complaints/' + complaint().id)).toBe(true);
@@ -67,9 +73,11 @@ describe('DDP-022 complaint register', () => {
   });
   it('TC-MAD-022-AC1: shows actual room and severity and supports previous periods', async () => {
     const fetcher = setup();
+
     render(<ComplaintsDashboard />);
     await screen.findByRole('button', { name: /Actions for complaint/ });
     const table = within(screen.getByRole('table'));
+
     expect(table.getByText('204')).toBeVisible();
     expect(table.getByText('high')).toBeVisible();
     expect(table.getByText('No worker referenced')).toBeVisible();
@@ -88,6 +96,7 @@ describe('DDP-022 complaint register', () => {
   it('TC-MAD-022-AC2: saves the current version, refreshes detail/register and announces count invalidation', async () => {
     const fetcher = setup();
     const listener = vi.fn();
+
     window.addEventListener(COMPLAINT_CHANGED_EVENT, listener);
     try {
       render(<ComplaintsDashboard />);
@@ -117,6 +126,7 @@ describe('DDP-022 complaint register', () => {
     'TC-MAD-022-AC3: failed save %s preserves the editable note and never claims success',
     async status => {
       const fetcher = setup();
+
       render(<ComplaintsDashboard />);
       await open();
       fireEvent.change(screen.getByLabelText('Internal note (manager only)'), {
@@ -155,6 +165,7 @@ describe('DDP-022 complaint register', () => {
   );
   it('validates notes, prevents reopening and restores focus on close', async () => {
     const fetcher = setup();
+
     render(<ComplaintsDashboard />);
     await open();
     fireEvent.click(screen.getByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ }));
@@ -170,6 +181,7 @@ describe('DDP-022 complaint register', () => {
   });
   it('handles empty/error/loading states and pagination', async () => {
     const fetcher = setup();
+
     fetcher.mockRejectedValueOnce(new Error('offline'));
     render(<ComplaintsDashboard />);
     expect(screen.getByText('Loading complaints...')).toBeVisible();
@@ -190,6 +202,7 @@ describe('DDP-022 complaint register', () => {
   });
   it('preserves a draft when dismissal is cancelled and renders notes as text', async () => {
     const fetcher = setup();
+
     render(<ComplaintsDashboard />);
     await screen.findByRole('button', { name: /Actions for complaint/ });
     fetcher.mockResolvedValueOnce(
@@ -223,10 +236,12 @@ describe('DDP-022 complaint register', () => {
       id: '22222222-2222-4222-8222-222222222222',
       description: 'Second guest issue'
     });
+
     fetcher.mockResolvedValueOnce(json(complaintPage([complaint(), other])));
     render(<ComplaintsDashboard />);
     await screen.findByRole('button', { name: 'Actions for complaint ' + other.id });
     let finish!: (value: Response) => void;
+
     fetcher.mockImplementationOnce(
       () =>
         new Promise<Response>(resolve => {
@@ -248,12 +263,14 @@ describe('DDP-022 complaint register', () => {
   });
   it('closes after saving even when the register refresh fails', async () => {
     const fetcher = setup();
+
     render(<ComplaintsDashboard />);
     await open();
     fireEvent.change(screen.getByLabelText('Internal note (manager only)'), {
       target: { value: 'Keep this private' }
     });
     let finish!: (value: Response) => void;
+
     fetcher.mockImplementationOnce(
       () =>
         new Promise<Response>(resolve => {
@@ -262,6 +279,7 @@ describe('DDP-022 complaint register', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ }));
     const saving = screen.getByRole('button', { name: 'Saving...' });
+
     expect(saving).toBeDisabled();
     fireEvent.click(saving);
     expect(patches(fetcher)).toHaveLength(1);

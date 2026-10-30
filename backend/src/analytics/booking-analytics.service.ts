@@ -34,10 +34,12 @@ export class BookingAnalyticsService {
         date ? `${date}T12:00:00.000Z` : asOf,
         INCLUDED_BOOKING_STATUSES
       ]);
+
       if (!rows.length) throw new Error('Missing calendar buckets');
       const first = rows[0];
       const trend = rows.map(row => {
         const count = Number(row.count);
+
         if (!Number.isSafeInteger(count) || count < 0) throw new Error('Invalid booking count');
         return {
           date: row.bucket_date,
@@ -47,6 +49,7 @@ export class BookingAnalyticsService {
         };
       });
       const total = trend.reduce((sum, bucket) => sum + bucket.count, 0);
+
       if (!Number.isSafeInteger(total)) throw new Error('Invalid booking total');
       return {
         period,

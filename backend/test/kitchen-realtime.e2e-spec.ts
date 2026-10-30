@@ -19,6 +19,7 @@ import { connect } from 'amqplib';
 import { KitchenController } from '../src/kitchen/kitchen.controller';
 import { KitchenService } from '../src/kitchen/kitchen.service';
 import { seedLocalAuth } from './local-auth-fixture';
+
 type Summary = Awaited<ReturnType<KitchenService['snapshot']>>;
 describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
   let admin: DataSource,
@@ -31,8 +32,10 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     role = 'ddp_kitchen_app_' + suffix;
   const secret = 'worker-integration-only-secret-at-least-32-characters';
   const clock = new Date('2026-10-19T06:00:00Z');
+
   beforeAll(async () => {
     const url = process.env.TEST_DATABASE_URL;
+
     if (!url || !new URL(url).pathname.includes('test'))
       throw new Error('TEST_DATABASE_URL must identify a disposable test database');
     admin = new DataSource({ type: 'postgres', url });
@@ -40,6 +43,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     await admin.query(`CREATE DATABASE "${name}"`);
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD 'integration-only' NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     const owner = new URL(url);
+
     owner.pathname = '/' + name;
     database = new DataSource({ type: 'postgres', url: owner.toString() });
     await database.initialize();
@@ -83,6 +87,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
       controllers: [KitchenController],
       providers: [KitchenService, { provide: 'KITCHEN_CLOCK', useValue: () => clock }]
     }).compile();
+
     app = module.createNestApplication();
     configureHttp(app);
     await app.listen(0, '127.0.0.1');
@@ -104,11 +109,13 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
   });
   function get(query = '', token: string | null = provider.issue('manager')) {
     const req = request(app.getHttpServer()).get('/mad/kitchen/orders?' + query);
+
     if (token) req.set('Authorization', 'Bearer ' + token);
     return req;
   }
   async function order(status: string, delivered: string | null = null) {
     const id = randomUUID();
+
     await database.query(
       "INSERT INTO kms_food_orders VALUES ($1,'101','LUNCH',$2,'2026-10-19T00:00:00Z','2026-10-19T01:00:00.123456Z',$3)",
       [id, status, delivered]
@@ -120,6 +127,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
       .post('/mad/realtime/ticket')
       .set('Authorization', 'Bearer ' + token)
       .expect(201);
+
     return (result.body as { ticket: string }).ticket;
   }
   async function socket(ticketValue: string, origin = 'http://localhost:3000'): Promise<Socket> {
@@ -130,6 +138,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
       extraHeaders: { Origin: origin },
       reconnection: false
     });
+
     await new Promise<void>((resolve, reject) => {
       client.once('connect', resolve);
       client.once('connect_error', error => {
@@ -141,6 +150,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
   }
   it('TC-MAD-041-AC1: maps four states, independent item counts, stable pagination and delivered retention', async () => {
     const ids: string[] = [];
+
     for (const state of ['PLACED', 'IN_PREPARATION', 'READY', 'DELIVERED'])
       ids.push(await order(state, state === 'DELIVERED' ? '2026-10-19T02:00:00Z' : null));
     await order('DELIVERED', '2026-10-18T02:00:00Z');
@@ -152,6 +162,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     ]);
     const response = await get('pageSize=100').expect(200);
     const body = response.body as Summary;
+
     expect(body.counts).toEqual({
       PLACED: 1,
       IN_PREPARATION: 1,
@@ -166,11 +177,13 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     expect(((await get('status=READY').expect(200)).body as Summary).orders.map(o => o.status)).toEqual(['READY']);
     const first = (await get('pageSize=2').expect(200)).body as Summary;
     const second = (await get('pageSize=2&page=2').expect(200)).body as Summary;
+
     expect(new Set([...first.orders, ...second.orders].map(o => o.id)).size).toBe(4);
   });
   it('TC-MAD-041-AC3: empty is valid; invalid/unauthorized requests never mutate sources', async () => {
     expect(((await get().expect(200)).body as Summary).orders).toEqual([]);
     const id = await order('PLACED');
+
     for (const query of [
       'status=NEW',
       'page=0',
@@ -191,6 +204,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     ] as const) {
       await get('', token).expect(status);
       const req = request(app.getHttpServer()).post('/mad/realtime/ticket');
+
       if (token) req.set('Authorization', 'Bearer ' + token);
       await req.expect(status);
     }
@@ -201,6 +215,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
   it('TC-MAD-041-AC3: delivered orders without a completion timestamp cannot masquerade as zero activity', async () => {
     const id = await order('DELIVERED');
     const failed = await get().expect(503);
+
     expect(failed.body as unknown).toEqual({
       code: 'SERVICE_UNAVAILABLE',
       message: 'Service temporarily unavailable. Please retry.'
@@ -214,6 +229,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     await order('DELIVERED', clock.toISOString());
     await order('DELIVERED', '2026-10-19T06:00:00.000001Z');
     const result = (await get('status=DELIVERED&pageSize=1&page=3').expect(200)).body as Summary;
+
     expect(result.counts.DELIVERED).toBe(2);
     expect(result.total).toBe(2);
     expect(result.orders).toEqual([]);
@@ -234,10 +250,12 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     await expect(socket('invalid')).rejects.toThrow();
     const once = await ticket();
     const client = await socket(once);
+
     client.disconnect();
     await expect(socket(once)).rejects.toThrow();
     await expect(socket(await ticket(), 'http://untrusted.invalid')).rejects.toThrow();
     const revoked = await ticket();
+
     await database.query('UPDATE staff_users SET session_version=session_version+1 WHERE worker_id=$1', [
       provider.ids.get('manager')
     ]);
@@ -259,13 +277,16 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
       version: 2,
       occurredAt: '2026-10-19T01:00:00Z'
     };
+
     await Promise.all([consumer.accept(event), consumer.accept(event)]);
     await consumer.accept({ ...event, eventId: randomUUID(), version: 1 });
     const restarted = new RealtimeConsumer(app.get(ConfigService), database, app.get(RealtimeGateway));
+
     await restarted.accept(event);
     const rows = await database.query<{ version: string; delivered_at: Date | null }[]>(
       'SELECT version,delivered_at FROM mad_realtime_events ORDER BY version'
     );
+
     expect(rows).toHaveLength(2);
     expect(rows[0].delivered_at).not.toBeNull();
     expect(rows[1].delivered_at).toBeNull();
@@ -282,9 +303,11 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
       occurredAt: '2026-10-19T01:00:00Z'
     };
     const latest = { ...first, eventId: randomUUID(), version: 2 };
+
     await consumer.accept(first);
     await consumer.accept(latest);
     const restarted = new RealtimeConsumer(app.get(ConfigService), database, app.get(RealtimeGateway));
+
     await restarted.accept(latest);
     await expect(restarted.accept({ ...latest, version: 3 })).rejects.toThrow('Conflicting event identity');
     expect(await database.query('SELECT version FROM mad_realtime_events WHERE delivered_at IS NULL')).toEqual([
@@ -293,8 +316,10 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     expect(await database.query('SELECT version FROM mad_realtime_versions')).toEqual([{ version: '2' }]);
     expect(await database.query('SELECT event_id FROM mad_realtime_events')).toHaveLength(2);
     const client = await socket(await ticket());
+
     try {
       const delivered = new Promise<unknown>(resolve => client.once('kitchen.order.changed', resolve));
+
       await restarted.dispatch();
       expect(await delivered).toEqual({ changed: true });
       expect(await database.query('SELECT event_id FROM mad_realtime_events WHERE delivered_at IS NULL')).toEqual([]);
@@ -304,15 +329,18 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
   });
   it('TC-MAD-039-AC1/041-AC2: sends a committed broker event over the real socket and reconciles source version', async () => {
     const url = process.env.TEST_RABBITMQ_URL;
+
     if (!url || new URL(url).pathname !== '/mad_test')
       throw new Error('TEST_RABBITMQ_URL must use the isolated mad_test virtual host');
     const config = app.get(ConfigService);
+
     config.set('RABBITMQ_URL', url);
     config.set('MAD_REALTIME_ENABLED', 'true');
     app.get(RealtimeConsumer).onModuleInit();
     const connection = await connect(url);
     const channel = await connection.createConfirmChannel();
     let client: Socket | undefined;
+
     try {
       await channel.assertExchange('hotel.events', 'topic', { durable: true });
       await channel.assertQueue('mad.kitchen', {
@@ -326,6 +354,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
       const id = await order('READY');
       const snapshot = (await get().expect(200)).body as Summary;
       const version = snapshot.orders[0].version;
+
       client = await socket(await ticket());
       const event = {
         eventId: randomUUID(),
@@ -336,11 +365,13 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
       };
       const received = new Promise<unknown>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Event not delivered')), 10000);
+
         client!.once('kitchen.order.changed', (e: unknown) => {
           clearTimeout(timer);
           resolve(e);
         });
       });
+
       channel.publish('hotel.events', 'kitchen.order.changed', Buffer.from(JSON.stringify(event)), {
         persistent: true,
         contentType: 'application/json',
@@ -360,6 +391,7 @@ describe('DDP-026/039/041 kitchen with disposable PostgreSQL', () => {
     await order('READY');
     await order('DELIVERED', '2026-10-19T02:00:00Z');
     const body = (await get('activeOnly=true&pageSize=100').expect(200)).body as Summary;
+
     expect(body.total).toBe(2);
     expect(body.counts.DELIVERED).toBe(0);
     expect(body.orders.every(o => o.status !== 'DELIVERED')).toBe(true);

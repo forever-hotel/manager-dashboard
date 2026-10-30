@@ -4,14 +4,18 @@ import { DataSource } from 'typeorm';
 @Controller(['health', 'mad/health'])
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);
+
   constructor(private readonly database: DataSource) {}
+
   @Get('live')
   live() {
     return { status: 'ok', service: 'mad-backend' };
   }
+
   @Get('ready')
   async ready() {
     let dependency = 'public.mad_revoked_sessions';
+
     try {
       await this.database.query('SELECT token_hash FROM public.mad_revoked_sessions LIMIT 0');
       dependency = 'public.staff_users';

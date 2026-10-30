@@ -1,8 +1,11 @@
 'use client';
+
 import { useEffect, useRef } from 'react';
 import { subscribeRealtime } from '@/lib/realtime-connection';
+
 export function useRealtimeRefresh(scope: 'analytics' | 'food' | undefined, refresh: () => void) {
   const latest = useRef(refresh);
+
   useEffect(() => {
     latest.current = refresh;
   });
@@ -20,6 +23,7 @@ export function useRealtimeRefresh(scope: 'analytics' | 'food' | undefined, refr
         schedule();
     });
     const timer = setInterval(schedule, 30000);
+
     return () => {
       stop();
       clearInterval(timer);

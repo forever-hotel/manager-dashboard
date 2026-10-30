@@ -1,9 +1,11 @@
 import { UnprocessableEntityException } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
+
 export const MAX_REPORT_ROWS = 10000;
 export const MAX_REPORT_BYTES = 8 * 1024 * 1024;
 export type ReportRow = [string, string, string];
 const tooLarge = () => new UnprocessableEntityException('Report exceeds export limits. Narrow the filters.');
+
 function units(path: string, value: unknown) {
   if (value === null) return 'unavailable';
   if (/Minor$/.test(path)) return 'LKR cents';
@@ -21,6 +23,7 @@ export function flattenReport(data: Record<string, unknown>): ReportRow[] {
     if (depth > 12 || rows.length >= MAX_REPORT_ROWS) throw tooLarge();
     if (value !== null && typeof value === 'object') {
       const entries = Object.entries(value);
+
       if (!entries.length) {
         rows.push([path, Array.isArray(value) ? '[]' : '{}', 'empty']);
         return;
@@ -31,6 +34,7 @@ export function flattenReport(data: Record<string, unknown>): ReportRow[] {
       if (value !== null && typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean')
         throw new Error('Invalid report value');
       const text = value === null ? 'null' : String(value);
+
       if (Buffer.byteLength(text) > 2048 || path.length > 256) throw tooLarge();
       rows.push([path, text, units(path, value)]);
     }
@@ -38,25 +42,31 @@ export function flattenReport(data: Record<string, unknown>): ReportRow[] {
   visit(data, '', 0);
   return rows;
 }
+
 export function csvCell(value: string) {
   // Quote every cell. A leading apostrophe neutralizes formulas even after whitespace/control prefixes.
   let start = 0;
+
   while (
     start < value.length &&
     (value[start].trim() === '' || value.charCodeAt(start) < 32 || value.charCodeAt(start) === 127)
   )
     start++;
   const safe = ['=', '+', '@', '-'].includes(value[start]) || /^[\t\r\n]/.test(value) ? "'" + value : value;
+
   return '"' + safe.replaceAll('"', '""') + '"';
 }
+
 export function renderCsv(rows: ReportRow[]) {
   const result = Buffer.from(
     '\ufeff' + [['Field', 'Value', 'Unit'], ...rows].map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n',
     'utf8'
   );
+
   if (result.length > MAX_REPORT_BYTES) throw tooLarge();
   return result;
 }
+
 export function renderPdf(title: string, period: string, rows: ReportRow[]): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -68,6 +78,7 @@ export function renderPdf(title: string, period: string, rows: ReportRow[]): Pro
     const chunks: Buffer[] = [];
     let bytes = 0,
       pages = 1;
+
     doc.on('data', (chunk: Buffer) => {
       bytes += chunk.length;
       if (bytes > MAX_REPORT_BYTES) {
@@ -94,6 +105,7 @@ export function renderPdf(title: string, period: string, rows: ReportRow[]): Pro
       function text(value: string, size = 9, options: PDFKit.Mixins.TextOptions = {}) {
         // Keep complete script runs for shaping. Unsupported scripts are visibly escaped, never silently dropped.
         const runs: { font: string; text: string }[] = [];
+
         for (const char of value) {
           const code = char.codePointAt(0)!;
           const font =
@@ -109,6 +121,7 @@ export function renderPdf(title: string, period: string, rows: ReportRow[]): Pro
               ? char
               : `[U+${code.toString(16).toUpperCase()}]`;
           const last = runs.at(-1);
+
           if (last?.font === font) last.text += printable;
           else runs.push({ font, text: printable });
         }
@@ -152,6 +165,7 @@ export function renderPdf(title: string, period: string, rows: ReportRow[]): Pro
         return 168;
       }
       let y = heading();
+
       for (const [index, [field, value, unit]] of rows.entries()) {
         const cells = [field, value === 'null' ? 'Unavailable' : value === '[]' ? 'No records' : value, unit];
         const widths = [fieldWidth - 16, valueWidth - 16, 64];
@@ -166,6 +180,7 @@ export function renderPdf(title: string, period: string, rows: ReportRow[]): Pro
               ) + 18
           )
         );
+
         if (height > doc.page.height - 235) throw tooLarge();
         if (y + height > doc.page.height - 64) {
           doc.addPage();
@@ -185,6 +200,7 @@ export function renderPdf(title: string, period: string, rows: ReportRow[]): Pro
       }
       if (!rows.length) at('No records for the selected filters.', left + 8, y + 16, width - 16);
       const range = doc.bufferedPageRange();
+
       for (let index = 0; index < range.count; index++) {
         doc.switchToPage(index);
         doc

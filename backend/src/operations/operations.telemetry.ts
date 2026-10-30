@@ -16,6 +16,7 @@ const resources = [
   'kitchen',
   'realtime'
 ] as const;
+
 export function resource(path: string) {
   if (/^\/(?:mad\/)?auth(?:\/|$)/.test(path)) return 'authentication';
   return resources.find(name => path === '/mad/' + name || path.startsWith('/mad/' + name + '/')) ?? 'other';
@@ -34,21 +35,25 @@ export class OperationsTelemetry {
       // Audit sink failures must not interrupt application requests.
     }
   }
+
   observe(request: Request, response: Response, next: NextFunction) {
     const correlationId = randomUUID();
     const start = this.clock();
+
     response.setHeader('X-Correlation-ID', correlationId);
     let recorded = false;
     const complete = (aborted: boolean) => {
       if (recorded) return;
       recorded = true;
       const elapsed = Math.max(0, this.clock() - start);
+
       if (!aborted && response.statusCode < 400 && ['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
       const suppliedActor: unknown = (request as Request & { user?: { sub?: unknown } }).user?.sub;
       const actor =
         typeof suppliedActor === 'string' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(suppliedActor)
           ? suppliedActor
           : 'anonymous';
+
       this.emit({
         timestamp: new Date().toISOString(),
         service: 'mad-backend',
@@ -70,6 +75,7 @@ export class OperationsTelemetry {
         durationMs: Math.round(elapsed)
       });
     };
+
     response.once('finish', () => complete(false));
     response.once('close', () => complete(!response.writableFinished));
     next();

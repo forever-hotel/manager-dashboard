@@ -1,5 +1,7 @@
 'use client';
+
 import { io, type Socket } from 'socket.io-client';
+
 type Listener = (name: string, data?: unknown) => void;
 const listeners = new Set<Listener>();
 const status = new Map<string, unknown>();
@@ -26,6 +28,7 @@ let generation = 0;
 const emit = (name: string, data?: unknown) => {
   for (const listener of [...listeners]) listener(name, data);
 };
+
 function schedule() {
   if (timer || !listeners.size) return;
   emit('live.offline');
@@ -41,8 +44,10 @@ function schedule() {
     Math.min(1000 * 2 ** attempts++, 16000)
   );
 }
+
 async function connect() {
   const id = ++generation;
+
   controller?.abort();
   controller = new AbortController();
   socket?.removeAllListeners();
@@ -53,6 +58,7 @@ async function connect() {
       credentials: 'same-origin',
       signal: controller.signal
     });
+
     if (id !== generation || !listeners.size) return;
     if ([401, 403].includes(response.status)) {
       emit('live.denied', response.status);
@@ -60,6 +66,7 @@ async function connect() {
     }
     if (!response.ok) throw new Error();
     const data = (await response.json()) as { ticket: string; socketUrl: string };
+
     if (id !== generation || !listeners.size) return;
     socket = io(data.socketUrl, {
       path: '/realtime/socket.io',
@@ -83,6 +90,7 @@ async function connect() {
     if (id === generation) schedule();
   }
 }
+
 export function subscribeRealtime(listener: Listener) {
   listeners.add(listener);
   for (const [name, data] of status) listener(name, data);
@@ -102,6 +110,7 @@ export function subscribeRealtime(listener: Listener) {
     }
   };
 }
+
 export function retryRealtime() {
   clearTimeout(timer);
   timer = undefined;

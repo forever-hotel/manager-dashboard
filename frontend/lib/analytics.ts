@@ -33,6 +33,7 @@ export const bookingSchema = z
       .max(31)
   })
   .refine(data => data.total === data.trend.reduce((sum, bucket) => sum + bucket.count, 0));
+
 export class AnalyticsError extends Error {
   constructor(public status: number) {
     super('Analytics unavailable');
@@ -107,6 +108,7 @@ export const overviewSchema = z
       bookings.asOf === revenue.asOf
   );
 export type Overview = z.infer<typeof overviewSchema>;
+
 export async function loadAnalytics(
   period: Period,
   signal: AbortSignal,
@@ -122,18 +124,23 @@ export async function loadAnalytics(
     cache: 'no-store',
     credentials: 'same-origin'
   });
+
   if (!response.ok) throw new AnalyticsError(response.status);
   const data = overviewSchema.parse(await response.json());
+
   if (data.bookings.period !== period) throw new Error('Mismatched analytics period');
   return data;
 }
+
 export function money(minor: number) {
   // Keep cents exact even at the upper end of safe integer API amounts.
   const amount = BigInt(minor);
   const whole = new Intl.NumberFormat('en-LK').format(amount / BigInt(100));
   const cents = String(amount % BigInt(100)).padStart(2, '0');
+
   return `LKR ${whole}.${cents}`;
 }
+
 export function percentage(value: number | null) {
   return value === null ? 'N/A' : `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
 }

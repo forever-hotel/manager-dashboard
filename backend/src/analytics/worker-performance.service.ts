@@ -26,6 +26,7 @@ export interface WorkerPerformanceRow {
 
 function count(raw: string) {
   const value = Number(raw);
+
   if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value)) throw new Error('Invalid count');
   return value;
 }
@@ -47,11 +48,13 @@ export class WorkerPerformanceService {
         query.workerId ?? null,
         query.date ?? null
       ]);
+
       if (!row || !Array.isArray(row.workers)) throw new Error('Missing report');
       const workers = row.workers.map(w => {
         const completedCount = count(w.completedCount),
           validDurationCount = count(w.validDurationCount);
         const average = w.averageMinutes === null ? null : Number(w.averageMinutes);
+
         if (
           validDurationCount > completedCount ||
           (validDurationCount === 0
@@ -64,6 +67,7 @@ export class WorkerPerformanceService {
           missingCompletionCount: count(w.missingCompletionCount),
           unexpectedCompletionCount: count(w.unexpectedCompletionCount)
         };
+
         return {
           workerId: w.workerId,
           fullName: w.fullName,
@@ -80,6 +84,7 @@ export class WorkerPerformanceService {
           }
         };
       });
+
       return {
         period: query.period,
         timezone: BOOKING_TIMEZONE,

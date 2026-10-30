@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/service-requests/route';
 import { backend } from '@/lib/backend';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const req = (query = '', cookie = true) =>
   new NextRequest('http://localhost/api/service-requests?' + query, {
@@ -22,6 +23,7 @@ describe('service request list proxy', () => {
   it('authenticates and returns only approved fields', async () => {
     vi.mocked(backend).mockResolvedValue({ status: 200, data: { ...data, private: 'secret' } });
     const response = await GET(req());
+
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(data);
     expect(backend).toHaveBeenCalledWith(

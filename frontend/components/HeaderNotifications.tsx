@@ -1,10 +1,12 @@
 'use client';
+
 import Link from 'next/link';
 import { useNotifications } from './Notifications';
 
 export default function HeaderNotifications() {
   const notifications = useNotifications();
   const unread = notifications?.snapshot?.unread;
+
   return (
     <Link className="header-notifications" href="/notifications" aria-label="Open notifications" prefetch={false}>
       <svg

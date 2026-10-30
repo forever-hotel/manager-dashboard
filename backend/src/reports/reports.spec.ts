@@ -3,6 +3,7 @@ import { parseReportQuery, REPORT_TYPES } from './report-query';
 import { ReportsService } from './reports.service';
 import { BookingAnalyticsService } from '../analytics/booking-analytics.service';
 import { OccupancyAnalyticsService } from '../analytics/occupancy-analytics.service';
+
 describe('DDP-030 report validation and encoding', () => {
   it('accepts only per-report filters and bounded periods', () => {
     for (const type of REPORT_TYPES)
@@ -43,6 +44,7 @@ describe('DDP-030 report validation and encoding', () => {
       trend: [{ count: 0 }],
       workers: []
     });
+
     expect(rows).toContainEqual(['currentMinor', '25000', 'LKR cents']);
     expect(rows).toContainEqual(['percentageChange', 'null', 'unavailable']);
     expect(rows).toContainEqual(['trend[0].count', '0', 'count']);
@@ -70,6 +72,7 @@ describe('DDP-030 report validation and encoding', () => {
       ['hour', '4', 'number']
     ]);
     let deep: Record<string, unknown> = { value: 1 };
+
     for (let i = 0; i < 13; i++) deep = { nested: deep };
     expect(() => flattenReport(deep)).toThrow();
     expect(() => flattenReport({ ['x'.repeat(257)]: 1 })).toThrow();
@@ -86,15 +89,18 @@ describe('DDP-030 report validation and encoding', () => {
         'count'
       ])
     );
+
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
     const content = pdf.toString('latin1');
     // PDFKit stores metadata strings in indirect objects, not inline in /Info.
     // Follow /Title to its object so unrelated text cannot satisfy this check.
     const titleReference = content.match(/\/Title\s+(\d+)\s+(\d+)\s+R\b/);
+
     expect(titleReference).not.toBeNull();
     const titleObject = content.match(
       new RegExp(`(?:^|\\n)${titleReference?.[1]}\\s+${titleReference?.[2]}\\s+obj\\s*([\\s\\S]*?)\\s*endobj`)
     );
+
     expect(titleObject?.[1]).toBe('(Worker report)');
     expect(content).toMatch(/\/BaseFont \/[A-Z]+\+NotoSansSinhala-Regular/);
     expect(content).toMatch(/\/BaseFont \/[A-Z]+\+NotoSansTamil-Regular/);
@@ -118,6 +124,7 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
       rangeEndInclusive: true,
       dates: []
     });
+
     return {
       summary,
       calendar,
@@ -136,6 +143,7 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
   }
   it('uses every existing aggregation service with the requested filters', async () => {
     const { service, summary, calendar } = setup();
+
     for (const type of REPORT_TYPES) {
       const result = await service.download(type, {
         format: 'csv',
@@ -143,6 +151,7 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
         from: '2026-10-20',
         to: '2026-10-20'
       });
+
       expect(result.contentType).toContain('text/csv');
       expect(result.buffer.toString()).toContain(type === 'bookings' ? 'Date' : 'Field');
     }
@@ -158,9 +167,11 @@ describe('DDP-030 aggregation reuse and admission limits', () => {
     const pending = new Promise(resolve => {
       finish = resolve;
     });
+
     summary.mockReturnValue(pending);
     const a = service.download('bookings', { format: 'csv', period: 'day' });
     const b = service.download('bookings', { format: 'csv', period: 'day' });
+
     await expect(service.download('bookings', { format: 'csv', period: 'day' })).rejects.toMatchObject({ status: 503 });
     finish({
       start: '2026-10-20',

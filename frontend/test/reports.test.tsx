@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import ReportDownload from '@/components/ReportDownload';
 import { readReport, reportQuery, reportFilename, MAX_DOWNLOAD_BYTES } from '@/lib/reports';
 import { reportResponse, csv } from './report-fixture';
+
 let fetchMock: ReturnType<typeof vi.fn>;
 let click: ReturnType<typeof vi.spyOn>;
 const originalCreate = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
@@ -33,6 +34,7 @@ afterEach(() => {
 describe('DDP-031 report downloads', () => {
   it('AC1: sends current filters, names the file and revokes temporary URLs', async () => {
     const view = render(<ReportDownload type="bookings" filters={{ period: 'month' }} />);
+
     fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
     await waitFor(() => expect(click).toHaveBeenCalledOnce());
     expect(fetchMock).toHaveBeenCalledWith(
@@ -40,6 +42,7 @@ describe('DDP-031 report downloads', () => {
       expect.objectContaining({ credentials: 'same-origin' })
     );
     const anchor = click.mock.contexts[0] as unknown as HTMLAnchorElement;
+
     expect(anchor.download).toBe('bookings-2026-10-21.csv');
     expect(anchor.href).toBe('blob:report');
     expect(document.querySelector('a[download]')).toBeNull();
@@ -48,6 +51,7 @@ describe('DDP-031 report downloads', () => {
   });
   it('AC2: prevents duplicate work while slow, reports errors and retries the chosen format', async () => {
     let finish!: (response: Response) => void;
+
     fetchMock.mockImplementationOnce(
       () =>
         new Promise<Response>(resolve => {
@@ -77,10 +81,12 @@ describe('DDP-031 report downloads', () => {
       })
     );
     const view = render(<ReportDownload type="bookings" />);
+
     fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
     await screen.findByRole('alert');
     expect(click).not.toHaveBeenCalled();
     let finish!: (response: Response) => void;
+
     fetchMock.mockImplementationOnce(
       () =>
         new Promise<Response>(resolve => {

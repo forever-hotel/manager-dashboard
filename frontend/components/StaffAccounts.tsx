@@ -1,4 +1,5 @@
 'use client';
+
 import Pagination from './Pagination';
 import RowActions from '@/components/RowActions';
 import SuccessDialog from '@/components/SuccessDialog';
@@ -6,6 +7,7 @@ import HeaderNotifications from '@/components/HeaderNotifications';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { statusColor } from '@/lib/status-color';
 import { Staff, staffDetail, staffInput, staffLabels, staffPage, staffRoles } from '@/lib/staff';
+
 const empty = {
   name: '',
   role: 'RECEPTIONIST',
@@ -23,6 +25,7 @@ const messages: Record<number, string> = {
   409: 'The account changed or these unique details already exist. Check the email/NIC or reload the current version before retrying.',
   503: 'Service unavailable. Refresh the directory to check whether the operation completed before retrying.'
 };
+
 export default function StaffAccounts() {
   const [form, setForm] = useState({ ...empty });
   const [editing, setEditing] = useState<Staff | null>(null);
@@ -42,10 +45,12 @@ export default function StaffAccounts() {
   const lock = useRef(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const confirmationRef = useRef<HTMLDialogElement>(null);
+
   useEffect(() => {
     if (!confirm) return;
     const previous = document.activeElement;
     const dialog = confirmationRef.current;
+
     dialog?.showModal();
     dialog?.focus();
     return () => {
@@ -57,6 +62,7 @@ export default function StaffAccounts() {
     page: String(page),
     pageSize: '20'
   }).toString();
+
   useEffect(() => {
     let stopped = false;
     const controller = new AbortController();
@@ -66,8 +72,10 @@ export default function StaffAccounts() {
           cache: 'no-store',
           signal: controller.signal
         });
+
         if (!response.ok) throw new Error(messages[response.status] ?? messages[503]);
         const data = staffPage.parse(await response.json());
+
         if (!stopped) {
           setRows(data.items);
           setTotal(data.total);
@@ -86,6 +94,7 @@ export default function StaffAccounts() {
     }
     void load();
     const timer = setInterval(() => void load(), 15000);
+
     return () => {
       stopped = true;
       controller.abort();
@@ -111,8 +120,10 @@ export default function StaffAccounts() {
       const response = await fetch('/api/staff/' + staff.staffId, {
         cache: 'no-store'
       });
+
       if (!response.ok) throw new Error(messages[response.status] ?? messages[503]);
       const current = staffDetail.parse(await response.json());
+
       setEditing(current);
       setForm({
         name: current.name,
@@ -140,6 +151,7 @@ export default function StaffAccounts() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+
     if (!response.ok)
       throw new Error(
         method === 'DELETE' && response.status === 409
@@ -155,6 +167,7 @@ export default function StaffAccounts() {
       email: form.email.trim().toLowerCase(),
       age: form.age === '' ? NaN : Number(form.age)
     });
+
     if (!parsed.success) {
       setMessage(
         'Check name, vocation, email, role, age (1-120), phone (7-15 digits, optional +) and NIC (12 digits or 9 digits followed by V/X).'
@@ -221,8 +234,10 @@ export default function StaffAccounts() {
       const response = await fetch('/api/staff/' + editing.staffId, {
         cache: 'no-store'
       });
+
       if (!response.ok) throw new Error(messages[response.status] ?? messages[503]);
       const current = staffDetail.parse(await response.json());
+
       setEditing(current);
       setMessage(
         'Current version loaded. Your draft is retained. Review the latest profile shown below before saving.'

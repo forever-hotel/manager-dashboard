@@ -1,4 +1,5 @@
 import { AnalyticsController } from './analytics.controller';
+
 describe('Analytics overview metrics', () => {
   const calendar = jest.fn();
   const details = jest.fn();
@@ -15,6 +16,7 @@ describe('Analytics overview metrics', () => {
         { details }
       ] as unknown as ConstructorParameters<typeof AnalyticsController>)
     );
+
   beforeEach(() => {
     jest.clearAllMocks();
     details.mockResolvedValue({ averageLengthOfStay: 2.5, recentBookings: [] });
@@ -28,6 +30,7 @@ describe('Analytics overview metrics', () => {
       roomsUsingCreationDate: 2
     });
     const result = await make().overview({ period: 'month' });
+
     expect(result.occupancy).toEqual({
       rate: 0.75,
       occupiedRoomNights: 9,

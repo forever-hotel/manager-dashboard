@@ -1,9 +1,11 @@
 vi.mock('@/components/useRealtimeRefresh', () => ({ useRealtimeRefresh: () => undefined }));
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import LowDemandAlerts from '@/components/LowDemandAlerts';
 import { lowDemandSchema, promotionDates } from '@/lib/low-demand';
 import { lowDemand } from './low-demand-fixture';
+
 afterEach(() => vi.unstubAllGlobals());
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 describe('DDP-057 low-demand suggestions', () => {
@@ -14,11 +16,13 @@ describe('DDP-057 low-demand suggestions', () => {
     );
     render(<LowDemandAlerts />);
     const link = await screen.findByRole('link', { name: /consider creating a promotion/ });
+
     expect(link).toHaveAttribute('href', '/promotions?lowDemandDate=' + lowDemand().alerts[0].date);
     expect(screen.queryByRole('button', { name: 'Export CSV' })).not.toBeInTheDocument();
   });
   it('keeps unavailable capacity distinct from healthy demand', async () => {
     const data = lowDemand();
+
     data.alerts = [];
     data.unavailableDates = [
       { date: '2028-02-21', occupiedRooms: 0, eligibleRooms: 0, rate: null, reason: 'ZERO_ELIGIBLE_ROOMS' }
@@ -52,8 +56,10 @@ describe('DDP-057 low-demand suggestions', () => {
   });
   it('cancels work on unmount', async () => {
     const fetcher = vi.fn().mockReturnValue(new Promise(() => {}));
+
     vi.stubGlobal('fetch', fetcher);
     const view = render(<LowDemandAlerts />);
+
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
     view.unmount();
     expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);

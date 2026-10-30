@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AnalyticsChangesWorker } from './analytics-changes.worker';
 import { RealtimeGateway } from './realtime.gateway';
+
 describe('read-only analytics change reconciliation', () => {
   it('invalidates only changed families and does not advance a failed publication', async () => {
     const row = { bookings: 'b', payments: 'p', food: 'f', items: 'i' };
@@ -13,6 +14,7 @@ describe('read-only analytics change reconciliation', () => {
       gateway as unknown as RealtimeGateway,
       new ConfigService()
     );
+
     await worker.tick();
     expect(send).toHaveBeenCalledTimes(2);
     send.mockClear();

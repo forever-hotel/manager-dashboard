@@ -1,8 +1,10 @@
 'use client';
+
 import Pagination from './Pagination';
 import { useEffect, useState } from 'react';
 import { kitchenSnapshotSchema, kitchenLabels, type KitchenSnapshot, type KitchenStatus } from '@/lib/kitchen';
 import { useOperationsSnapshot } from './useOperationsSnapshot';
+
 export default function KitchenQueue({ onSnapshot }: { onSnapshot?: (snapshot: KitchenSnapshot | null) => void } = {}) {
   const [page, setPage] = useState(1);
   const { snapshot, message, retry } = useOperationsSnapshot(
@@ -11,6 +13,7 @@ export default function KitchenQueue({ onSnapshot }: { onSnapshot?: (snapshot: K
     'transport.status',
     'kitchen.order.changed'
   );
+
   useEffect(() => {
     onSnapshot?.(snapshot);
   }, [snapshot, onSnapshot]);
@@ -51,6 +54,7 @@ export default function KitchenQueue({ onSnapshot }: { onSnapshot?: (snapshot: K
       {snapshot && !snapshot.orders.some(order => order.status === status) && <p className="page-note">No orders.</p>}
     </div>
   );
+
   return (
     <section className="data-panel">
       <div className="panel-heading">

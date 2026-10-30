@@ -19,6 +19,7 @@ export class StaffDeliveryWorker implements OnApplicationBootstrap, OnApplicatio
   private readonly logger = new Logger(StaffDeliveryWorker.name);
   private timer?: ReturnType<typeof setInterval>;
   private running?: Promise<void>;
+
   constructor(
     @Inject(DataSource)
     private readonly database: { query: DataSource['query'] },
@@ -41,10 +42,12 @@ export class StaffDeliveryWorker implements OnApplicationBootstrap, OnApplicatio
           this.running = undefined;
         });
     };
+
     this.timer = setInterval(tick, 15000);
     this.timer.unref();
     tick();
   }
+
   async onApplicationShutdown() {
     clearInterval(this.timer);
     await this.running;
@@ -74,6 +77,7 @@ export class StaffDeliveryWorker implements OnApplicationBootstrap, OnApplicatio
       [lease, this.config.get('STAFF_EMAIL_ENABLED') === 'true']
     );
     const delivery = rows[0];
+
     if (!delivery) return;
     try {
       const accounts: {
@@ -85,6 +89,7 @@ export class StaffDeliveryWorker implements OnApplicationBootstrap, OnApplicatio
         [delivery.worker_id]
       );
       const account = accounts[0];
+
       if (
         !account?.is_active ||
         !account.password_change_required ||
@@ -106,6 +111,7 @@ export class StaffDeliveryWorker implements OnApplicationBootstrap, OnApplicatio
         return;
       }
       const delay = Math.min(3600, 30 * 2 ** Math.min(delivery.attempts - 1, 7));
+
       await this.database.query(
         `UPDATE public.mad_staff_deliveries SET status='failed',
         last_error_code='EMAIL_DELIVERY_FAILED', next_attempt_at=now()+($3 * interval '1 second'),
@@ -114,6 +120,7 @@ export class StaffDeliveryWorker implements OnApplicationBootstrap, OnApplicatio
       );
     }
   }
+
   private async finish(id: string, lease: string, status: 'sent' | 'cancelled') {
     await this.database.query(
       `UPDATE public.mad_staff_deliveries SET status=$3,encrypted_credentials=NULL,

@@ -32,17 +32,21 @@ export interface ServiceRequestSummaryRow {
   source_updated_at: Date | null;
   queried_at: Date;
 }
+
 function count(raw: string) {
   const value = Number(raw);
+
   if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value)) throw new Error('Invalid count');
   return value;
 }
+
 @Injectable()
 export class ServiceRequestAnalyticsService {
   constructor(
     private readonly database: DataSource,
     @Inject(BOOKING_CLOCK) private readonly now: () => Date
   ) {}
+
   async summary(period: BookingPeriod, date?: string) {
     try {
       const asOf = this.now().toISOString();
@@ -52,6 +56,7 @@ export class ServiceRequestAnalyticsService {
         date ? `${date}T12:00:00.000Z` : asOf,
         asOf
       ]);
+
       if (!row || !row.trend.length || row.statuses.length !== 4) throw new Error('Missing buckets');
       const total = count(row.total),
         completedCount = count(row.completed_count),
@@ -64,6 +69,7 @@ export class ServiceRequestAnalyticsService {
         if (b.status !== REQUEST_STATUSES[i]) throw new Error('Unknown state');
         return { status: b.status, count: count(b.count) };
       });
+
       if (
         trend.reduce((n, b) => n + b.count, 0) !== total ||
         byStatus.reduce((n, b) => n + b.count, 0) !== total ||
@@ -71,6 +77,7 @@ export class ServiceRequestAnalyticsService {
       )
         throw new Error('Inconsistent totals');
       const average = row.average_minutes === null ? null : Number(row.average_minutes);
+
       if (
         validDurationCount === 0
           ? average !== null
@@ -82,6 +89,7 @@ export class ServiceRequestAnalyticsService {
         missingCompletionCount: count(row.missing_completion_count),
         unexpectedCompletionCount: count(row.unexpected_completion_count)
       };
+
       return {
         period,
         timezone: BOOKING_TIMEZONE,
@@ -120,6 +128,7 @@ export class ServiceRequestAnalyticsService {
       throw new ServiceUnavailableException();
     }
   }
+
   async list(query: ServiceRequestListQueryDto) {
     try {
       const now = this.now().toISOString();
@@ -134,11 +143,14 @@ export class ServiceRequestAnalyticsService {
           (query.page - 1) * query.pageSize
         ]
       );
+
       if (!row || !Array.isArray(row.requests)) throw new Error('Missing list');
       const total = count(row.total);
+
       if (row.requests.length !== Math.min(query.pageSize, Math.max(0, total - (query.page - 1) * query.pageSize)))
         throw new Error('Invalid page');
       const seen = new Set<string>();
+
       for (const item of row.requests) {
         if (
           !item ||

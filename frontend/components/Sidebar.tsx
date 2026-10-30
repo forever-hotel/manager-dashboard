@@ -52,6 +52,7 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
     const dismiss = (event: PointerEvent) => {
       if (!account.current?.contains(event.target as Node)) setAccountOpen(false);
     };
+
     document.addEventListener('pointerdown', dismiss);
     return () => document.removeEventListener('pointerdown', dismiss);
   }, [accountOpen]);
@@ -67,6 +68,7 @@ export function Sidebar({ open, close, username }: { open: boolean; close: () =>
         body: '{}',
         signal: AbortSignal.timeout(10000)
       });
+
       if (!response.ok) throw new Error();
       replaceLocation('/login');
     } catch {

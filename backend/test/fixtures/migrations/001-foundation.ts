@@ -39,6 +39,7 @@ export class MadFoundation1789600000000 implements MigrationInterface {
       CREATE INDEX IF NOT EXISTS mad_revoked_expiry ON mad_revoked_sessions(expires_at);
     `);
   }
+
   down(): Promise<void> {
     return Promise.reject(
       new Error('Destructive rollback is disabled. Restore a backup or apply a reviewed forward migration.')

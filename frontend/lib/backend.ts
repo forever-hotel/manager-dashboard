@@ -22,6 +22,7 @@ export async function backend(path: string, method = 'GET', token?: string, body
     if (response.status === 429) {
       const retry = response.headers.get('retry-after');
       const retryAfter = retry && /^\d{1,6}$/.test(retry) ? Math.max(1, Math.min(3600, Number(retry))) : 60;
+
       return {
         status: 503,
         data: {

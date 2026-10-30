@@ -22,8 +22,10 @@ export async function sharedSocketFixture(owner: INestApplication) {
     })
     .compile();
   const shared = module.createNestApplication<INestApplication<App>>();
+
   await shared.listen(0, '127.0.0.1');
   const hub = shared.get(SharedGateway);
+
   jest.spyOn(owner.get(RealtimeGateway), 'ticket').mockImplementation(token => hub.ticket('mad', token, relayKey));
   jest.spyOn(owner.get(RealtimeGateway), 'send').mockImplementation((name, data) => {
     hub.deliver('mad', name, name.endsWith('transport.status') ? data : { changed: true });

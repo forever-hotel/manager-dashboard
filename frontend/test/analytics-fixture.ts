@@ -1,4 +1,5 @@
 import type { Overview, Period } from '@/lib/analytics';
+
 export function overview(period: Period = 'week', total = 4): Overview {
   return {
     averageLengthOfStay: total ? 2.4 : null,

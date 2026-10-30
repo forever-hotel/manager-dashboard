@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { useRealtimeRefresh } from '@/components/useRealtimeRefresh';
+
 let listener: (name: string) => void;
 const stop = vi.fn();
 vi.mock('@/lib/realtime-connection', () => ({
@@ -17,6 +18,7 @@ it('coalesces live analytics changes, reconciles missed updates and cleans up', 
   vi.useFakeTimers();
   const refresh = vi.fn();
   const hook = renderHook(() => useRealtimeRefresh('analytics', refresh));
+
   act(() => {
     listener('analytics.changed');
     listener('analytics.changed');

@@ -1,5 +1,6 @@
 // Browser contract fixture: no database, external network or real email.
 import { createServer } from 'node:http';
+
 const sessions = new Map();
 const session = required => ({
   sub: '11111111-1111-4111-8111-111111111111',
@@ -11,18 +12,22 @@ const session = required => ({
 createServer(async (req, res) => {
   let status = 200,
     data = {};
+
   try {
     const chunks = [];
+
     for await (const part of req) chunks.push(part);
     const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : {};
     const token = req.headers.authorization?.slice(7);
     const path = new URL(req.url, 'http://localhost').pathname;
+
     if (path === '/health/ready') data = { status: 'ok' };
     else if (path === '/auth/login') {
       if (!['manager', 'first-login'].includes(body.username) || body.password !== 'browser-private-password') {
         status = 401;
       } else {
         const accessToken = crypto.randomUUID();
+
         data = { ...session(body.username === 'first-login'), accessToken };
         sessions.set(accessToken, data);
       }
@@ -37,6 +42,7 @@ createServer(async (req, res) => {
         status = 401;
       } else {
         const accessToken = crypto.randomUUID();
+
         sessions.delete(token);
         data = { ...session(false), accessToken };
         sessions.set(accessToken, data);

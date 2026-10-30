@@ -4,12 +4,14 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { Server, Socket } from 'socket.io';
 import { SharedAuthService, type LiveSession } from './shared-auth.service';
 import { eventChannels, type LiveChannel } from './contracts';
+
 interface Client {
   token: string;
   subsystem: string;
   session: LiveSession;
   channels: LiveChannel[];
 }
+
 @Injectable()
 @WebSocketGateway({
   path: '/socket.io',
@@ -25,9 +27,12 @@ export class SharedGateway implements OnGatewayInit, OnModuleDestroy {
   private status = new Map<string, { data: unknown; at: number }>();
   private timer?: ReturnType<typeof setInterval>;
   private checking = false;
+
   constructor(private readonly auth: SharedAuthService) {}
+
   async ticket(subsystem: string, token: string, key: string) {
     const expected = this.auth.systems[subsystem]?.relayKey;
+
     if (
       !expected ||
       typeof key !== 'string' ||
@@ -36,19 +41,23 @@ export class SharedGateway implements OnGatewayInit, OnModuleDestroy {
     )
       throw new UnauthorizedException();
     const now = Date.now();
+
     for (const [id, item] of this.tickets) if (item.expires <= now) this.tickets.delete(id);
     if (this.tickets.size >= 2000) throw new ServiceUnavailableException();
     const session = await this.auth.session(token, subsystem);
     const ticket = randomBytes(32).toString('base64url');
+
     this.tickets.set(ticket, { token, subsystem, session, expires: now + 30000 });
     return { ticket, expiresIn: 30 };
   }
+
   afterInit(server: Server) {
     this.server = server;
     server.use((socket, next) => {
       const input: unknown = socket.handshake.auth;
       const ticket = input && typeof input === 'object' ? (input as { ticket?: unknown }).ticket : undefined;
       const entry = typeof ticket === 'string' && /^[\w-]{43}$/.test(ticket) ? this.tickets.get(ticket) : undefined;
+
       if (typeof ticket === 'string') this.tickets.delete(ticket);
       if (
         !entry ||
@@ -71,14 +80,17 @@ export class SharedGateway implements OnGatewayInit, OnModuleDestroy {
     });
     server.on('connection', socket => {
       const client = this.clients.get(socket);
+
       if (!client) return socket.disconnect(true);
       for (const [name, channel] of Object.entries(eventChannels)) {
         if (!name.endsWith('transport.status') || !client.channels.includes(channel)) continue;
         const saved = this.status.get(client.subsystem + ':' + name);
+
         socket.emit(name, saved && Date.now() - saved.at < 15000 ? saved.data : { healthy: false });
       }
       socket.on('subscribe', (requested: unknown, acknowledge?: (result: { ok: boolean }) => void) => {
         const current = this.clients.get(socket);
+
         if (
           !current ||
           !Array.isArray(requested) ||
@@ -98,17 +110,21 @@ export class SharedGateway implements OnGatewayInit, OnModuleDestroy {
     }, 5000);
     this.timer.unref();
   }
+
   async revalidate() {
     if (this.checking) return;
     this.checking = true;
     try {
       const sessions = new Map<string, Promise<LiveSession>>();
+
       await Promise.all(
         [...this.clients].map(async ([socket, client]) => {
           const id = client.subsystem + ':' + client.token;
+
           try {
             if (!sessions.has(id)) sessions.set(id, this.auth.session(client.token, client.subsystem));
             const session = await sessions.get(id)!;
+
             client.session = session;
             client.channels = client.channels.filter(channel => session.channels.includes(channel));
           } catch {
@@ -120,14 +136,17 @@ export class SharedGateway implements OnGatewayInit, OnModuleDestroy {
       for (const [key, status] of this.status)
         if (Date.now() - status.at >= 15000) {
           const separator = key.indexOf(':');
+
           this.deliver(key.slice(0, separator), key.slice(separator + 1), { healthy: false });
         }
     } finally {
       this.checking = false;
     }
   }
+
   deliver(subsystem: string, name: string, data: unknown) {
     const channel = eventChannels[name];
+
     if (!channel || !this.auth.systems[subsystem]) throw new Error('Unknown realtime channel');
     if (name.endsWith('transport.status')) this.status.set(subsystem + ':' + name, { data, at: Date.now() });
     for (const [socket, client] of this.clients) {
@@ -139,6 +158,7 @@ export class SharedGateway implements OnGatewayInit, OnModuleDestroy {
         socket.emit(name, data);
     }
   }
+
   onModuleDestroy() {
     clearInterval(this.timer);
     this.tickets.clear();

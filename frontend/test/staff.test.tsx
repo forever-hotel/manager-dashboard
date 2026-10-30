@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import StaffAccounts from '@/components/StaffAccounts';
 import { staffFixture, staffPageFixture, staffInputFixture } from './staff-fixture';
+
 let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   fetchMock = vi.fn(
@@ -23,8 +24,10 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
+
 function fill() {
   const values = staffInputFixture();
+
   for (const [label, key] of [
     ['Full name', 'name'],
     ['Vocation', 'vocation'],
@@ -75,6 +78,7 @@ describe('DDP-029 staff management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await screen.findByText('Profile saved. Existing sessions were invalidated.');
     const call = fetchMock.mock.calls.find(([, o]) => o?.method === 'PATCH');
+
     expect(JSON.parse(call![1]!.body as string)).toMatchObject({
       role: 'KITCHEN_MANAGER',
       version: 0
@@ -94,6 +98,7 @@ describe('DDP-029 staff management', () => {
     );
     await waitFor(() => expect(fetchMock.mock.calls.some(([, o]) => o?.method)).toBe(true));
     const call = fetchMock.mock.calls.find(([, o]) => o?.method);
+
     expect(call![1]!.method).toBe(name === 'Delete account' ? 'DELETE' : 'PATCH');
     expect(JSON.parse(call![1]!.body as string)).toEqual(
       name === 'Delete account' ? { version: 0 } : { version: 0, isActive: false }
@@ -104,9 +109,11 @@ describe('DDP-029 staff management', () => {
     await screen.findByText('Test Worker');
     fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
     const trigger = screen.getByRole('button', { name: 'Deactivate' });
+
     trigger.focus();
     fireEvent.click(trigger);
     const confirmation = screen.getByRole('alertdialog');
+
     expect(confirmation).toHaveFocus();
     expect(confirmation).toHaveAccessibleDescription(/invalidates existing sessions/);
     fireEvent.keyDown(confirmation, { key: 'Escape' });

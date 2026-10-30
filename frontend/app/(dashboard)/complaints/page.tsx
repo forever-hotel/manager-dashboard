@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import ComplaintsDashboard from '@/components/ComplaintsDashboard';
+
 export default async function ComplaintsPage({
   searchParams
 }: {
@@ -9,6 +10,7 @@ export default async function ComplaintsPage({
   const worker = z.uuid().safeParse(query.workerId);
   const complaint = z.uuid().safeParse(query.complaintId);
   const status = z.enum(['SUBMITTED', 'UNDER_REVIEW', 'RESOLVED']).safeParse(query.status);
+
   return (
     <ComplaintsDashboard
       key={

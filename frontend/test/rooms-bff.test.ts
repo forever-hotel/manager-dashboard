@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/rooms/status/route';
 import { backend } from '@/lib/backend';
 import { roomsSnapshot } from './rooms-fixture';
+
 vi.mock('@/lib/backend', () => ({ backend: vi.fn() }));
 const req = (query = '', cookie = true) =>
   new NextRequest('http://localhost/api/rooms/status?' + query, {
@@ -17,6 +18,7 @@ describe('DDP-028 room BFF', () => {
       data: { ...roomsSnapshot(), secret: 'hidden' }
     });
     const response = await GET(req());
+
     expect(await response.json()).toEqual(roomsSnapshot());
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(backend).toHaveBeenCalledWith('/mad/rooms/status', 'GET', 'private');
@@ -32,11 +34,13 @@ describe('DDP-028 room BFF', () => {
       data: { secret: 'hidden' }
     });
     const response = await GET(req());
+
     expect(response.status).toBe([401, 403].includes(status) ? status : 503);
     expect(JSON.stringify(await response.json())).not.toContain('hidden');
   });
   it('rejects duplicate, malformed or mismatched room data', async () => {
     const good = roomsSnapshot();
+
     for (const data of [
       {},
       { ...good, rooms: [good.rooms[0], good.rooms[0]] },

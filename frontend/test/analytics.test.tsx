@@ -1,16 +1,21 @@
 vi.mock('@/components/useRealtimeRefresh', () => ({ useRealtimeRefresh: () => undefined }));
+
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
+
 vi.mock('@/components/LowDemandAlerts', () => ({ default: () => null }));
 vi.mock('@/components/OccupancyCalendar', () => ({ default: () => null }));
+
 import { overview } from './analytics-fixture';
 import { loadAnalytics, money, overviewSchema, percentage } from '@/lib/analytics';
+
 afterEach(() => vi.unstubAllGlobals());
 const response = (data: unknown) => new Response(JSON.stringify(data));
 describe('DDP-015 booking and revenue analytics', () => {
   it('loads live summary cards and recent bookings without the superseded controls', async () => {
     const data = overview();
+
     data.recentBookings = [
       {
         id: '11111111-1111-4111-8111-111111111111',
@@ -24,6 +29,7 @@ describe('DDP-015 booking and revenue analytics', () => {
       }
     ];
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(response(data)));
+
     vi.stubGlobal('fetch', fetchMock);
     render(<AnalyticsDashboard />);
     expect(await screen.findByText('LKR 200.01')).toBeVisible();
@@ -39,6 +45,7 @@ describe('DDP-015 booking and revenue analytics', () => {
   });
   it('keeps a 31-day month readable and compacts large revenue totals', async () => {
     const data = overview('month', 31);
+
     data.bookings.trend = Array.from({ length: 31 }, (_, i) => ({
       ...data.bookings.trend[0],
       date: '2026-10-' + String(i + 1).padStart(2, '0'),
@@ -57,6 +64,7 @@ describe('DDP-015 booking and revenue analytics', () => {
   });
   it('TC-MAD-015-AC2/AC3: shows zero totals, N/A and the empty state without treating them as unavailable', async () => {
     const data = overview('week', 0);
+
     data.revenue = {
       ...data.revenue,
       currentMinor: 0,
@@ -85,6 +93,7 @@ describe('DDP-015 booking and revenue analytics', () => {
           })
       )
       .mockResolvedValueOnce(response(overview('month', 9)));
+
     vi.stubGlobal('fetch', fetchMock);
     render(<AnalyticsDashboard />);
     fireEvent.click(screen.getByRole('button', { name: 'Month' }));
@@ -116,6 +125,7 @@ describe('DDP-015 booking and revenue analytics', () => {
   });
   it('rejects mismatched or invalid data instead of displaying misleading metrics', async () => {
     const data = overview();
+
     data.revenue.period = 'day';
     expect(overviewSchema.safeParse(data).success).toBe(false);
     vi.stubGlobal(
@@ -130,20 +140,25 @@ describe('DDP-015 booking and revenue analytics', () => {
   });
   it('cancels work when unmounted', async () => {
     const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}));
+
     vi.stubGlobal('fetch', fetchMock);
     const { unmount } = render(<AnalyticsDashboard />);
+
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const signal = (fetchMock.mock.calls[0][1] as RequestInit).signal;
+
     unmount();
     expect(signal?.aborted).toBe(true);
   });
   it('loads the selected historical month and navigates booking pages', async () => {
     const first = overview('month');
+
     first.bookingList = { total: 9, page: 1, pageSize: 5 };
     const second = { ...first, bookingList: { total: 9, page: 2, pageSize: 5 } };
     const fetcher = vi
       .fn()
       .mockImplementation((url: string) => Promise.resolve(response(url.includes('page=2') ? second : first)));
+
     vi.stubGlobal('fetch', fetcher);
     render(<AnalyticsDashboard />);
     fireEvent.click(screen.getByRole('button', { name: 'Month' }));

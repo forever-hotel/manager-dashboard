@@ -25,6 +25,7 @@ export class TokenService {
     @Inject(ConfigService)
     private readonly config: { getOrThrow<T>(name: string): T }
   ) {}
+
   issue(sub: string, version: number): string {
     return this.jwt.sign(
       { sub, role: 'MANAGER', ver: version, jti: randomUUID() },
@@ -37,6 +38,7 @@ export class TokenService {
       }
     );
   }
+
   verify(token: string): StaffClaims {
     try {
       const claims = this.jwt.verify<StaffClaims>(token, {
@@ -46,6 +48,7 @@ export class TokenService {
         audience: 'mad'
       });
       const now = Math.floor(Date.now() / 1000);
+
       if (
         !isUUID(claims.sub) ||
         !isUUID(claims.jti) ||

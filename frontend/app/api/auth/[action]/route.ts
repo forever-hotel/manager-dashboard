@@ -9,8 +9,10 @@ function reply(data: unknown, status = 200) {
     headers: { 'Cache-Control': 'no-store' }
   });
 }
+
 export async function POST(request: NextRequest, context: { params: Promise<{ action: string }> }) {
   const { origin } = serverConfig();
+
   if (
     request.headers.get('origin') !== origin ||
     request.headers.get('sec-fetch-site') === 'cross-site' ||
@@ -18,19 +20,24 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   )
     return reply({ code: 'FORBIDDEN', message: 'Invalid request origin.' }, 403);
   const { action } = await context.params;
+
   if (!['login', 'logout', 'change-password', 'request-password-reset', 'reset-password'].includes(action))
     return reply({ code: 'NOT_FOUND' }, 404);
   const token = request.cookies.get(SESSION_COOKIE)?.value;
+
   if (['logout', 'change-password'].includes(action) && !token) return reply({ code: 'UNAUTHENTICATED' }, 401);
   let body: unknown;
+
   try {
     const text = await request.text();
+
     if (text.length > 4096) return reply({ code: 'PAYLOAD_TOO_LARGE' }, 413);
     body = JSON.parse(text);
   } catch {
     return reply({ code: 'VALIDATION_ERROR', message: 'Invalid request.' }, 400);
   }
   const result = await backend('/auth/' + action, 'POST', token, body);
+
   if (
     action === 'login' &&
     result.status === 503 &&
@@ -49,13 +56,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       { code: 'RATE_LIMITED', message: 'Too many sign-in attempts. Please wait before retrying.' },
       429
     );
+
     response.headers.set('Retry-After', String(retryAfter));
     return response;
   }
   if (action === 'request-password-reset' || action === 'reset-password') {
     const data = result.data as { message?: unknown; code?: unknown; retryAfter?: unknown } | null;
+
     if (data?.code === 'RATE_LIMITED') {
       const response = reply({ message: 'Too many attempts. Please wait before retrying.' }, 429);
+
       response.headers.set('Retry-After', String(typeof data.retryAfter === 'number' ? data.retryAfter : 60));
       return response;
     }
@@ -71,6 +81,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
             : 'The code is invalid or expired, or the password is invalid. Please check your details.'
           : 'Password reset is unavailable. Please try again later.';
     const response = reply({ message }, status);
+
     if (status === 200 && action === 'reset-password') response.cookies.delete(SESSION_COOKIE);
     return response;
   }
@@ -78,6 +89,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     // Retain the cookie on failure so the user can retry durable revocation.
     const signedOut = result.status === 200 || result.status === 401;
     const response = reply({ code: signedOut ? 'SIGNED_OUT' : 'SERVICE_UNAVAILABLE' }, signedOut ? 200 : 503);
+
     if (signedOut) response.cookies.delete(SESSION_COOKIE);
     return response;
   }
@@ -88,6 +100,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     typeof result.data.accessToken !== 'string'
   ) {
     const status = [400, 401, 403].includes(result.status) ? result.status : 503;
+
     return reply(
       {
         code: status === 503 ? 'SERVICE_UNAVAILABLE' : 'AUTHENTICATION_FAILED',
@@ -102,6 +115,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   const { accessToken } = result.data;
   const session = publicSession(result.data);
   const response = reply(session);
+
   response.cookies.set(SESSION_COOKIE, accessToken, {
     httpOnly: true,
     secure: new URL(origin).protocol === 'https:',

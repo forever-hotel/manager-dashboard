@@ -16,6 +16,7 @@ describe('DDP-011 low-booking alerts', () => {
       new ConfigService({ LOW_BOOKING_THRESHOLD: threshold }),
       () => new Date(instant)
     );
+
   beforeEach(() => calendar.mockReset());
 
   it('AC1/AC2: includes only rates strictly below threshold and separates unknown rates', async () => {
@@ -31,6 +32,7 @@ describe('DDP-011 low-booking alerts', () => {
       includedStatuses: ['CONFIRMED']
     });
     const result = await create().alerts();
+
     expect(calendar).toHaveBeenCalledTimes(1);
     expect(calendar).toHaveBeenCalledWith({
       from: '2027-01-01',
@@ -81,6 +83,7 @@ describe('DDP-011 low-booking alerts', () => {
       () => new Date(),
       {} as import('./booking-details.service').BookingDetailsService
     );
+
     expect(() => controller.lowBookingAlerts({ threshold: '0.9' })).toThrow();
     expect(alerts).not.toHaveBeenCalled();
     await expect(controller.lowBookingAlerts({})).resolves.toEqual({

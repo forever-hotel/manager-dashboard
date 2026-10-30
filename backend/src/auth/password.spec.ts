@@ -5,6 +5,7 @@ describe('Local password storage', () => {
     const password = 'a-long-local-password';
     const first = await hashPassword(password);
     const second = await hashPassword(password);
+
     expect(first).not.toBe(second);
     expect(first).not.toContain(password);
     expect(await verifyPassword(password, first)).toBe(true);

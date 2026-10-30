@@ -7,8 +7,10 @@ export default function SuccessDialog({ message, onClose }: { message: string; o
 
   useEffect(() => {
     const element = dialog.current;
+
     if (!element || !message) return;
     const previous = document.activeElement;
+
     element.showModal();
     return () => {
       element.close();

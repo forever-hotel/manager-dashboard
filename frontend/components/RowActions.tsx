@@ -18,6 +18,7 @@ export default function RowActions({
   const trigger = useRef<HTMLButtonElement>(null);
   const popup = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ top: number; left: number }>();
+
   useEffect(() => {
     if (!position) return;
     popup.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
@@ -32,6 +33,7 @@ export default function RowActions({
       }
       if (event.key === 'Tab') dismiss();
     };
+
     document.addEventListener('pointerdown', outside);
     document.addEventListener('keydown', keyboard);
     window.addEventListener('resize', dismiss);
@@ -60,6 +62,7 @@ export default function RowActions({
             return;
           }
           const rect = trigger.current!.getBoundingClientRect();
+
           setPosition({
             top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 180)),
             left: Math.max(8, Math.min(rect.right - 208, window.innerWidth - 216))

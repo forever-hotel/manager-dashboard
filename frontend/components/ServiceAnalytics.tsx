@@ -1,4 +1,5 @@
 'use client';
+
 import Pagination from './Pagination';
 import { useState } from 'react';
 import type { Period } from '@/lib/analytics';
@@ -9,7 +10,9 @@ import { useAnalyticsSnapshot } from './useAnalyticsSnapshot';
 import { AnalyticsFailure } from './AnalyticsControls';
 import { PageHeader, SummaryCard, DataPanel, UnavailableRow } from './DashboardVisuals';
 import AnalyticsPeriodNavigation from './AnalyticsPeriodNavigation';
+
 const labels = { SUBMITTED: 'Submitted', ASSIGNED: 'Assigned', IN_PROGRESS: 'In progress', COMPLETED: 'Completed' };
+
 export default function ServiceAnalytics() {
   const [period, setPeriod] = useState<Period>('week');
   const [date, setDate] = useState(() => hotelDate());
@@ -26,6 +29,7 @@ export default function ServiceAnalytics() {
   const range = data
     ? { from: hotelDate(new Date(data.start)), to: hotelDate(new Date(Date.parse(data.end) - 86400000)) }
     : undefined;
+
   return (
     <main className="dashboard-page service-analytics-page">
       <PageHeader

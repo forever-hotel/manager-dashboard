@@ -1,5 +1,6 @@
 import { SharedAuthService } from './shared-auth.service';
 import { loadSubsystems } from './contracts';
+
 const key = 'test-relay-key-with-at-least-32-characters';
 const system = {
   authUrl: 'http://gateway.test/auth/session',
@@ -10,6 +11,7 @@ const system = {
 describe('Shared subsystem registry and authentication', () => {
   const original = process.env.WEBSOCKET_SUBSYSTEMS_JSON,
     originalFetch = global.fetch;
+
   beforeEach(() => {
     process.env.WEBSOCKET_SUBSYSTEMS_JSON = JSON.stringify({ mad: system });
   });
@@ -62,6 +64,7 @@ describe('Shared subsystem registry and authentication', () => {
   });
   it('rejects unknown subsystem, missing token and transport errors', async () => {
     const auth = new SharedAuthService();
+
     await expect(auth.session('private', 'unknown')).rejects.toMatchObject({ status: 401 });
     await expect(auth.session('', 'mad')).rejects.toMatchObject({ status: 401 });
     global.fetch = jest.fn().mockRejectedValue(new Error('private'));

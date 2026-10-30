@@ -4,6 +4,7 @@ import HeaderNotifications from '@/components/HeaderNotifications';
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
   const fromWorker = (await searchParams).from === 'worker-performance';
+
   return (
     <main className="dashboard-page">
       <div className="page-topbar">

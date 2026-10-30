@@ -6,6 +6,7 @@ import { StockEventsConsumer, STOCK_QUEUE_ARGUMENTS, STOCK_RETRY_DELAY } from '.
 import { StockAlertsService } from '../stock/stock-alerts.service';
 import { InvalidStockEvent } from '../stock/stock-event';
 import { RealtimeGateway } from './realtime.gateway';
+
 jest.mock('amqplib', () => ({ connect: jest.fn() }));
 const event = {
   eventId: '67f4568c-89ab-4c12-b321-123456789012',
@@ -37,6 +38,7 @@ describe('DDP-034 durable stock broker lifecycle', () => {
       createChannel: jest.fn().mockResolvedValue(channel as unknown as Channel),
       close: jest.fn().mockResolvedValue(undefined)
     });
+
     jest.mocked(connect).mockResolvedValue(connection as unknown as ChannelModel);
     const config = new ConfigService({
       MAD_REALTIME_ENABLED: 'true',
@@ -54,12 +56,15 @@ describe('DDP-034 durable stock broker lifecycle', () => {
       gateway as unknown as RealtimeGateway,
       { accept } as unknown as StockAlertsService
     );
+
     return { channel, connection, config, query, gateway, accept, consumer };
   }
   const message = () => ({ content: Buffer.from(JSON.stringify(event)) }) as ConsumeMessage;
+
   it('declares quorum retry/DLQ routing and acknowledges only after durable processing', async () => {
     const { consumer, channel, accept } = setup();
     let finish!: () => void;
+
     accept.mockReturnValue(
       new Promise<void>(resolve => {
         finish = resolve;
@@ -80,6 +85,7 @@ describe('DDP-034 durable stock broker lifecycle', () => {
       expect(channel.prefetch).toHaveBeenCalledWith(1);
       const receive = channel.consume.mock.calls[0][1];
       const msg = message();
+
       receive(msg);
       await jest.advanceTimersByTimeAsync(1);
       expect(channel.ack).not.toHaveBeenCalled();
@@ -93,18 +99,22 @@ describe('DDP-034 durable stock broker lifecycle', () => {
   });
   it('dead-letters malformed, oversized and semantically invalid contracts without retries', async () => {
     const { consumer, channel, accept } = setup();
+
     consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);
     try {
       const receive = channel.consume.mock.calls[0][1];
+
       for (const content of [Buffer.from('bad JSON'), Buffer.alloc(8193), Buffer.from('{}')]) {
         const msg = { content } as ConsumeMessage;
+
         receive(msg);
         await jest.advanceTimersByTimeAsync(1);
         expect(channel.reject).toHaveBeenLastCalledWith(msg, false);
       }
       accept.mockRejectedValueOnce(new InvalidStockEvent('identity reused'));
       const valid = message();
+
       receive(valid);
       await jest.advanceTimersByTimeAsync(1);
       expect(channel.reject).toHaveBeenLastCalledWith(valid, false);
@@ -115,11 +125,13 @@ describe('DDP-034 durable stock broker lifecycle', () => {
   });
   it('delays processing retries and uses failure-counted rejection rather than ack/re-publish', async () => {
     const { consumer, channel, accept, gateway } = setup();
+
     consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);
     try {
       accept.mockRejectedValue(new Error('DB unavailable'));
       const msg = message();
+
       channel.consume.mock.calls[0][1](msg);
       await jest.advanceTimersByTimeAsync(1);
       expect(gateway.stockHealthy).toBe(false);
@@ -133,6 +145,7 @@ describe('DDP-034 durable stock broker lifecycle', () => {
   });
   it('keeps committed socket work pending until publication succeeds', async () => {
     const { consumer, query, gateway } = setup();
+
     query.mockResolvedValue([{ event_id: event.eventId, payload: event }]);
     gateway.publishStock.mockRejectedValueOnce(new Error('socket offline'));
     await expect(consumer.dispatch()).rejects.toThrow();
@@ -142,6 +155,7 @@ describe('DDP-034 durable stock broker lifecycle', () => {
   });
   it('clears retry timers on shutdown and never acknowledges abandoned processing', async () => {
     const { consumer, channel, accept } = setup();
+
     consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);
     accept.mockRejectedValue(new Error('DB down'));
@@ -154,6 +168,7 @@ describe('DDP-034 durable stock broker lifecycle', () => {
   });
   it('reconnects after broker failures and stays offline when disabled or unconfigured', async () => {
     const { consumer, config, gateway, channel, connection } = setup();
+
     jest.mocked(connect).mockRejectedValueOnce(new Error('offline'));
     consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);
@@ -174,6 +189,7 @@ describe('DDP-034 durable stock broker lifecycle', () => {
     consumer.onModuleInit();
     expect(connect).toHaveBeenCalledTimes(3);
     const missing = setup();
+
     missing.config.set('RABBITMQ_URL', '');
     missing.consumer.onModuleInit();
     await jest.advanceTimersByTimeAsync(1);

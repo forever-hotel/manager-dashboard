@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { RealtimeGateway, KitchenEvent } from './realtime.gateway';
 import { InvalidKitchenEvent, parseKitchenEvent, RealtimeConsumer } from './realtime.consumer';
+
 const event: KitchenEvent = {
   eventId: '67f4568c-89ab-4c12-b321-123456789012',
   orderId: '77f4568c-89ab-4c12-b321-123456789012',
@@ -41,6 +42,7 @@ describe('DDP-039 event validation and persistence', () => {
       { transaction } as unknown as DataSource,
       {} as RealtimeGateway
     );
+
     query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ exists: false }])
@@ -79,6 +81,7 @@ describe('DDP-039 event validation and persistence', () => {
       } as unknown as DataSource,
       {} as RealtimeGateway
     );
+
     await expect(service.accept({ ...event, version: 3 })).rejects.toBeInstanceOf(InvalidKitchenEvent);
     expect(query).toHaveBeenCalledTimes(2);
   });
@@ -90,6 +93,7 @@ describe('DDP-039 event validation and persistence', () => {
       { query } as unknown as DataSource,
       { publish } as unknown as RealtimeGateway
     );
+
     await expect(service.dispatch()).rejects.toThrow('offline');
     expect(query).toHaveBeenCalledTimes(1);
     query.mockClear();
