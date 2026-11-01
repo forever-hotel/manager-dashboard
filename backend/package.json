@@ -30,9 +30,7 @@
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
-    "@nestjs/platform-socket.io": "^11.2.7",
     "@nestjs/typeorm": "^11.0.3",
-    "@nestjs/websockets": "^11.2.7",
     "amqplib": "^2.2.0",
     "bcryptjs": "3.0.3",
     "class-transformer": "^0.5.1",
@@ -41,7 +39,6 @@
     "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "socket.io": "^4.8.4",
     "typeorm": "^1.1.0"
   },
   "devDependencies": {
@@ -84,7 +81,6 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "shared-websocket/**/*.ts",
       "operations/**/*.ts",
       "notifications/**/*.ts",
       "rooms/**/*.ts",
@@ -101,8 +97,7 @@
       "config/**/*.ts",
       "common/**/*.ts",
       "health/**/*.ts",
-      "!**/*.module.ts",
-      "!shared-websocket/main.ts"
+      "!**/*.module.ts"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
@@ -184,6 +179,8 @@
     "npm": ">=10"
   },
   "overrides": {
-    "multer": "^2.4.0"
+    "multer": "2.5.0",
+    "body-parser": "2.4.0",
+    "qs": "6.17.1"
   }
 }
