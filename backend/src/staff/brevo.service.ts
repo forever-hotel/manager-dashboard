@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { StaffCredentials } from './credential-cipher';
+import { staffAccountEmail } from './staff-account-email';
 
 @Injectable()
 export class BrevoService {
@@ -18,8 +19,7 @@ export class BrevoService {
       body: JSON.stringify({
         to: [{ email: credentials.email }],
         sender: { email: this.config.getOrThrow<string>('STAFF_EMAIL_FROM') },
-        subject: 'Your Forever Hotel staff account',
-        textContent: `Your ${credentials.role} account is ready.\nUsername: ${credentials.username}\nTemporary password: ${credentials.password}\nSign in to your staff system and change this password before accessing protected features.`
+        ...staffAccountEmail(credentials)
       })
     });
     // Never retain/log provider response bodies: they can echo submitted data.
