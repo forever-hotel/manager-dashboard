@@ -5,7 +5,7 @@ import { StaffController } from './staff.controller';
 import { StaffProfilesService } from './staff-profiles.service';
 import { StaffService } from './staff.service';
 import { CredentialCipher } from './credential-cipher';
-import { SendGridService } from './sendgrid.service';
+import { BrevoService } from './brevo.service';
 import { StaffDeliveryWorker } from './staff-delivery.worker';
 
 @Module({
@@ -16,7 +16,7 @@ import { StaffDeliveryWorker } from './staff-delivery.worker';
     StaffDirectoryService,
     StaffProfilesService,
     CredentialCipher,
-    SendGridService,
+    BrevoService,
     StaffDeliveryWorker
   ]
 })

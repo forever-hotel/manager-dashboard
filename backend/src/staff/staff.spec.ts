@@ -8,7 +8,7 @@ import { CredentialCipher } from './credential-cipher';
 import { CreateStaffDto, STAFF_ROLES } from './create-staff.dto';
 import { StaffService } from './staff.service';
 import { validateStaffConfig } from './staff-config';
-import { SendGridService } from './sendgrid.service';
+import { BrevoService } from './brevo.service';
 import { StaffDeliveryWorker } from './staff-delivery.worker';
 
 const key = Buffer.alloc(32, 7).toString('base64');
@@ -31,8 +31,8 @@ const config = () =>
   new ConfigService({
     STAFF_CREDENTIALS_KEY: key,
     STAFF_EMAIL_ENABLED: 'true',
-    SENDGRID_API_KEY: 'test-only',
-    SENDGRID_FROM_EMAIL: 'sender@example.com'
+    BREVO_API_KEY: 'test-only',
+    STAFF_EMAIL_FROM: 'sender@example.com'
   });
 
 describe('DDP-012 validation and encrypted credentials', () => {
@@ -49,7 +49,10 @@ describe('DDP-012 validation and encrypted credentials', () => {
     expect(dto.name).toBe(profile.name);
   });
   it.each([
-    { role: 'MANAGER' },
+    { role: 'ROOT' },
+    { roles: ['ROOT'] },
+    { roles: [] },
+    { roles: ['WORKER', 'WORKER'] },
     { role: 'UNKNOWN' },
     { age: 0 },
     { age: 121 },
@@ -86,8 +89,8 @@ describe('DDP-012 validation and encrypted credentials', () => {
       validateStaffConfig({
         STAFF_EMAIL_ENABLED: 'true',
         STAFF_CREDENTIALS_KEY: key,
-        SENDGRID_API_KEY: 'test',
-        SENDGRID_FROM_EMAIL: 'sender@example.com'
+        BREVO_API_KEY: 'test',
+        STAFF_EMAIL_FROM: 'sender@example.com'
       })
     ).not.toThrow();
     for (const env of [
@@ -160,31 +163,31 @@ describe('DDP-012 transactional creation', () => {
   });
 });
 
-describe('DDP-012 SendGrid delivery', () => {
+describe('DDP-012 Brevo delivery', () => {
   afterEach(() => jest.restoreAllMocks());
   it('propagates network failure to the retry worker', async () => {
     jest.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('timeout'));
-    await expect(new SendGridService(config()).send(credentials)).rejects.toThrow('timeout');
+    await expect(new BrevoService(config()).send(credentials)).rejects.toThrow('timeout');
   });
-  it('sends via SendGrid and accepts only HTTP 202', async () => {
-    const fetchMock = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 202 }));
+  it('sends via Brevo and accepts only HTTP 201', async () => {
+    const fetchMock = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 201 }));
 
-    await new SendGridService(config()).send(credentials);
+    await new BrevoService(config()).send(credentials);
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.sendgrid.com/v3/mail/send',
+      'https://api.brevo.com/v3/smtp/email',
       expect.objectContaining({ method: 'POST', redirect: 'error' })
     );
     const body = JSON.parse(fetchMock.mock.calls[0][1]?.body as string) as {
-      personalizations: unknown;
-      content: { value: string }[];
+      to: unknown;
+      textContent: string;
     };
 
-    expect(body.personalizations).toEqual([{ to: [{ email: credentials.email }] }]);
-    expect(body.content[0].value).toContain(credentials.username);
+    expect(body.to).toEqual([{ email: credentials.email }]);
+    expect(body.textContent).toContain(credentials.username);
   });
   it.each([400, 401, 429, 500])('rejects provider status %s safely', async status => {
     jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('private provider data', { status }));
-    await expect(new SendGridService(config()).send(credentials)).rejects.toThrow('Email provider did not accept');
+    await expect(new BrevoService(config()).send(credentials)).rejects.toThrow('Email provider did not accept');
   });
 });
 
@@ -204,7 +207,7 @@ describe('DDP-012 retry worker', () => {
       {} as DataSource,
       config(),
       new CredentialCipher(config()),
-      new SendGridService(config())
+      new BrevoService(config())
     );
     let finish!: () => void;
     const process = jest.spyOn(worker, 'processOnce').mockImplementation(
@@ -322,7 +325,7 @@ describe('DDP-012 retry worker', () => {
       { query },
       new ConfigService(),
       new CredentialCipher(config()),
-      new SendGridService(config())
+      new BrevoService(config())
     );
 
     await worker.processOnce();

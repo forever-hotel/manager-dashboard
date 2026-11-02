@@ -59,7 +59,7 @@ describe('DDP-014 profile validation', () => {
     { version: null },
     { version: 0, name: null },
     { version: 0, age: '25' },
-    { version: 0, role: 'MANAGER' },
+    { version: 0, role: 'ROOT' },
     { version: 0, isActive: 'true' },
     { version: 0, isActive: null },
     { version: 0, phone: 'bad' },
@@ -114,9 +114,9 @@ describe('DDP-014 profile service', () => {
     const [sql, values] = query.mock.calls[1];
 
     expect(sql).not.toContain('password_hash');
-    expect(values?.slice(-2)).toEqual([true, 1]);
+    expect(values?.slice(-3)).toEqual([true, 1, [profile.role]]);
   });
-  it.each([{ rows: [] }, { rows: [{ ...profile, role: 'MANAGER' }] }])(
+  it.each([{ rows: [] }, { rows: [{ ...profile, roles: ['ROOT'] }] }])(
     'rejects unknown or manager targets for reads and edits',
     async ({ rows }) => {
       await expect(setup(rows).service.get(profile.staffId)).rejects.toMatchObject({ status: 404 });

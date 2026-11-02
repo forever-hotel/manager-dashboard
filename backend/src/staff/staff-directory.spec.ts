@@ -15,6 +15,7 @@ const staff = {
   nic: '200012345678',
   username: 'staff_one',
   role: 'WORKER',
+  roles: ['WORKER'],
   isActive: true,
   passwordChangeRequired: true,
   version: 0,
@@ -25,7 +26,7 @@ describe('DDP-044 staff directory', () => {
     'retains matching role/status and nullable legacy fields for %s',
     async role => {
       for (const isActive of [true, false]) {
-        const query = jest.fn().mockResolvedValue([{ items: [{ ...staff, role, isActive }], total: 1 }]);
+        const query = jest.fn().mockResolvedValue([{ items: [{ ...staff, role, roles: [role], isActive }], total: 1 }]);
         const service = new StaffDirectoryService({
           query
         } as unknown as DataSource);
@@ -54,6 +55,7 @@ describe('DDP-044 staff directory', () => {
         Object.assign(new StaffDirectoryDto(), {
           search: '%_',
           role: 'WORKER',
+          roles: ['WORKER'],
           status: 'inactive',
           page: 2,
           pageSize: 10
@@ -99,7 +101,7 @@ describe('DDP-044 staff directory', () => {
       { pageSize: '1.0' },
       { page: ['1', '2'] },
       { search: 'bad\u0000value' },
-      { role: 'MANAGER' },
+      { role: 'ROOT' },
       { status: 'bad' },
       { search: 'x'.repeat(101) },
       { unknown: 1 }
@@ -168,7 +170,7 @@ describe('DDP-044 staff directory', () => {
 
     for (const patch of [
       { staffId: 'bad' },
-      { role: 'MANAGER' },
+      { role: 'ROOT' },
       { isActive: 'true' },
       { passwordChangeRequired: 0 },
       { version: -1 },

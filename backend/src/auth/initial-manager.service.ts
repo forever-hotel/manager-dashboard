@@ -20,22 +20,36 @@ export class InitialManagerService implements OnApplicationBootstrap {
     if (!email && !username && !password) return;
     if (!email || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new Error(
-        'Configure INITIAL_MANAGER_EMAIL, INITIAL_MANAGER_USERNAME and INITIAL_MANAGER_PASSWORD (12-1024 characters) together.'
+        'Configure INITIAL_MANAGER_EMAIL, INITIAL_MANAGER_USERNAME and INITIAL_MANAGER_PASSWORD (at least 12 characters, at most 72 UTF-8 bytes) together.'
       );
     }
     try {
       await this.database.transaction(async manager => {
         // Serialize bootstrap instances without creating schema objects.
         await manager.query('SELECT pg_advisory_xact_lock(1790812800)');
-        const existing = await manager.query<{ role: string }[]>(
-          'SELECT role FROM public.staff_users WHERE lower(email)=$1',
+        const existing = await manager.query<{ role: string; roles?: string[] }[]>(
+          'SELECT role,roles FROM public.staff_users WHERE lower(email)=$1 FOR UPDATE',
           [email]
         );
 
         if (existing.length) {
-          if (existing.length !== 1 || existing[0].role !== 'MANAGER') throw new Error('Conflicting staff identity');
-          // Never reset passwords, first-login state, activation or usernames,
-          // including accounts that have not changed their initial password yet.
+          if (
+            existing.length !== 1 ||
+            !(existing[0].roles ?? [existing[0].role]).some(role => ['MANAGER', 'ROOT'].includes(role))
+          )
+            throw new Error('Conflicting staff identity');
+          // The configured bootstrap administrator is ROOT, including an account
+          // created before multi-role support. Promote once without resetting credentials.
+          if (!(existing[0].roles ?? [existing[0].role]).includes('ROOT')) {
+            const [promoted, affected] = await manager.query<[{ worker_id: string }[], number]>(
+              `UPDATE public.staff_users SET roles=ARRAY['ROOT']::text[],
+               session_version=session_version+1,updated_at=now()
+               WHERE lower(email)=$1 AND NOT ('ROOT'=ANY(roles)) RETURNING worker_id`,
+              [email]
+            );
+            if (affected !== 1 || promoted.length !== 1) throw new Error('Conflicting staff identity');
+          }
+          // Preserve passwords, first-login state, activation and usernames.
           return;
         }
         // Initial credentials matter only when creating the account. On later
@@ -45,8 +59,8 @@ export class InitialManagerService implements OnApplicationBootstrap {
         const passwordHash = await hashPassword(password);
         const inserted = await manager.query<{ worker_id: string }[]>(
           `INSERT INTO public.staff_users
-            (full_name,vocation,email,username,password_hash,role,is_active,password_change_required)
-           VALUES ('Initial Manager','Manager',$1,$2,$3,'MANAGER',true,true)
+            (full_name,vocation,email,username,password_hash,role,roles,is_active,password_change_required)
+           VALUES ('Root Administrator','Administrator',$1,$2,$3,'MANAGER',ARRAY['ROOT']::text[],true,true)
            ON CONFLICT DO NOTHING RETURNING worker_id`,
           [email, username, passwordHash]
         );
@@ -57,7 +71,7 @@ export class InitialManagerService implements OnApplicationBootstrap {
     } catch {
       // Do not let Nest log raw driver errors, parameters or password hashes.
       throw new Error(
-        'Initial manager provisioning failed. Check staff schema, SELECT/INSERT privileges and email/username conflicts.'
+        'Initial manager provisioning failed. Check staff schema, SELECT/INSERT/UPDATE privileges and email/username conflicts.'
       );
     }
   }

@@ -194,7 +194,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     expect(rows).toHaveLength(1);
   });
   it.each([
-    { role: 'MANAGER' },
+    { role: 'ROOT' },
     { role: 'UNKNOWN' },
     { email: 'bad' },
     { age: -1 },

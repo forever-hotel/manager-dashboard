@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
-export const staffRoles = ['RECEPTIONIST', 'WORKER', 'KITCHEN_STAFF', 'KITCHEN_MANAGER'] as const;
+export const staffRoles = ['MANAGER', 'RECEPTIONIST', 'WORKER', 'KITCHEN_STAFF', 'KITCHEN_MANAGER'] as const;
 export const staffLabels = {
+  MANAGER: 'Manager',
   RECEPTIONIST: 'Receptionist',
   WORKER: 'Worker',
   KITCHEN_STAFF: 'Kitchen Staff',
@@ -29,7 +30,11 @@ export const staffInput = z
       .trim()
       .toUpperCase()
       .regex(/^(?:[0-9]{9}[VX]|[0-9]{12})$/),
-    role: z.enum(staffRoles)
+    roles: z
+      .array(z.enum(staffRoles))
+      .min(1)
+      .max(staffRoles.length)
+      .refine(v => new Set(v).size === v.length)
   })
   .strict();
 export const staffPatch = staffInput
@@ -50,6 +55,7 @@ export const staffProfile = z.object({
   nic: z.string().nullable(),
   username: z.string(),
   role: z.enum(staffRoles),
+  roles: z.array(z.enum(staffRoles)).optional(),
   isActive: z.boolean(),
   passwordChangeRequired: z.boolean(),
   version: z.number().int().nonnegative()

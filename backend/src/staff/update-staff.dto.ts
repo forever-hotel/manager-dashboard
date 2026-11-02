@@ -1,5 +1,19 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, ValidateIf, IsBoolean, IsIn, IsInt, IsString, Length, Matches, Max, Min } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  ArrayUnique,
+  IsArray,
+  IsEmail,
+  ValidateIf,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsString,
+  Length,
+  Matches,
+  Max,
+  Min
+} from 'class-validator';
 
 import { STAFF_ROLES } from './create-staff.dto';
 
@@ -55,4 +69,11 @@ export class UpdateStaffDto {
   @IsIn(STAFF_ROLES)
   @ValidateIf((_object, value: unknown) => value !== undefined)
   role?: (typeof STAFF_ROLES)[number];
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsIn(STAFF_ROLES, { each: true })
+  roles?: (typeof STAFF_ROLES)[number][];
 }

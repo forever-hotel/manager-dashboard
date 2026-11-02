@@ -45,7 +45,7 @@ describe('Initial manager startup', () => {
       .mockResolvedValueOnce([{ worker_id: 'new-id' }]);
     await service().onApplicationBootstrap();
     expect(query).toHaveBeenNthCalledWith(2, expect.stringContaining('lower(email)'), ['manager@example.com']);
-    expect(query).toHaveBeenNthCalledWith(3, expect.stringContaining("'MANAGER',true,true"), [
+    expect(query).toHaveBeenNthCalledWith(3, expect.stringContaining("ARRAY['ROOT']::text[],true,true"), [
       'manager@example.com',
       'manager',
       'hashed-password'
@@ -54,18 +54,42 @@ describe('Initial manager startup', () => {
   it.each([true, false])(
     'preserves an existing manager with password_change_required=%s',
     async password_change_required => {
-      query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ role: 'MANAGER', password_change_required }]);
+      query
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ role: 'MANAGER', roles: ['MANAGER'], password_change_required }])
+        .mockResolvedValueOnce([[{ worker_id: 'existing-id' }], 1]);
       await service().onApplicationBootstrap();
-      expect(query).toHaveBeenCalledTimes(2);
+      expect(query).toHaveBeenCalledTimes(3);
+      const sql = query.mock.calls[2][0] as string;
+      expect(sql).toContain("roles=ARRAY['ROOT']");
+      expect(sql).toContain('session_version=session_version+1');
+      expect(sql).not.toMatch(/password_hash|password_change_required|is_active|username/);
       expect(hashPassword).not.toHaveBeenCalled();
     }
   );
+  it('fails safely when the promotion updates no account', async () => {
+    query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ role: 'MANAGER', roles: ['MANAGER'] }])
+      .mockResolvedValueOnce([[], 0]);
+    await expect(service().onApplicationBootstrap()).rejects.toThrow('Initial manager provisioning failed');
+    expect(hashPassword).not.toHaveBeenCalled();
+  });
   it('ignores obsolete initial credentials when the manager already exists', async () => {
-    query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ role: 'MANAGER' }]);
+    query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ role: 'MANAGER', roles: ['ROOT'] }]);
     await service({
       INITIAL_MANAGER_EMAIL: 'manager@example.com'
     }).onApplicationBootstrap();
     expect(query).toHaveBeenCalledTimes(2);
+    expect(hashPassword).not.toHaveBeenCalled();
+  });
+  it('never updates an already provisioned ROOT on repeated starts', async () => {
+    for (let run = 0; run < 2; run++) {
+      query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ role: 'MANAGER', roles: ['ROOT'] }]);
+      await service().onApplicationBootstrap();
+    }
+    expect(query).toHaveBeenCalledTimes(4);
+    expect(query.mock.calls.some(([sql]: [string]) => sql.includes('UPDATE public.staff_users'))).toBe(false);
     expect(hashPassword).not.toHaveBeenCalled();
   });
   it('requires initial credentials when the account does not exist', async () => {
@@ -83,6 +107,6 @@ describe('Initial manager startup', () => {
   });
   it('fails safely on a username conflict without updating any account', async () => {
     await expect(service().onApplicationBootstrap()).rejects.toThrow('Initial manager provisioning failed');
-    expect(query.mock.calls.some(([sql]: [string]) => sql.includes('UPDATE'))).toBe(false);
+    expect(query.mock.calls.some(([sql]: [string]) => sql.includes('UPDATE public.staff_users'))).toBe(false);
   });
 });

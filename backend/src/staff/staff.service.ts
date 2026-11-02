@@ -14,6 +14,8 @@ export class StaffService {
 
   async create(profile: CreateStaffDto) {
     try {
+      const assigned = profile.roles ?? [profile.role];
+      const primary = assigned[0];
       const staffId = randomUUID();
       const deliveryId = randomUUID();
       const password = randomBytes(24).toString('base64url');
@@ -23,15 +25,15 @@ export class StaffService {
         email: profile.email,
         username,
         password,
-        role: profile.role
+        role: assigned.join(', ')
       });
       const passwordHash = await hash(password, 12);
 
       await this.database.transaction(async manager => {
         await manager.query(
           `INSERT INTO public.staff_users
-            (worker_id,full_name,vocation,email,age,phone,nic,username,password_hash,role,is_active,password_change_required)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true,true)`,
+            (worker_id,full_name,vocation,email,age,phone,nic,username,password_hash,role,roles,is_active,password_change_required)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,true)`,
           [
             staffId,
             profile.name,
@@ -42,7 +44,8 @@ export class StaffService {
             profile.nic,
             username,
             passwordHash,
-            profile.role
+            primary,
+            assigned
           ]
         );
         await manager.query(

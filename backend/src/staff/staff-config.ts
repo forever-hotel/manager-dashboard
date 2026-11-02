@@ -16,13 +16,13 @@ export function validateStaffConfig(env: Record<string, unknown>) {
   if (
     enabled === 'true' &&
     (!key ||
-      typeof env.SENDGRID_API_KEY !== 'string' ||
-      !env.SENDGRID_API_KEY.trim() ||
-      typeof env.SENDGRID_FROM_EMAIL !== 'string' ||
-      !isEmail(env.SENDGRID_FROM_EMAIL))
+      typeof env.BREVO_API_KEY !== 'string' ||
+      !env.BREVO_API_KEY.trim() ||
+      typeof env.STAFF_EMAIL_FROM !== 'string' ||
+      !isEmail(env.STAFF_EMAIL_FROM))
   )
     throw new Error(
-      'Configuration: enabled staff email requires STAFF_CREDENTIALS_KEY, SENDGRID_API_KEY and a verified SENDGRID_FROM_EMAIL'
+      'Configuration: enabled staff email requires STAFF_CREDENTIALS_KEY, BREVO_API_KEY and a verified STAFF_EMAIL_FROM'
     );
   // Profile/credential SQL parameters must never enter the application log.
   if (env.DB_LOGGING === 'true')
