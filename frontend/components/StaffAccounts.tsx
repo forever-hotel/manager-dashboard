@@ -403,7 +403,7 @@ export default function StaffAccounts() {
           </div>
           <div className="staff-delivery-note">
             <span className="font-normal text-xs text-ink">
-              Username and temporary password are generated and emailed when delivery is enabled. Passwords are never
+              A temporary password is generated and emailed when delivery is enabled. Passwords are never
               displayed here.
             </span>
           </div>

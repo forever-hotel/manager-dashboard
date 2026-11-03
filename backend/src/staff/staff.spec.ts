@@ -183,7 +183,7 @@ describe('DDP-012 Brevo delivery', () => {
     };
 
     expect(body.to).toEqual([{ email: credentials.email }]);
-    expect(body.textContent).toContain(credentials.username);
+    expect(body.textContent).toContain(credentials.email);
   });
   it.each([400, 401, 429, 500])('rejects provider status %s safely', async status => {
     jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('private provider data', { status }));

@@ -1,3 +1,4 @@
+import { decryptPii } from '../security/guest-pii';
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { BOOKING_TIMEZONE, INCLUDED_BOOKING_STATUSES } from './booking-analytics.service';
@@ -60,7 +61,10 @@ export class BookingDetailsService {
       if (!Number.isSafeInteger(total) || total < 0) throw new Error('Invalid booking total');
       return {
         averageLengthOfStay: row.average_nights,
-        recentBookings: row.recent_bookings,
+        recentBookings: row.recent_bookings.map(booking => ({
+          ...booking,
+          guestName: decryptPii(booking.guestName, 'full_name')
+        })),
         bookingList: { total, page, pageSize }
       };
     } catch {

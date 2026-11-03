@@ -23,12 +23,15 @@ createServer(async (req, res) => {
 
     if (path === '/health/ready') data = { status: 'ok' };
     else if (path === '/auth/login') {
-      if (!['manager', 'first-login'].includes(body.username) || body.password !== 'browser-private-password') {
+      if (
+        !['manager@example.com', 'first-login@example.com'].includes(body.username) ||
+        body.password !== 'browser-private-password'
+      ) {
         status = 401;
       } else {
         const accessToken = crypto.randomUUID();
 
-        data = { ...session(body.username === 'first-login'), accessToken };
+        data = { ...session(body.username === 'first-login@example.com'), accessToken };
         sessions.set(accessToken, data);
       }
     } else if (path === '/auth/session') {

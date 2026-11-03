@@ -94,6 +94,7 @@
       "staff/**/*.ts",
       "analytics/**/*.ts",
       "auth/**/*.ts",
+      "security/**/*.ts",
       "config/**/*.ts",
       "common/**/*.ts",
       "health/**/*.ts",

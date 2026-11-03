@@ -10,7 +10,7 @@ import { safeDestination } from '@/lib/auth';
 import { Hotel, Lock, User, ArrowRight } from 'lucide-react';
 
 const loginSchema = z.object({
-  username: z.string().trim().min(1, 'Username is required.').max(100),
+  email: z.string().trim().min(1, 'Email is required.').email('Enter a valid email address.').max(320),
   password: z.string().min(1, 'Password is required.').max(1024)
 });
 
@@ -39,7 +39,7 @@ export function LoginForm({ next, expired = false }: { next?: string; expired?: 
         headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(10000),
         body: JSON.stringify({
-          username: data.username,
+          username: data.email,
           password: data.password
         })
       });
@@ -54,7 +54,7 @@ export function LoginForm({ next, expired = false }: { next?: string; expired?: 
         throw new Error(
           response.status >= 500
             ? 'Service unavailable. Please retry.'
-            : 'Unable to sign in. Check your username and password.'
+            : 'Unable to sign in. Check your email and password.'
         );
       const result: unknown = await response.json();
 
@@ -110,27 +110,27 @@ export function LoginForm({ next, expired = false }: { next?: string; expired?: 
           className="flex flex-col gap-4"
         >
           <div>
-            <label className="font-normal text-xs text-muted block mb-1" htmlFor="username">
-              Username
+            <label className="font-normal text-xs text-muted block mb-1" htmlFor="email">
+              Email
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <User className="h-4 w-4 text-muted" />
               </div>
               <input
-                id="username"
-                type="text"
-                autoComplete="username"
-                aria-invalid={!!errors.username}
-                aria-describedby={errors.username ? 'username-error' : undefined}
-                placeholder="manager"
+                id="email"
+                type="email"
+                autoComplete="email"
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? 'email-error' : undefined}
+                placeholder="you@example.com"
                 className="w-full border border-border rounded-md pl-9 pr-3 py-2 text-[13px] text-ink placeholder:text-muted/70 focus:outline-none focus:border-brand"
-                {...register('username')}
+                {...register('email')}
               />
             </div>
-            {errors.username && (
-              <p id="username-error" role="alert" className="font-normal text-xs text-danger mt-1">
-                {errors.username.message}
+            {errors.email && (
+              <p id="email-error" role="alert" className="font-normal text-xs text-danger mt-1">
+                {errors.email.message}
               </p>
             )}
           </div>

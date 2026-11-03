@@ -11,9 +11,9 @@ import { notificationsFixture } from '../notifications-fixture';
 import { occupancy } from '../occupancy-fixture';
 import { lowDemand } from '../low-demand-fixture';
 
-async function login(page: Page, username = 'manager') {
+async function login(page: Page, username = 'manager@example.com') {
   await page.goto('/login');
-  await page.getByLabel('Username', { exact: true }).fill(username);
+  await page.getByLabel('Email', { exact: true }).fill(username);
   await page.getByLabel('Password', { exact: true }).fill('browser-private-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 }
@@ -46,7 +46,7 @@ test.beforeEach(async ({ page }) => {
 test('login protects pages, rejects bad credentials and stores only an HttpOnly session', async ({ page, context }) => {
   await page.goto('/analytics');
   await expect(page).toHaveURL(/\/login/);
-  await page.getByLabel('Username').fill('manager');
+  await page.getByLabel('Email').fill('manager@example.com');
   await page.getByLabel('Password', { exact: true }).fill('wrong');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.locator('#password-error')).toContainText('Unable to sign in');
@@ -63,7 +63,7 @@ test('login protects pages, rejects bad credentials and stores only an HttpOnly 
   await expect(page).toHaveURL(/\/login/);
 });
 test('first login requires a password change before protected navigation', async ({ page }) => {
-  await login(page, 'first-login');
+  await login(page, 'first-login@example.com');
   await expect(page).toHaveURL(/\/change-password/);
   await page.goto('/rooms');
   await expect(page).toHaveURL(/\/change-password/);

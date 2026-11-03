@@ -3,7 +3,7 @@ import { IsString, Length, Matches } from 'class-validator';
 import { AuthService } from './auth.service';
 
 export class LoginDto {
-  @IsString() @Length(1, 100) @Matches(/\S/) username!: string;
+  @IsString() @Length(1, 320) @Matches(/\S/) username!: string;
   @IsString() @Length(1, 1024) password!: string;
 }
 
