@@ -1,6 +1,5 @@
 'use client';
 
-import ReportDownload from './ReportDownload';
 import { useRealtimeRefresh } from './useRealtimeRefresh';
 import { DataPanel } from './DashboardVisuals';
 import { useEffect, useState } from 'react';
@@ -91,7 +90,6 @@ export default function OccupancyCalendar({
             <button type="button" aria-label="Next occupancy month" disabled={!next} onClick={() => navigate(next)}>
               Next month
             </button>
-            <ReportDownload type="occupancy" filters={{ from: month + '-01', to: data?.to ?? month + '-01' }} />
           </div>
         </details>
       }
