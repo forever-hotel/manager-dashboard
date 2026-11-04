@@ -1,3 +1,5 @@
+import { SERVICE_REQUEST_SOURCE_SQL } from './service-request-source.sql';
+
 export const SERVICE_REQUESTS_SQL = `
 WITH calendar AS (
   SELECT date_trunc($1,$3::timestamptz AT TIME ZONE $2) AS local_start
@@ -7,7 +9,7 @@ WITH calendar AS (
 ), period AS (
   SELECT *,local_start AT TIME ZONE $2 AS period_start,local_end AT TIME ZONE $2 AS period_end FROM bounds
 ), source AS MATERIALIZED (
-  SELECT request_id,status::text AS status,submitted_at,completed_at,updated_at FROM public.foss_service_requests
+  ${SERVICE_REQUEST_SOURCE_SQL}
 ), submitted AS (
   SELECT s.* FROM source s,period WHERE submitted_at>=period_start AND submitted_at<period_end
 ), completed AS (

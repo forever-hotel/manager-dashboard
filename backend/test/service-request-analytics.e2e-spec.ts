@@ -45,7 +45,7 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
     // Deliberately allow timestamp inconsistencies to exercise corrupt legacy data.
     await database.query(`CREATE TYPE service_request_status AS ENUM ('SUBMITTED','ASSIGNED','IN_PROGRESS','COMPLETED');
       CREATE TABLE foss_service_requests(request_id uuid PRIMARY KEY,status service_request_status NOT NULL,submitted_at timestamptz NOT NULL,completed_at timestamptz,updated_at timestamptz NOT NULL,room_number varchar(10) DEFAULT '204',category text DEFAULT 'ROOM_CLEANING');
-      CREATE TABLE wkms_tasks(service_request_id uuid UNIQUE,assigned_worker_id uuid);
+      CREATE TABLE wkms_tasks(service_request_id uuid UNIQUE,assigned_worker_id uuid,status text,completed_at timestamptz,updated_at timestamptz);
       GRANT SELECT ON wkms_tasks TO "${role}";
       GRANT SELECT(request_id,status,submitted_at,completed_at,updated_at,room_number,category) ON foss_service_requests TO "${role}";
       GRANT SELECT ON mad_revoked_sessions TO "${role}"`);
@@ -107,6 +107,45 @@ describe('DDP-024 service requests with disposable PostgreSQL', () => {
       [randomUUID(), status, submitted, completed]
     );
   }
+  it('uses linked worker progress for stale requests, active filtering and resolution metrics', async () => {
+    const id = randomUUID();
+    await database.query(
+      `INSERT INTO foss_service_requests(request_id,status,submitted_at,updated_at)
+      VALUES ($1,'SUBMITTED','2026-10-19T08:00:00+05:30','2026-10-19T08:00:00+05:30')`,
+      [id]
+    );
+    await database.query(
+      `INSERT INTO wkms_tasks(service_request_id,status,updated_at)
+      VALUES ($1,'IN_PROGRESS','2026-10-19T08:05:00+05:30')`,
+      [id]
+    );
+    const service = app.get(ServiceRequestAnalyticsService);
+    expect(
+      await service.list({ period: 'day', date: '2026-10-19', view: 'active', page: 1, pageSize: 20 })
+    ).toMatchObject({
+      total: 1,
+      requests: [{ id, status: 'IN_PROGRESS' }]
+    });
+    await database.query(
+      `UPDATE wkms_tasks SET status='COMPLETED',completed_at='2026-10-19T08:10:00+05:30',updated_at='2026-10-19T08:10:00+05:30' WHERE service_request_id=$1`,
+      [id]
+    );
+    expect(await service.summary('day', '2026-10-19')).toMatchObject({
+      total: 1,
+      resolution: { completedCount: 1, averageMinutes: 10 },
+      backlog: { count: 0 }
+    });
+    expect(
+      await service.list({ period: 'day', date: '2026-10-19', view: 'active', page: 1, pageSize: 20 })
+    ).toMatchObject({ total: 0, requests: [] });
+    expect(await service.list({ period: 'day', date: '2026-10-19', view: 'all', page: 1, pageSize: 20 })).toMatchObject(
+      { total: 1, requests: [{ id, status: 'COMPLETED' }] }
+    );
+    expect(await database.query('SELECT status FROM foss_service_requests WHERE request_id=$1', [id])).toEqual([
+      { status: 'SUBMITTED' }
+    ]);
+  });
+
   it('scopes both active and all requests to the selected period', async () => {
     await add('ASSIGNED', '2026-09-01T08:00:00+05:30');
     await add('COMPLETED', '2026-09-02T08:00:00+05:30', '2026-09-02T09:00:00+05:30');
