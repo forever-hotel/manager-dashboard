@@ -22,11 +22,11 @@ export function ManagerPasswordReset() {
       stage === 'code' &&
       (!/^[0-9]{6}$/.test(code) ||
         password.length < 12 ||
-        password.length > 1024 ||
+        new TextEncoder().encode(password).length > 72 ||
         !/\S/.test(password) ||
         password !== confirmation)
     ) {
-      setError('Enter the six-digit code and matching passwords of 12 to 1024 characters.');
+      setError('Enter the six-digit code and matching passwords of at least 12 characters and at most 72 UTF-8 bytes.');
       return;
     }
     locked.current = true;
@@ -117,7 +117,7 @@ export function ManagerPasswordReset() {
                     type="password"
                     autoComplete="new-password"
                     minLength={12}
-                    maxLength={1024}
+                    maxLength={72}
                     required
                     value={password}
                     onChange={event => setPassword(event.target.value)}
@@ -130,7 +130,7 @@ export function ManagerPasswordReset() {
                     type="password"
                     autoComplete="new-password"
                     minLength={12}
-                    maxLength={1024}
+                    maxLength={72}
                     required
                     value={confirmation}
                     onChange={event => setConfirmation(event.target.value)}

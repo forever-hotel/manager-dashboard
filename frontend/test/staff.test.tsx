@@ -34,12 +34,15 @@ function fill() {
     ['Email', 'email'],
     ['Phone', 'phone'],
     ['NIC', 'nic'],
-    ['Age', 'age'],
-    ['Role', 'role']
+    ['Age', 'age']
   ] as const)
     fireEvent.change(screen.getByLabelText(label), {
       target: { value: values[key] }
     });
+  if (screen.getByRole('button', { name: 'Roles' }).getAttribute('aria-expanded') !== 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Roles' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Receptionist' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Worker' }));
 }
 describe('DDP-029 staff management', () => {
   it('AC1: supports all roles and required fields and queues credential delivery', async () => {
@@ -49,8 +52,10 @@ describe('DDP-029 staff management', () => {
     expect(screen.queryByText('Staff filters and refresh')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '+ Add new' })).not.toBeInTheDocument();
     for (const name of ['Day', 'Week', 'Month']) expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Roles' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Roles' }));
     for (const name of ['Receptionist', 'Worker', 'Kitchen Staff', 'Kitchen Manager'])
-      expect(within(screen.getByLabelText('Role')).getByRole('option', { name })).toBeInTheDocument();
+      expect(within(screen.getByRole('group', { name: 'Roles' })).getByRole('checkbox', { name })).toBeInTheDocument();
     fill();
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
     await waitFor(() =>
@@ -72,15 +77,15 @@ describe('DDP-029 staff management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Actions for Test Worker' }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     await waitFor(() => expect(screen.getByLabelText('Full name')).toHaveValue('Test Worker'));
-    fireEvent.change(screen.getByLabelText('Role'), {
-      target: { value: 'KITCHEN_MANAGER' }
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Roles' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Worker' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Kitchen Manager' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await screen.findByText('Profile saved. Existing sessions were invalidated.');
     const call = fetchMock.mock.calls.find(([, o]) => o?.method === 'PATCH');
 
     expect(JSON.parse(call![1]!.body as string)).toMatchObject({
-      role: 'KITCHEN_MANAGER',
+      roles: ['KITCHEN_MANAGER'],
       version: 0
     });
   });

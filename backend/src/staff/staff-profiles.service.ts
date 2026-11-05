@@ -23,13 +23,14 @@ export interface StaffProfile {
   nic: string | null;
   username: string;
   role: (typeof STAFF_ROLES)[number];
+  roles?: string[];
   isActive: boolean;
   passwordChangeRequired: boolean;
   version: number;
 }
-const columns = `worker_id AS "staffId",full_name AS name,vocation,email,age,phone,nic,username,role,
+const columns = `worker_id AS "staffId",full_name AS name,vocation,email,age,phone,nic,username,role,roles,
   is_active AS "isActive",password_change_required AS "passwordChangeRequired",session_version AS version`;
-const mutable = ['name', 'vocation', 'email', 'age', 'phone', 'nic', 'role', 'isActive'] as const;
+const mutable = ['name', 'vocation', 'email', 'age', 'phone', 'nic', 'role', 'roles', 'isActive'] as const;
 
 @Injectable()
 export class StaffProfilesService {
@@ -41,7 +42,8 @@ export class StaffProfilesService {
   ) {}
 
   private requireStaff(profile: StaffProfile | undefined): StaffProfile {
-    if (!profile || !STAFF_ROLES.includes(profile.role)) throw new NotFoundException('Staff account not found.');
+    if (!profile || !STAFF_ROLES.includes(profile.role) || profile.roles?.includes('ROOT'))
+      throw new NotFoundException('Staff account not found.');
     return profile;
   }
 
@@ -87,10 +89,12 @@ export class StaffProfilesService {
         const next = { ...current, version: current.version + 1 };
 
         for (const field of fields) Object.assign(next, { [field]: patch[field] });
+        next.roles = patch.roles ?? (patch.role ? [patch.role] : (current.roles ?? [current.role]));
+        next.role = next.roles[0] as StaffProfile['role'];
         // PostgreSQL UPDATE returns [rows, affectedCount], unlike SELECT.
         const [saved] = await manager.query<[StaffProfile[], number]>(
           `UPDATE public.staff_users SET full_name=$2,vocation=$3,email=$4,age=$5,phone=$6,nic=$7,
-           role=$8,is_active=$9,session_version=$10,updated_at=now() WHERE worker_id=$1 RETURNING ${columns}`,
+           role=$8,is_active=$9,session_version=$10,roles=$11,updated_at=now() WHERE worker_id=$1 RETURNING ${columns}`,
           [
             staffId,
             next.name,
@@ -101,7 +105,8 @@ export class StaffProfilesService {
             next.nic,
             next.role,
             next.isActive,
-            next.version
+            next.version,
+            next.roles
           ]
         );
         const profile = this.requireStaff(saved[0]);
@@ -207,7 +212,7 @@ export class StaffProfilesService {
     const encrypted = this.cipher.encrypt(id, {
       ...credentials,
       email: after.email,
-      role: after.role,
+      role: (after.roles ?? [after.role]).join(', '),
       username: after.username
     });
 

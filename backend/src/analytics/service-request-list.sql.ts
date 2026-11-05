@@ -1,12 +1,13 @@
+import { SERVICE_REQUEST_SOURCE_SQL } from './service-request-source.sql';
+
 export const SERVICE_REQUEST_LIST_SQL = `
-WITH bounds AS (
+WITH source AS MATERIALIZED (${SERVICE_REQUEST_SOURCE_SQL}), bounds AS (
  SELECT date_trunc($1,$3::timestamptz AT TIME ZONE $2) AS start
 ), filtered AS MATERIALIZED (
  SELECT r.request_id,r.room_number,r.category::text,r.status::text,r.submitted_at,
    s.full_name AS assignee
- FROM public.foss_service_requests r
- LEFT JOIN public.wkms_tasks t ON t.service_request_id=r.request_id
- LEFT JOIN public.staff_users s ON s.worker_id=t.assigned_worker_id
+ FROM source r
+ LEFT JOIN public.staff_users s ON s.worker_id=r.assigned_worker_id
  CROSS JOIN bounds
  WHERE r.submitted_at>=start AT TIME ZONE $2
    AND r.submitted_at<(start + CASE $1 WHEN 'day' THEN interval '1 day'

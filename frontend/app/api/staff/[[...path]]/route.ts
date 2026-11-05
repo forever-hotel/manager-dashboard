@@ -106,7 +106,7 @@ async function handle(request: NextRequest, context: Context) {
         parsed.data.pageSize !== Number(params.get('pageSize')) ||
         parsed.data.items.some(
           item =>
-            (params.has('role') && item.role !== params.get('role')) ||
+            (params.has('role') && !(item.roles ?? [item.role]).includes(params.get('role') as typeof item.role)) ||
             (params.has('status') && item.isActive !== (params.get('status') === 'active'))
         )
       )

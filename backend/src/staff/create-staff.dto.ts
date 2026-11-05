@@ -1,7 +1,20 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsIn, IsInt, IsString, Length, Matches, Max, Min } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  ArrayUnique,
+  IsArray,
+  ValidateIf,
+  IsEmail,
+  IsIn,
+  IsInt,
+  IsString,
+  Length,
+  Matches,
+  Max,
+  Min
+} from 'class-validator';
 
-export const STAFF_ROLES = ['RECEPTIONIST', 'WORKER', 'KITCHEN_STAFF', 'KITCHEN_MANAGER'] as const;
+export const STAFF_ROLES = ['MANAGER', 'RECEPTIONIST', 'WORKER', 'KITCHEN_STAFF', 'KITCHEN_MANAGER'] as const;
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
 export class CreateStaffDto {
@@ -37,6 +50,14 @@ export class CreateStaffDto {
   @Matches(/^(?:[0-9]{9}[VX]|[0-9]{12})$/)
   nic!: string;
 
+  @ValidateIf((object: CreateStaffDto) => object.roles === undefined)
   @IsIn(STAFF_ROLES)
   role!: (typeof STAFF_ROLES)[number];
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsIn(STAFF_ROLES, { each: true })
+  roles?: (typeof STAFF_ROLES)[number][];
 }

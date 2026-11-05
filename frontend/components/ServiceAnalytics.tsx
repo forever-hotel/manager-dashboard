@@ -20,11 +20,15 @@ export default function ServiceAnalytics() {
   const [page, setPage] = useState(1);
   const { data, error, retry } = useAnalyticsSnapshot(
     '/api/analytics/operations/service-requests?' + new URLSearchParams({ period, date }),
-    serviceSchema
+    serviceSchema,
+    true,
+    'service'
   );
   const list = useAnalyticsSnapshot(
     '/api/service-requests?' + new URLSearchParams({ period, date, view, page: String(page), pageSize: '20' }),
-    serviceRequestListSchema
+    serviceRequestListSchema,
+    true,
+    'service'
   );
   const range = data
     ? { from: hotelDate(new Date(data.start)), to: hotelDate(new Date(Date.parse(data.end) - 86400000)) }

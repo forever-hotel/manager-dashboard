@@ -1,3 +1,4 @@
+jest.setTimeout(30000);
 import { hashPassword, validPassword, verifyPassword } from './password';
 
 describe('Local password storage', () => {

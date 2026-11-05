@@ -1,3 +1,4 @@
+import { CredentialCipher } from '../src/staff/credential-cipher';
 import { InitialManagerService } from '../src/auth/initial-manager.service';
 import { Test } from '@nestjs/testing';
 import { Controller, Get, HttpException, INestApplication, UseGuards } from '@nestjs/common';
@@ -304,9 +305,15 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
     const settings = {
       INITIAL_MANAGER_EMAIL: 'bootstrap@example.com',
       INITIAL_MANAGER_USERNAME: 'bootstrap-manager',
-      INITIAL_MANAGER_PASSWORD: 'bootstrap-initial-password'
+      STAFF_EMAIL_ENABLED: 'true',
+      STAFF_CREDENTIALS_KEY: Buffer.alloc(32, 7).toString('base64')
     };
-    const start = () => new InitialManagerService(new ConfigService(settings), database).onApplicationBootstrap();
+    const cipher = new CredentialCipher(new ConfigService(settings));
+    await database.query(
+      `CREATE TABLE IF NOT EXISTS public.mad_staff_deliveries(delivery_id uuid PRIMARY KEY,worker_id uuid NOT NULL,encrypted_credentials text,credential_version integer NOT NULL)`
+    );
+    const start = () =>
+      new InitialManagerService(new ConfigService(settings), database, cipher).onApplicationBootstrap();
 
     await Promise.all([start(), start()]);
     const accounts = await database.query<{ password_change_required: boolean; session_version: number }[]>(
@@ -314,12 +321,17 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
     );
 
     expect(accounts).toHaveLength(1);
+    const deliveries = await database.query<{ delivery_id: string; encrypted_credentials: string }[]>(
+      "SELECT delivery_id,encrypted_credentials FROM public.mad_staff_deliveries WHERE worker_id=(SELECT worker_id FROM staff_users WHERE email='bootstrap@example.com')"
+    );
+    expect(deliveries).toHaveLength(1);
+    const initialPassword = cipher.decrypt(deliveries[0].delivery_id, deliveries[0].encrypted_credentials).password;
     expect(accounts[0].password_change_required).toBe(true);
     const login = await http()
       .post('/auth/login')
       .send({
         username: settings.INITIAL_MANAGER_USERNAME,
-        password: settings.INITIAL_MANAGER_PASSWORD
+        password: initialPassword
       })
       .expect(200);
 
@@ -332,13 +344,13 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
       .post('/auth/change-password')
       .set('Authorization', 'Bearer ' + (login.body as { accessToken: string }).accessToken)
       .send({
-        currentPassword: settings.INITIAL_MANAGER_PASSWORD,
+        currentPassword: initialPassword,
         newPassword: 'bootstrap-changed-password'
       })
       .expect(200);
 
     expect((changed.body as { passwordChangeRequired: boolean }).passwordChangeRequired).toBe(false);
-    settings.INITIAL_MANAGER_PASSWORD = 'different-environment-password';
+
     await Promise.all([start(), start()]);
     const saved = await database.query<{ password_change_required: boolean; session_version: number }[]>(
       "SELECT * FROM staff_users WHERE email='bootstrap@example.com'"
@@ -358,7 +370,7 @@ describe('DDP-001\u2013008 disposable PostgreSQL/API acceptance', () => {
       .post('/auth/login')
       .send({
         username: settings.INITIAL_MANAGER_USERNAME,
-        password: settings.INITIAL_MANAGER_PASSWORD
+        password: initialPassword
       })
       .expect(401);
     const returning = await http()

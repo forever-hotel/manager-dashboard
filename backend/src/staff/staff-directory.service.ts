@@ -5,7 +5,7 @@ import { STAFF_ROLES } from './create-staff.dto';
 import { StaffDirectoryDto } from './staff-directory.dto';
 import { StaffProfile } from './staff-profiles.service';
 
-const projection = `s.worker_id AS "staffId",s.full_name AS name,s.vocation,s.email,s.age,s.phone,s.nic,s.username,s.role,
+const projection = `s.worker_id AS "staffId",s.full_name AS name,s.vocation,s.email,s.age,s.phone,s.nic,s.username,s.role,s.roles,
 s.is_active AS "isActive",s.password_change_required AS "passwordChangeRequired",s.session_version AS version,
 coalesce(d.status,'none') AS "deliveryStatus"`;
 
@@ -30,8 +30,8 @@ export class StaffDirectoryService {
       >(
         `WITH filtered AS MATERIALIZED (
 SELECT ${projection} FROM public.staff_users s LEFT JOIN public.mad_staff_deliveries d ON d.worker_id=s.worker_id
-WHERE s.role::text=ANY($1::text[]) AND ($2::text IS NULL OR strpos(lower(s.full_name || ' ' || s.email || ' ' || s.username),lower($2))>0)
-AND ($3::text IS NULL OR s.role::text=$3) AND ($4::boolean IS NULL OR s.is_active=$4) AND ($7::uuid IS NULL OR s.worker_id=$7)
+WHERE s.roles && $1::text[] AND NOT ('ROOT'=ANY(s.roles)) AND ($2::text IS NULL OR strpos(lower(s.full_name || ' ' || s.email || ' ' || s.username),lower($2))>0)
+AND ($3::text IS NULL OR $3=ANY(s.roles)) AND ($4::boolean IS NULL OR s.is_active=$4) AND ($7::uuid IS NULL OR s.worker_id=$7)
 ), page AS (SELECT * FROM filtered ORDER BY lower(name),"staffId" LIMIT $5 OFFSET $6)
 SELECT (SELECT count(*)::integer FROM filtered) AS total,coalesce((SELECT jsonb_agg(page ORDER BY lower(name),"staffId") FROM page),'[]'::jsonb) AS items`,
         [
@@ -64,7 +64,11 @@ SELECT (SELECT count(*)::integer FROM filtered) AS total,coalesce((SELECT jsonb_
           seen.has(item.staffId.toLowerCase()) ||
           (id !== undefined && item.staffId.toLowerCase() !== id.toLowerCase()) ||
           !STAFF_ROLES.includes(item.role) ||
-          (query.role !== undefined && item.role !== query.role) ||
+          !Array.isArray(item.roles) ||
+          !item.roles.length ||
+          new Set(item.roles).size !== item.roles.length ||
+          item.roles.some(role => !STAFF_ROLES.includes(role as typeof item.role)) ||
+          (query.role !== undefined && !(item.roles ?? [item.role]).includes(query.role)) ||
           typeof item.isActive !== 'boolean' ||
           (query.status !== undefined && item.isActive !== (query.status === 'active')) ||
           typeof item.passwordChangeRequired !== 'boolean' ||
@@ -92,6 +96,7 @@ SELECT (SELECT count(*)::integer FROM filtered) AS total,coalesce((SELECT jsonb_
           nic: item.nic,
           username: item.username,
           role: item.role,
+          roles: item.roles ?? [item.role],
           isActive: item.isActive,
           passwordChangeRequired: item.passwordChangeRequired,
           version: item.version,

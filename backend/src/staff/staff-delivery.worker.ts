@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { CredentialCipher } from './credential-cipher';
-import { SendGridService } from './sendgrid.service';
+import { BrevoService } from './brevo.service';
 
 interface Delivery {
   delivery_id: string;
@@ -27,8 +27,8 @@ export class StaffDeliveryWorker implements OnApplicationBootstrap, OnApplicatio
     private readonly config: { get(name: string): unknown },
     @Inject(CredentialCipher)
     private readonly cipher: { decrypt: CredentialCipher['decrypt'] },
-    @Inject(SendGridService)
-    private readonly mail: { send: SendGridService['send'] }
+    @Inject(BrevoService)
+    private readonly mail: { send: BrevoService['send'] }
   ) {}
 
   onApplicationBootstrap() {

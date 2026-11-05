@@ -2,7 +2,8 @@ export const SESSION_COOKIE = 'mad_session';
 export type Session = {
   sub: string;
   username: string;
-  role: 'MANAGER';
+  role: 'MANAGER' | 'ROOT';
+  roles?: string[];
   expiresAt: number;
   passwordChangeRequired: boolean;
 };
@@ -34,7 +35,7 @@ export function isSession(value: unknown): value is Session {
   return (
     typeof session.sub === 'string' &&
     typeof session.username === 'string' &&
-    session.role === 'MANAGER' &&
+    ['MANAGER', 'ROOT'].includes(session.role) &&
     Number.isInteger(session.expiresAt) &&
     session.expiresAt > Date.now() / 1000 &&
     typeof session.passwordChangeRequired === 'boolean'
@@ -47,6 +48,7 @@ export function publicSession(session: Session): Session {
     sub: session.sub,
     username: session.username,
     role: session.role,
+    roles: session.roles,
     expiresAt: session.expiresAt,
     passwordChangeRequired: session.passwordChangeRequired
   };

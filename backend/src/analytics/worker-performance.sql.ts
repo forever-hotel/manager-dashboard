@@ -10,7 +10,7 @@ WITH calendar AS (
   SELECT assigned_worker_id,status,submitted_at,completed_at,updated_at FROM public.wkms_tasks
 ), workers AS (
   SELECT worker_id,full_name,role,is_active,updated_at FROM public.staff_users s
-  WHERE (role='WORKER' OR EXISTS (SELECT 1 FROM tasks t WHERE t.assigned_worker_id=s.worker_id))
+  WHERE ('WORKER'=ANY(s.roles) OR EXISTS (SELECT 1 FROM tasks t WHERE t.assigned_worker_id=s.worker_id))
     AND ($4::uuid IS NULL OR worker_id=$4::uuid)
 ), completions AS (
   SELECT assigned_worker_id,count(*) AS completed_count,

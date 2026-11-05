@@ -94,10 +94,14 @@ export default function AnalyticsDashboard() {
       />
       <p className="section-eyebrow">Booking &amp; revenue</p>
       <div className="summary-grid analytics-summary">
-        <SummaryCard label={`Total bookings (${period})`} value={data ? String(data.bookings.total) : '\u2014'} />
+        <SummaryCard
+          label={`Total bookings (${period})`}
+          title="Bookings counted by check-in date in Asia/Colombo."
+          value={data ? String(data.bookings.total) : '\u2014'}
+        />
         <SummaryCard
           label={`Revenue (${period})`}
-          title={data ? money(data.revenue.currentMinor) : undefined}
+          title={`Completed payments received in the selected period, by payment date in Asia/Colombo. This can differ from booking check-in dates.${data ? ' ' + money(data.revenue.currentMinor) : ''}`}
           value={data ? compactMoney(data.revenue.currentMinor) : '\u2014'}
           note={data ? `${percentage(data.revenue.percentageChange)} vs last ${period}` : undefined}
         />
@@ -131,7 +135,7 @@ export default function AnalyticsDashboard() {
       <LowDemandAlerts />
       <div className="design-chart-row">
         {data ? (
-          <BookingTrend data={data} date={date} />
+          <BookingTrend data={data} />
         ) : (
           <DataPanel
             title={period === 'day' ? 'Daily bookings' : period === 'week' ? 'Weekly bookings' : 'Monthly bookings'}
@@ -210,17 +214,14 @@ export default function AnalyticsDashboard() {
   );
 }
 
-function BookingTrend({ data, date }: { data: Overview; date: string }) {
+function BookingTrend({ data }: { data: Overview }) {
   const period = data.bookings.period;
   const trend = data.bookings.trend;
   const max = Math.max(1, ...trend.map(row => row.count));
   const monthly = data.bookings.period === 'month';
 
   return (
-    <DataPanel
-      title={period === 'day' ? 'Daily bookings' : period === 'week' ? 'Weekly bookings' : 'Monthly bookings'}
-      actions={<ReportDownload type="bookings" filters={{ period: data.bookings.period, date }} formats={['csv']} />}
-    >
+    <DataPanel title={period === 'day' ? 'Daily bookings' : period === 'week' ? 'Weekly bookings' : 'Monthly bookings'}>
       <div className="booking-chart-scroll" tabIndex={0} role="region" aria-label="Daily bookings chart">
         <div
           className={'booking-bars' + (monthly ? ' booking-bars-month' : '')}

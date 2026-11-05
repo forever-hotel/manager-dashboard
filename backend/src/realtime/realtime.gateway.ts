@@ -4,7 +4,7 @@ import type { RoomEvent } from './room-events.consumer';
 import { Injectable, OnModuleInit, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { connect, type ChannelModel, type ConfirmChannel } from 'amqplib';
-import { REALTIME_EXCHANGE, eventChannels } from '../shared-websocket/contracts';
+import { REALTIME_EXCHANGE, eventChannels } from './relay-contracts';
 
 export interface KitchenEvent {
   eventId: string;
