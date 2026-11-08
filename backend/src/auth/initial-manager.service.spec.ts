@@ -10,9 +10,15 @@ describe('Initial ROOT provisioning', () => {
     INITIAL_MANAGER_USERNAME: ' Manager ',
     STAFF_EMAIL_ENABLED: 'true'
   };
-  let query: jest.Mock;
-  let transaction: jest.Mock;
-  let encrypt: jest.Mock;
+  type Query = (sql: string, parameters?: unknown[]) => Promise<unknown[]>;
+  type Transaction = (work: (manager: { query: Query }) => Promise<void>) => Promise<void>;
+  type Encrypt = (
+    deliveryId: string,
+    payload: { email: string; username: string; password: string; role: string }
+  ) => string;
+  let query: jest.MockedFunction<Query>;
+  let transaction: jest.MockedFunction<Transaction>;
+  let encrypt: jest.MockedFunction<Encrypt>;
   function service(config: Record<string, string> = settings) {
     return new InitialManagerService(
       new ConfigService(config),
@@ -22,9 +28,9 @@ describe('Initial ROOT provisioning', () => {
   }
   beforeEach(() => {
     jest.clearAllMocks();
-    query = jest.fn().mockResolvedValue([]);
-    transaction = jest.fn(work => work({ query }));
-    encrypt = jest.fn().mockReturnValue('encrypted-credentials');
+    query = jest.fn<ReturnType<Query>, Parameters<Query>>().mockResolvedValue([]);
+    transaction = jest.fn<ReturnType<Transaction>, Parameters<Transaction>>(work => work({ query }));
+    encrypt = jest.fn<ReturnType<Encrypt>, Parameters<Encrypt>>().mockReturnValue('encrypted-credentials');
   });
   it('does nothing when disabled', async () => {
     await service({}).onApplicationBootstrap();

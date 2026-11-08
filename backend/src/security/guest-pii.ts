@@ -23,7 +23,8 @@ export function validateGuestPiiConfig(env: Record<string, unknown>): void {
   if (enabled && (env.DB_LOGGING === 'true' || env.DB_LOGGING === true))
     throw new Error('DB_LOGGING must be false when guest PII encryption is enabled');
   if (enabled) {
-    const encoded = String(env.GUEST_PII_KEY ?? '');
+    const encoded = env.GUEST_PII_KEY;
+    if (typeof encoded !== 'string') throw new Error('GUEST_PII_KEY must be a base64-encoded 32-byte key');
     const decoded = Buffer.from(encoded, 'base64');
     if (decoded.length !== 32 || decoded.toString('base64') !== encoded)
       throw new Error('GUEST_PII_KEY must be a base64-encoded 32-byte key');

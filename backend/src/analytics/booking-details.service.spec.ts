@@ -55,15 +55,13 @@ it('decrypts guest names only after fetching the authorized booking cohort', asy
   process.env.GUEST_PII_ENABLED = 'true';
   process.env.GUEST_PII_KEY = Buffer.alloc(32, 4).toString('base64');
   try {
-    const query = jest
-      .fn()
-      .mockResolvedValue([
-        {
-          average_nights: 2,
-          recent_bookings: [{ id: 'one', guestName: encryptPii('Guest Name', 'full_name') }],
-          total_bookings: '1'
-        }
-      ]);
+    const query = jest.fn().mockResolvedValue([
+      {
+        average_nights: 2,
+        recent_bookings: [{ id: 'one', guestName: encryptPii('Guest Name', 'full_name') }],
+        total_bookings: '1'
+      }
+    ]);
     const result = await new BookingDetailsService({ query } as unknown as DataSource).details(
       '2026-10-01',
       '2026-11-01'

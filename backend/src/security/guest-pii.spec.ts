@@ -46,6 +46,7 @@ describe('guest PII storage contract', () => {
     expect(decryptPii(null, 'email')).toBeNull();
     expect(() => validateGuestPiiConfig({ GUEST_PII_ENABLED: 'true', GUEST_PII_KEY: 'bad' })).toThrow('32-byte');
     expect(() => validateGuestPiiConfig({ GUEST_PII_ENABLED: 'tru' })).toThrow('Invalid');
+    expect(() => validateGuestPiiConfig({ GUEST_PII_ENABLED: true, GUEST_PII_KEY: {} })).toThrow('32-byte');
   });
   it('rejects wrong keys, malformed ciphertext and inconsistent activation settings', () => {
     const encrypted = encryptPii('Private', 'full_name')!;
