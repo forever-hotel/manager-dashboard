@@ -9,8 +9,8 @@ http://localhost:3000. Root `.env` and `docker-compose.yml` configure the combin
 stack; there is no MAD-only Compose file. Database SQL remains manual-only and
 startup never creates/changes tables.
 
-See [shared database setup](../documents/SHARED_DATABASE_SETUP.md),
-[WebSocket integration](../documents/WEBSOCKET_SERVICE.md) and
+See [shared database setup](../documents/mad/README.md),
+[WebSocket integration](../documents/mad/README.md) and
 [the document index](../documents/README.md).
 
 MAD keeps source-event validation, reporting and its RabbitMQ publisher/ticket
