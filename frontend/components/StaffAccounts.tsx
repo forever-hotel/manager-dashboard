@@ -403,8 +403,8 @@ export default function StaffAccounts() {
           </div>
           <div className="staff-delivery-note">
             <span className="font-normal text-xs text-ink">
-              A temporary password is generated and emailed when delivery is enabled. Passwords are never
-              displayed here.
+              A temporary password is generated and emailed when delivery is enabled. Passwords are never displayed
+              here.
             </span>
           </div>
           <div className="flex gap-3">
