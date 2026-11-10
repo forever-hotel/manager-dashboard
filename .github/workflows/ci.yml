@@ -39,10 +39,10 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: forever-hotel/websocket-service
           ref: ${{ vars.WEBSOCKET_TEST_REF || 'development' }}
@@ -66,7 +66,7 @@ jobs:
       - run: node ../scripts/check-changed-coverage.mjs backend
       - run: npm run test:integration
       - run: npm audit --audit-level=high
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: backend-coverage
@@ -84,7 +84,7 @@ jobs:
       APP_ORIGIN: http://localhost:3000
       COVERAGE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - uses: actions/setup-node@v4
@@ -105,13 +105,13 @@ jobs:
       - run: npm run audit:ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: frontend-coverage
           path: frontend/coverage
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: failure()
         with:
           name: browser-failure-traces
@@ -147,13 +147,13 @@ jobs:
       TEST_RABBITMQ_URL: amqp://mad:integration-only@localhost:5672/mad_test
       MAD_BACKEND_PATH: ${{ github.workspace }}/backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: forever-hotel/api-gateway
           ref: ${{ vars.GATEWAY_TEST_REF || 'develop' }}
           path: api-gateway
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: forever-hotel/websocket-service
           ref: ${{ vars.WEBSOCKET_TEST_REF || 'development' }}
@@ -187,9 +187,9 @@ jobs:
       group: mad-image-publication-development
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Require peer approval on the merged PR's final code
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -250,15 +250,49 @@ jobs:
             echo '```json'
             cat release-images.json
             echo '```'
-            echo 'Images published only. Azure deployment is a separate step.'
+            echo 'Staging deployment follows when enabled and release checks pass.'
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: manager-dashboard-release-images
           path: release-images.json
           if-no-files-found: error
+          overwrite: true
       - name: Remove registry login
         if: always()
         run: |
           export DOCKER_CONFIG="$RUNNER_TEMP/mad-ghcr-auth"
           docker logout ghcr.io || true
+
+  deploy-staging:
+    name: Deploy manager-dashboard to staging
+    needs: publish-images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development' && vars.SERVICE_STAGING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    concurrency:
+      group: mad-staging-release
+      cancel-in-progress: false
+    steps:
+      - name: Deploy this run's reviewed immutable images
+        uses: forever-hotel/infra/.github/actions/deploy-service@e1f320d8c3b7622339291f70c1acd3b7458df439
+        with:
+          service: mad
+          artifact: manager-dashboard-release-images
+          host: ${{ vars.STAGING_HOST }}
+          user: ${{ vars.STAGING_USER }}
+          ssh-key: ${{ secrets.STAGING_SSH_KEY }}
+          known-hosts: ${{ secrets.STAGING_KNOWN_HOSTS }}
+      - name: Retain service deployment receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mad-staging-receipt
+          path: ${{ runner.temp }}/service-release/receipt.json
+          if-no-files-found: warn
+          overwrite: true
