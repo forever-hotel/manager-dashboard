@@ -1,24 +1,27 @@
 # Manager Dashboard
 
-MAD runs a Next.js frontend and NestJS backend. Staff authentication/JWT handling
-belongs to the sibling API gateway. Browser sockets run in the independent
-[WebSocket service](../websocket/README.md), not the MAD application.
+MAD contains the Next.js manager frontend, NestJS backend and the current shared
+WebSocket implementation. Staff authentication is provided by the sibling API gateway.
 
-From the parent workspace run `docker compose up -d --build`. MAD is available at
-http://localhost:3000. Root `.env` and `docker-compose.yml` configure the combined
-stack; there is no MAD-only Compose file. Database SQL remains manual-only and
-startup never creates/changes tables.
+Start the combined local stack from the parent workspace:
 
-See [shared database setup](../documents/mad/README.md),
-[WebSocket integration](../documents/mad/README.md) and
-[the document index](../documents/README.md).
+```powershell
+cd ..
+docker compose up -d --build
+```
 
-MAD keeps source-event validation, reporting and its RabbitMQ publisher/ticket
-adapter. The shared service owns connection authentication, one-use tickets,
-permissions, subscriptions and browser event delivery. No UI contract changed.
+Local configuration is in the parent `.env` and `docker-compose.yml`.
+Open the dashboard at http://localhost:3000.
 
-For native development use Node 22.14+ and the package commands in `backend/` and
-`frontend/`. Backend integration tests need a built sibling WebSocket checkout:
-set `SHARED_WEBSOCKET_PATH` if it is not at `../../websocket` from `backend/`.
-Unit tests do not require a running shared service. Never point integration tests
-at Neon; use disposable TEST_DATABASE_URL and TEST_RABBITMQ_URL services.
+Documents have moved to [the root documents directory](../documents/README.md).
+See [local setup](../documents/local-development.md),
+[database differences](../documents/database-review/README.md),
+[MAD reference documents](../documents/mad/reference/README.md), and
+[final deliverables](../documents/mad/deliverables/).
+
+The old `docs/` and `documents/` directories and local Compose file no longer live here.
+No startup migrations or schema synchronization run. MAD only inserts the configured
+initial manager when absent and preserves existing accounts.
+
+For native development, run package commands from `backend/` and `frontend/`.
+Tests must use disposable test services, never a hosted application database.

@@ -1,5 +1,5 @@
 -- Disposable integration-test SQL only; never apply this fixture to Neon.
--- Manual complete schema: docs/forever-hotel.sql (local and Git-ignored).
+-- Manual complete schema: ../documents/mad/reference/forever-hotel.sql (local and Git-ignored).
 
 -- BEGIN MAD SECTION: auth
 -- MANUAL ONLY: minimal login/readiness provisioning after the base schema.
