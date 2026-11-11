@@ -7,6 +7,7 @@ import { StaffProfile } from './staff-profiles.service';
 
 const projection = `s.worker_id AS "staffId",s.full_name AS name,s.vocation,s.email,s.age,s.phone,s.nic,s.username,s.role,s.roles,
 s.is_active AS "isActive",s.password_change_required AS "passwordChangeRequired",s.session_version AS version,
+to_jsonb(s)->>'last_login_at' AS "lastLoginAt",
 coalesce(d.status,'none') AS "deliveryStatus"`;
 
 function text(value: unknown, max: number, nullable = false) {
@@ -24,7 +25,7 @@ export class StaffDirectoryService {
     try {
       const [row] = await this.database.query<
         {
-          items: (StaffProfile & { deliveryStatus: string })[];
+          items: (StaffProfile & { deliveryStatus: string; lastLoginAt?: string | null })[];
           total: number;
         }[]
       >(
@@ -76,6 +77,7 @@ SELECT (SELECT count(*)::integer FROM filtered) AS total,coalesce((SELECT jsonb_
           item.version < 0 ||
           item.version > 2147483647 ||
           !['pending', 'failed', 'sent', 'cancelled', 'none'].includes(item.deliveryStatus) ||
+          (item.lastLoginAt != null && !Number.isFinite(Date.parse(item.lastLoginAt))) ||
           !text(item.name, 255) ||
           !text(item.vocation, 100) ||
           !text(item.email, 320) ||
@@ -100,7 +102,8 @@ SELECT (SELECT count(*)::integer FROM filtered) AS total,coalesce((SELECT jsonb_
           isActive: item.isActive,
           passwordChangeRequired: item.passwordChangeRequired,
           version: item.version,
-          deliveryStatus: item.deliveryStatus
+          deliveryStatus: item.deliveryStatus,
+          lastLoginAt: item.lastLoginAt ?? null
         };
       });
 

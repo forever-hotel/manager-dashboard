@@ -83,7 +83,8 @@ export const staffDetail = staffProfile.extend({
     .regex(/^[^\p{Cc}]*$/u)
     .nullable(),
   version: z.number().int().nonnegative().max(2147483647),
-  deliveryStatus: z.enum(['pending', 'sent', 'failed', 'cancelled', 'none'])
+  deliveryStatus: z.enum(['pending', 'sent', 'failed', 'cancelled', 'none']),
+  lastLoginAt: z.iso.datetime({ offset: true }).nullable().optional()
 });
 export const staffPage = z
   .object({

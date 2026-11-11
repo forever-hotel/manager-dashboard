@@ -226,3 +226,12 @@ describe('DDP-029 staff management', () => {
     await waitFor(() => expect(screen.getByText('1–20 of 21 accounts')).toBeVisible());
   });
 });
+
+it('shows recorded last login in Sri Lanka time and keeps unknown logins empty', async () => {
+  const page = staffPageFixture();
+  fetchMock.mockResolvedValue(
+    new Response(JSON.stringify({ ...page, items: [{ ...page.items[0], lastLoginAt: '2026-11-11T16:00:00Z' }] }))
+  );
+  render(<StaffAccounts />);
+  expect(await screen.findByText('11 Nov 2026, 21:30')).toBeVisible();
+});
