@@ -2,7 +2,7 @@ name: DDP quality gates
 on:
   push:
   pull_request:
-    branches: [develop, main]
+    branches: [development, develop, main]
 permissions:
   contents: read
 
@@ -31,6 +31,7 @@ jobs:
           --health-cmd "pg_isready -U postgres -d mad_test"
           --health-interval 5s --health-timeout 3s --health-retries 15
     env:
+      SHARED_WEBSOCKET_PATH: ${{ github.workspace }}/websocket
       TEST_DATABASE_URL: postgresql://postgres:integration-only@localhost:5432/mad_test
       TEST_RABBITMQ_URL: amqp://mad:integration-only@localhost:5672/mad_test
       COVERAGE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -38,15 +39,24 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: forever-hotel/websocket-service
+          ref: ${{ vars.WEBSOCKET_TEST_REF || 'development' }}
+          path: websocket
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+      - run: npm ci --ignore-scripts
+        working-directory: websocket
+      - run: npm run build
+        working-directory: websocket
       - run: npm run lint
       - run: npm run format:check
       - run: node ../scripts/verify-quality-gates.mjs
@@ -56,7 +66,7 @@ jobs:
       - run: node ../scripts/check-changed-coverage.mjs backend
       - run: npm run test:integration
       - run: npm audit --audit-level=high
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: backend-coverage
@@ -74,7 +84,7 @@ jobs:
       APP_ORIGIN: http://localhost:3000
       COVERAGE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
       - uses: actions/setup-node@v4
@@ -95,13 +105,13 @@ jobs:
       - run: npm run audit:ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: frontend-coverage
           path: frontend/coverage
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: failure()
         with:
           name: browser-failure-traces
@@ -132,19 +142,29 @@ jobs:
           --health-cmd "rabbitmq-diagnostics -q ping"
           --health-interval 5s --health-timeout 5s --health-retries 15
     env:
+      SHARED_WEBSOCKET_PATH: ${{ github.workspace }}/websocket
       TEST_DATABASE_URL: postgresql://postgres:integration-only@localhost:5432/mad_test
       TEST_RABBITMQ_URL: amqp://mad:integration-only@localhost:5672/mad_test
       MAD_BACKEND_PATH: ${{ github.workspace }}/backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: forever-hotel/api-gateway
-          ref: ${{ vars.GATEWAY_TEST_REF || 'main' }}
+          ref: ${{ vars.GATEWAY_TEST_REF || 'develop' }}
           path: api-gateway
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: forever-hotel/websocket-service
+          ref: ${{ vars.WEBSOCKET_TEST_REF || 'development' }}
+          path: websocket
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+      - run: npm ci --ignore-scripts
+        working-directory: websocket
+      - run: npm run build
+        working-directory: websocket
       - run: npm ci
         working-directory: backend
       - run: npm run build
@@ -153,3 +173,126 @@ jobs:
         working-directory: api-gateway
       - run: npm run test:system
         working-directory: api-gateway
+
+  publish-images:
+    name: Publish reviewed Manager Dashboard images
+    needs: [backend, frontend, cross-system]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      packages: write
+    concurrency:
+      group: mad-image-publication-development
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Require peer approval on the merged PR's final code
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const prs = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
+              owner, repo, commit_sha: context.sha, per_page: 100
+            });
+            const candidates = prs.filter(pr => pr.merged_at && pr.base.ref === 'development' && pr.merge_commit_sha === context.sha);
+            for (const pr of candidates) {
+              const reviews = await github.paginate(github.rest.pulls.listReviews, { owner, repo, pull_number: pr.number, per_page: 100 });
+              const latest = new Map();
+              for (const review of reviews) {
+                if (review.user && ['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(review.state)) latest.set(review.user.login, review);
+              }
+              const decisions = [...latest.values()];
+              const approved = decisions.some(r => r.state === 'APPROVED' && r.commit_id === pr.head.sha && r.user.login !== pr.user.login);
+              if (approved && !decisions.some(r => r.state === 'CHANGES_REQUESTED')) return;
+            }
+            throw new Error('Image publication requires a merged PR into development with peer approval on its final head commit.');
+      - name: Prepare temporary registry credentials and builder
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          export DOCKER_CONFIG="$RUNNER_TEMP/mad-ghcr-auth"
+          install -d -m 700 "$DOCKER_CONFIG"
+          echo "DOCKER_CONFIG=$DOCKER_CONFIG" >> "$GITHUB_ENV"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx create --name mad-release --driver docker-container --use
+          docker buildx inspect --bootstrap
+      - name: Build and publish commit-tagged images
+        env:
+          PUBLIC_API_ORIGIN: https://forever-hotel-manager.duckdns.org
+        run: |
+          set -euo pipefail
+          repository="${GITHUB_REPOSITORY,,}"
+          for component in backend frontend; do
+            image="ghcr.io/$repository/$component"
+            args=()
+            if [[ "$component" == frontend ]]; then
+              args+=(--build-arg "NEXT_PUBLIC_API_URL=$PUBLIC_API_ORIGIN")
+            fi
+            docker buildx build --platform linux/amd64 --push \
+              --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --tag "$image:$GITHUB_SHA" \
+              --metadata-file "$RUNNER_TEMP/mad-$component.json" \
+              "${args[@]}" "$component"
+            digest=$(jq -er '."containerimage.digest"' "$RUNNER_TEMP/mad-$component.json")
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            printf '%s=%s@%s\n' "$component" "$image" "$digest" >> "$RUNNER_TEMP/mad-images.txt"
+          done
+          jq -n --arg commit "$GITHUB_SHA" \
+            --arg frontend "$(sed -n 's/^frontend=//p' "$RUNNER_TEMP/mad-images.txt")" \
+            --arg backend "$(sed -n 's/^backend=//p' "$RUNNER_TEMP/mad-images.txt")" \
+            '{commit: $commit, frontend: $frontend, backend: $backend}' > release-images.json
+          {
+            echo '### Published Manager Dashboard images'
+            echo '```json'
+            cat release-images.json
+            echo '```'
+            echo 'Staging deployment follows when enabled and release checks pass.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: manager-dashboard-release-images
+          path: release-images.json
+          if-no-files-found: error
+          overwrite: true
+      - name: Remove registry login
+        if: always()
+        run: |
+          export DOCKER_CONFIG="$RUNNER_TEMP/mad-ghcr-auth"
+          docker logout ghcr.io || true
+
+  deploy-staging:
+    name: Deploy manager-dashboard to staging
+    needs: publish-images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development' && vars.SERVICE_STAGING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    concurrency:
+      group: mad-staging-release
+      cancel-in-progress: false
+    steps:
+      - name: Deploy this run's reviewed immutable images
+        uses: forever-hotel/infra/.github/actions/deploy-service@ec9d483c73910945b224bd66682b69b2a15eb10c
+        with:
+          service: mad
+          artifact: manager-dashboard-release-images
+          host: ${{ vars.STAGING_HOST }}
+          user: ${{ vars.STAGING_USER }}
+          ssh-key: ${{ secrets.STAGING_SSH_KEY }}
+          known-hosts: ${{ secrets.STAGING_KNOWN_HOSTS }}
+      - name: Retain service deployment receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mad-staging-receipt
+          path: ${{ runner.temp }}/service-release/receipt.json
+          if-no-files-found: warn
+          overwrite: true

@@ -1,8 +1,10 @@
+import { validateGuestPiiConfig } from '../security/guest-pii';
 import { lowBookingThreshold } from '../analytics/low-booking-config';
 import { validateStaffConfig } from '../staff/staff-config';
 
 export function validateEnvironment(env: Record<string, unknown>) {
   env = { ...env };
+  validateGuestPiiConfig(env);
   const promotions = env.MAD_PROMOTIONS_PUBLISH_ENABLED ?? 'false';
 
   if (promotions !== 'true' && promotions !== 'false')

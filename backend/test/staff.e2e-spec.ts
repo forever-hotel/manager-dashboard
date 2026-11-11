@@ -194,7 +194,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     expect(rows).toHaveLength(1);
   });
   it.each([
-    { role: 'MANAGER' },
+    { role: 'ROOT' },
     { role: 'UNKNOWN' },
     { email: 'bad' },
     { age: -1 },
@@ -441,6 +441,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
         'passwordChangeRequired',
         'phone',
         'role',
+        'roles',
         'staffId',
         'username',
         'version',
@@ -585,7 +586,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       { version: 0 },
       { version: -1, name: 'Test' },
       { version: '0', name: 'Test' },
-      { version: 0, role: 'MANAGER' },
+      { version: 0, role: 'ROOT' },
       { version: 0, name: null },
       { version: 0, email: 'bad' },
       { version: 0, isActive: 'true' },
@@ -640,18 +641,21 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
       request(app.getHttpServer())
         .get('/mad/staff?' + query)
         .set('Authorization', 'Bearer ' + token());
-    const first = await get('search=Test&pageSize=2').expect(200);
-    const second = await get('search=Test&pageSize=2&page=2').expect(200);
+    const first = await get('search=Test&pageSize=3').expect(200);
+    const second = await get('search=Test&pageSize=3&page=2').expect(200);
     const one = first.body as { items: { staffId: string }[]; total: number };
     const two = second.body as { items: { staffId: string }[] };
 
-    expect(one.total).toBe(4);
-    expect(new Set([...one.items, ...two.items].map(x => x.staffId)).size).toBe(4);
+    expect(one.total).toBe(STAFF_ROLES.length);
+    expect(new Set([...one.items, ...two.items].map(x => x.staffId)).size).toBe(STAFF_ROLES.length);
     expect([...one.items, ...two.items].map(x => x.staffId)).toEqual(
       [...one.items, ...two.items].map(x => x.staffId).sort()
     );
     expect((await get('search=STAFF0%40EXAMPLE.COM').expect(200)).body as unknown).toMatchObject({ total: 1 });
-    expect((await get('search=Test&page=100').expect(200)).body as unknown).toMatchObject({ total: 4, items: [] });
+    expect((await get('search=Test&page=100').expect(200)).body as unknown).toMatchObject({
+      total: STAFF_ROLES.length,
+      items: []
+    });
     for (const role of STAFF_ROLES) {
       const result = await get('search=Test&role=' + role).expect(200);
 
@@ -683,7 +687,7 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     for (const query of [
       'page=0',
       'pageSize=101',
-      'role=MANAGER',
+      'role=ROOT',
       'status=unknown',
       'extra=1',
       'page=1&page=2',

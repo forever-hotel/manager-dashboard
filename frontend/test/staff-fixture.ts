@@ -9,6 +9,7 @@ export const staffFixture = () => ({
   nic: '200012345678',
   username: 'staff_fixture',
   role: 'WORKER' as const,
+  roles: ['WORKER'] as 'WORKER'[],
   isActive: true,
   passwordChangeRequired: true,
   version: 0,
@@ -27,5 +28,5 @@ export const staffInputFixture = () => ({
   age: 25,
   phone: '+94771234567',
   nic: '200012345678',
-  role: 'WORKER'
+  roles: ['WORKER']
 });

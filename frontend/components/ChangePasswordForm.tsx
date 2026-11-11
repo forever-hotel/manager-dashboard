@@ -9,7 +9,10 @@ import { navigate } from '@/lib/navigation';
 
 const schema = z.object({
   currentPassword: z.string().min(1, 'Current password is required.').max(1024),
-  newPassword: z.string().min(12, 'Use at least 12 characters.').max(1024)
+  newPassword: z
+    .string()
+    .min(12, 'Use at least 12 characters.')
+    .refine(value => new TextEncoder().encode(value).length <= 72, 'Use at most 72 UTF-8 bytes.')
 });
 type Values = z.infer<typeof schema>;
 

@@ -54,7 +54,7 @@ async function open() {
     })
   );
   fireEvent.click(screen.getByRole('button', { name: 'View complaint ' + complaint().id }));
-  await screen.findByLabelText('Internal note (manager only)');
+  await screen.findByRole('heading', { name: 'Internal resolution history' });
 }
 const patches = (fetcher: ReturnType<typeof setup>) =>
   fetcher.mock.calls.filter(([, init]) => init?.method === 'PATCH');
@@ -175,9 +175,11 @@ describe('DDP-022 complaint register', () => {
     expect(screen.getByRole('button', { name: /Actions for complaint/ })).toHaveFocus();
     fetcher.mockResolvedValueOnce(json(complaint({ status: 'RESOLVED', version: 2 })));
     await open();
+    expect(screen.queryByLabelText('Internal note (manager only)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Resolved complaints cannot be reopened.')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ })
-    ).toBeDisabled();
+      screen.queryByRole('button', { name: /Move to under review|Resolve complaint|Complaint resolved/ })
+    ).not.toBeInTheDocument();
   });
   it('handles empty/error/loading states and pagination', async () => {
     const fetcher = setup();

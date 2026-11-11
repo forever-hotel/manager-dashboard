@@ -12,6 +12,7 @@ export interface Session {
   sub: string;
   username: string;
   role: string;
+  roles?: string[];
   expiresAt: number;
   passwordChangeRequired: boolean;
 }
@@ -63,7 +64,7 @@ export class AuthService {
       typeof body.passwordChangeRequired !== 'boolean'
     )
       throw new ServiceUnavailableException();
-    if (body.role !== 'MANAGER') throw new ForbiddenException();
+    if (body.role !== 'MANAGER' && body.role !== 'ROOT') throw new ForbiddenException();
     if (body.passwordChangeRequired && !allowPasswordChange)
       throw new ForbiddenException({
         code: 'PASSWORD_CHANGE_REQUIRED',

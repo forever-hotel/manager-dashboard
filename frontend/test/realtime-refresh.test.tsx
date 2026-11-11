@@ -14,6 +14,25 @@ afterEach(() => {
   vi.useRealTimers();
   stop.mockClear();
 });
+it('refreshes service requests on worker task changes and reconnect', async () => {
+  vi.useFakeTimers();
+  const refresh = vi.fn();
+  const hook = renderHook(() => useRealtimeRefresh('service', refresh));
+  act(() => {
+    listener('task.changed');
+    listener('task.changed');
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(250);
+  });
+  expect(refresh).toHaveBeenCalledTimes(1);
+  act(() => listener('live.connected'));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(250);
+  });
+  expect(refresh).toHaveBeenCalledTimes(2);
+  hook.unmount();
+});
 it('coalesces live analytics changes, reconciles missed updates and cleans up', async () => {
   vi.useFakeTimers();
   const refresh = vi.fn();

@@ -10,7 +10,7 @@ import { Staff, staffDetail, staffInput, staffLabels, staffPage, staffRoles } fr
 
 const empty = {
   name: '',
-  role: 'RECEPTIONIST',
+  roles: ['RECEPTIONIST'] as string[],
   vocation: '',
   email: '',
   phone: '',
@@ -28,6 +28,28 @@ const messages: Record<number, string> = {
 
 export default function StaffAccounts() {
   const [form, setForm] = useState({ ...empty });
+  const [rolesOpen, setRolesOpen] = useState(false);
+  const rolesRef = useRef<HTMLDivElement>(null);
+  const rolesButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!rolesOpen) return;
+    function closeOutside(event: PointerEvent) {
+      if (event.target instanceof Node && !rolesRef.current?.contains(event.target)) setRolesOpen(false);
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setRolesOpen(false);
+        rolesButtonRef.current?.focus();
+      }
+    }
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [rolesOpen]);
   const [editing, setEditing] = useState<Staff | null>(null);
   const [rows, setRows] = useState<Staff[]>([]);
   const [total, setTotal] = useState(0);
@@ -107,6 +129,7 @@ export default function StaffAccounts() {
   }, []);
   function clear() {
     setEditing(null);
+    setRolesOpen(false);
     setForm({ ...empty });
     setMessage('');
     nameRef.current?.focus();
@@ -129,7 +152,7 @@ export default function StaffAccounts() {
         name: current.name,
         vocation: current.vocation,
         email: current.email,
-        role: current.role,
+        roles: current.roles ?? [current.role],
         phone: current.phone ?? '',
         nic: current.nic ?? '',
         age: current.age === null ? '' : String(current.age)
@@ -292,7 +315,7 @@ export default function StaffAccounts() {
                   {
                     {
                       name: 'Full name',
-                      role: 'Role',
+                      role: 'Roles',
                       vocation: 'Vocation',
                       email: 'Email',
                       phone: 'Phone',
@@ -302,19 +325,55 @@ export default function StaffAccounts() {
                   }
                 </label>
                 {key === 'role' ? (
-                  <select
-                    id="staff-role"
-                    disabled={busy}
-                    value={form.role}
-                    onChange={e => setForm({ ...form, role: e.target.value })}
-                    className="w-full border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink"
+                  <div
+                    ref={rolesRef}
+                    className="relative"
+                    onBlur={event => {
+                      if (!event.currentTarget.contains(event.relatedTarget)) setRolesOpen(false);
+                    }}
                   >
-                    {staffRoles.map(r => (
-                      <option key={r} value={r}>
-                        {staffLabels[r]}
-                      </option>
-                    ))}
-                  </select>
+                    <button
+                      ref={rolesButtonRef}
+                      id="staff-role"
+                      type="button"
+                      disabled={busy}
+                      aria-expanded={rolesOpen}
+                      aria-controls="staff-role-options"
+                      onClick={() => setRolesOpen(open => !open)}
+                      className="w-full flex items-center justify-between gap-2 border border-border rounded-md px-3 py-2 font-normal text-[13px] text-ink text-left"
+                    >
+                      <span>
+                        {form.roles.length
+                          ? form.roles.map(role => staffLabels[role as keyof typeof staffLabels]).join(', ')
+                          : 'Select roles'}
+                      </span>
+                      <span aria-hidden="true">?</span>
+                    </button>
+                    {rolesOpen && (
+                      <fieldset
+                        aria-label="Roles"
+                        id="staff-role-options"
+                        className="absolute left-0 right-0 top-full z-20 mt-1 border border-border rounded-md bg-surface px-3 py-2 shadow-lg font-normal text-[13px] text-ink"
+                      >
+                        {staffRoles.map(r => (
+                          <label key={r} className="flex items-center gap-2 py-1">
+                            <input
+                              type="checkbox"
+                              checked={form.roles.includes(r)}
+                              disabled={busy}
+                              onChange={e =>
+                                setForm({
+                                  ...form,
+                                  roles: e.target.checked ? [...form.roles, r] : form.roles.filter(role => role !== r)
+                                })
+                              }
+                            />
+                            {staffLabels[r]}
+                          </label>
+                        ))}
+                      </fieldset>
+                    )}
+                  </div>
                 ) : (
                   <input
                     ref={key === 'name' ? nameRef : undefined}
@@ -344,8 +403,8 @@ export default function StaffAccounts() {
           </div>
           <div className="staff-delivery-note">
             <span className="font-normal text-xs text-ink">
-              Username and temporary password are generated and emailed when delivery is enabled. Passwords are never
-              displayed here.
+              A temporary password is generated and emailed when delivery is enabled. Passwords are never displayed
+              here.
             </span>
           </div>
           <div className="flex gap-3">
@@ -474,15 +533,28 @@ export default function StaffAccounts() {
                       <span className="font-normal text-xs text-ink">{s.name}</span>
                     </div>
                   </td>
-                  <td className="text-xs text-ink px-3 py-3">{staffLabels[s.role]}</td>
+                  <td className="text-xs text-ink px-3 py-3">
+                    {(s.roles ?? [s.role]).map(role => staffLabels[role as keyof typeof staffLabels]).join(', ')}
+                  </td>
                   <td className="text-xs text-ink px-3 py-3">{s.email}</td>
                   <td className="px-3 py-3">
                     <span className={'status-badge ' + statusColor(s.isActive ? 'ACTIVE' : 'INACTIVE')}>
                       {s.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="text-xs text-ink px-3 py-3" title="Last login is not recorded by this API">
-                    &mdash;
+                  <td
+                    className="text-xs text-ink px-3 py-3"
+                    title={
+                      s.lastLoginAt ? 'Last successful staff login (Sri Lanka time)' : 'No successful login recorded'
+                    }
+                  >
+                    {s.lastLoginAt
+                      ? new Intl.DateTimeFormat('en-GB', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                          timeZone: 'Asia/Colombo'
+                        }).format(new Date(s.lastLoginAt))
+                      : '\u2014'}
                   </td>
 
                   <td className="px-3 py-3">

@@ -70,7 +70,7 @@ describe('DDP-029 staff proxy', () => {
     expect((await GET(req(), context(['bad']))).status).toBe(404);
     for (const query of [
       '?page=0',
-      '?role=MANAGER',
+      '?role=ROOT',
       '?extra=1',
       '?page=1&page=2',
       '?page=1e2',

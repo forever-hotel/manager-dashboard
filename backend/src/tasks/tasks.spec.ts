@@ -254,3 +254,12 @@ describe('DDP-042 task snapshots', () => {
     expect(query).toHaveBeenLastCalledWith(expect.stringContaining('UPDATE mad_task_events'), [id]);
   });
 });
+
+describe('shared task category compatibility', () => {
+  it.each(['TOILETRIES', 'LAUNDRY_PICKUP'])('returns a mixed queue containing %s', async category => {
+    const tasks = [task, { ...task, id: '87f4568c-89ab-4c12-b321-123456789012', category }];
+    const query = jest.fn().mockResolvedValue([{ queried_at: new Date(), total: 2, tasks }]);
+    const service = new TasksService({ query } as unknown as DataSource);
+    expect((await service.snapshot(new TasksQueryDto())).tasks).toEqual(tasks);
+  });
+});

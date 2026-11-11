@@ -16,14 +16,14 @@ describe('Reference login design with real authentication', () => {
     render(<LoginForm expired />);
     expect(screen.getByRole('status')).toHaveTextContent('Your session ended');
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByText('Username is required.')).toBeVisible();
+    expect(await screen.findByText('Email is required.')).toBeVisible();
     expect(fetch).not.toHaveBeenCalled();
   });
   it('prevents duplicate submissions while login is pending', async () => {
     vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})));
     render(<LoginForm />);
-    fireEvent.change(screen.getByLabelText('Username'), {
-      target: { value: 'manager' }
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'manager@example.com' }
     });
     fireEvent.change(screen.getByLabelText('Password'), {
       target: { value: 'test-password' }
@@ -43,8 +43,8 @@ describe('Reference login design with real authentication', () => {
         .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ passwordChangeRequired: required }))))
     );
     render(<LoginForm next="/rooms" />);
-    fireEvent.change(screen.getByLabelText('Username'), {
-      target: { value: 'manager' }
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'manager@example.com' }
     });
     fireEvent.change(screen.getByLabelText('Password'), {
       target: { value: 'private-test-password' }
@@ -55,7 +55,7 @@ describe('Reference login design with real authentication', () => {
       '/api/auth/login',
       expect.objectContaining({
         body: JSON.stringify({
-          username: 'manager',
+          username: 'manager@example.com',
           password: 'private-test-password'
         })
       })
@@ -71,7 +71,7 @@ describe('Reference login design with real authentication', () => {
         )
     );
     render(<LoginForm />);
-    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'manager' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'manager@example.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'test-password' } });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByText('Too many sign-in attempts. Try again in 37 seconds.')).toBeVisible();
@@ -83,14 +83,14 @@ describe('Reference login design with real authentication', () => {
       vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status: 401 })))
     );
     render(<LoginForm />);
-    fireEvent.change(screen.getByLabelText('Username'), {
-      target: { value: 'manager' }
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'manager@example.com' }
     });
     fireEvent.change(screen.getByLabelText('Password'), {
       target: { value: 'wrong' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByText('Unable to sign in. Check your username and password.')).toBeVisible();
+    expect(await screen.findByText('Unable to sign in. Check your email and password.')).toBeVisible();
     expect(navigate).not.toHaveBeenCalled();
   });
 });

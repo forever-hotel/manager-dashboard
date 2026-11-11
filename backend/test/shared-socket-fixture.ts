@@ -1,16 +1,33 @@
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, Type } from '@nestjs/common';
 import type { App } from 'supertest/types';
-import { Test } from '@nestjs/testing';
-import { SharedWebsocketModule } from '../src/shared-websocket/main';
-import { SharedAuthService } from '../src/shared-websocket/shared-auth.service';
-import { SharedBroker } from '../src/shared-websocket/shared-broker.service';
-import { SharedGateway } from '../src/shared-websocket/shared.gateway';
-import { channels } from '../src/shared-websocket/contracts';
+import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { AuthService } from '../src/auth/auth.service';
 import { RealtimeGateway } from '../src/realtime/realtime.gateway';
-// Real separate socket server and owner-auth verification. Broker delivery is
-// independently covered; these tests isolate socket/API semantics on PostgreSQL.
+import { channels } from '../src/realtime/relay-contracts';
+
+interface SocketHub {
+  ticket(subsystem: string, token: string, key: string): Promise<{ ticket: string; expiresIn: number }>;
+  deliver(subsystem: string, name: string, data: unknown): void;
+}
+
+// Load the real standalone service for integration tests; production MAD has no socket server.
 export async function sharedSocketFixture(owner: INestApplication) {
+  const directory = resolve(process.env.SHARED_WEBSOCKET_PATH ?? '../../websocket');
+  if (!existsSync(resolve(directory, 'dist/shared-websocket.module.js'))) {
+    throw new Error('Build websocket-service first; set SHARED_WEBSOCKET_PATH to its checkout.');
+  }
+  const requireWebsocket = createRequire(resolve(directory, 'package.json'));
+  const { Test } = requireWebsocket('@nestjs/testing') as { Test: typeof import('@nestjs/testing').Test };
+  const { SharedWebsocketModule } = requireWebsocket('./dist/shared-websocket.module.js') as {
+    SharedWebsocketModule: Type<unknown>;
+  };
+  const { SharedAuthService } = requireWebsocket('./dist/shared-auth.service.js') as {
+    SharedAuthService: Type<unknown>;
+  };
+  const { SharedBroker } = requireWebsocket('./dist/shared-broker.service.js') as { SharedBroker: Type<unknown> };
+  const { SharedGateway } = requireWebsocket('./dist/shared.gateway.js') as { SharedGateway: Type<SocketHub> };
   const relayKey = 'shared-socket-integration-only-key-32';
   const module = await Test.createTestingModule({ imports: [SharedWebsocketModule] })
     .overrideProvider(SharedBroker)

@@ -11,9 +11,9 @@ import { notificationsFixture } from '../notifications-fixture';
 import { occupancy } from '../occupancy-fixture';
 import { lowDemand } from '../low-demand-fixture';
 
-async function login(page: Page, username = 'manager') {
+async function login(page: Page, username = 'manager@example.com') {
   await page.goto('/login');
-  await page.getByLabel('Username', { exact: true }).fill(username);
+  await page.getByLabel('Email', { exact: true }).fill(username);
   await page.getByLabel('Password', { exact: true }).fill('browser-private-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 }
@@ -46,7 +46,7 @@ test.beforeEach(async ({ page }) => {
 test('login protects pages, rejects bad credentials and stores only an HttpOnly session', async ({ page, context }) => {
   await page.goto('/analytics');
   await expect(page).toHaveURL(/\/login/);
-  await page.getByLabel('Username').fill('manager');
+  await page.getByLabel('Email').fill('manager@example.com');
   await page.getByLabel('Password', { exact: true }).fill('wrong');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.locator('#password-error')).toContainText('Unable to sign in');
@@ -63,7 +63,7 @@ test('login protects pages, rejects bad credentials and stores only an HttpOnly 
   await expect(page).toHaveURL(/\/login/);
 });
 test('first login requires a password change before protected navigation', async ({ page }) => {
-  await login(page, 'first-login');
+  await login(page, 'first-login@example.com');
   await expect(page).toHaveURL(/\/change-password/);
   await page.goto('/rooms');
   await expect(page).toHaveURL(/\/change-password/);
@@ -154,7 +154,7 @@ test('staff actions use an accessible confirmation dialog and Escape preserves t
   await expect(page.getByRole('button', { name: 'Actions for Test Worker' })).toBeFocused();
 });
 
-test('analytics exports complete CSV and PDF downloads with safe filenames', async ({ page }) => {
+test('analytics exports a complete PDF download with a safe filename', async ({ page }) => {
   await page.route('**/api/reports/bookings?**', route => {
     const format = new URL(route.request().url()).searchParams.get('format');
     const body = format === 'pdf' ? '%PDF-1.4\n%%EOF' : '"Date","Bookings"\r\n"2026-10-26","4"\r\n';
@@ -171,11 +171,11 @@ test('analytics exports complete CSV and PDF downloads with safe filenames', asy
   });
   await login(page);
   await expect(page).toHaveURL(/analytics/);
-  for (const format of ['CSV', 'PDF']) {
-    const result = page.waitForEvent('download');
-
-    await page.getByRole('button', { name: 'Export ' + format, exact: true }).click();
-    const file = await result;
+  await expect(page.getByRole('button', { name: 'Export CSV', exact: true })).toHaveCount(0);
+  for (const format of ['PDF']) {
+    const button = page.getByRole('button', { name: 'Export ' + format, exact: true });
+    await expect(button).toBeVisible();
+    const [file] = await Promise.all([page.waitForEvent('download'), button.click()]);
 
     expect(file.suggestedFilename()).toBe('bookings-2026-10-26.' + format.toLowerCase());
     expect(await file.failure()).toBeNull();

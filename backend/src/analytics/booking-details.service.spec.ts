@@ -1,3 +1,4 @@
+import { encryptPii } from '../security/guest-pii';
 import { DataSource } from 'typeorm';
 import { BookingDetailsService, BOOKING_DETAILS_SQL } from './booking-details.service';
 import { ServiceUnavailableException } from '@nestjs/common';
@@ -47,4 +48,29 @@ describe('Booking details reporting', () => {
 
     await expect(service.details(start, end)).rejects.toThrow(ServiceUnavailableException);
   });
+});
+
+it('decrypts guest names only after fetching the authorized booking cohort', async () => {
+  const previous = { ...process.env };
+  process.env.GUEST_PII_ENABLED = 'true';
+  process.env.GUEST_PII_KEY = Buffer.alloc(32, 4).toString('base64');
+  try {
+    const query = jest.fn().mockResolvedValue([
+      {
+        average_nights: 2,
+        recent_bookings: [{ id: 'one', guestName: encryptPii('Guest Name', 'full_name') }],
+        total_bookings: '1'
+      }
+    ]);
+    const result = await new BookingDetailsService({ query } as unknown as DataSource).details(
+      '2026-10-01',
+      '2026-11-01'
+    );
+    expect(result.recentBookings[0].guestName).toBe('Guest Name');
+  } finally {
+    for (const key of ['GUEST_PII_ENABLED', 'GUEST_PII_KEY']) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
 });

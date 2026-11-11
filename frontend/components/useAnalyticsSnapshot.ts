@@ -8,7 +8,7 @@ export function useAnalyticsSnapshot<T>(
   url: string,
   schema: z.ZodType<T>,
   enabled = true,
-  live?: 'analytics' | 'food'
+  live?: 'analytics' | 'food' | 'service'
 ) {
   const [state, setState] = useState<{ url: string; data?: T; error?: number }>({ url });
   const [attempt, setAttempt] = useState(0);

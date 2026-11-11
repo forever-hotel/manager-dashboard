@@ -493,48 +493,46 @@ export default function ComplaintsDashboard({
                   </li>
                 ))}
               </ol>
-              <form
-                onSubmit={e => {
-                  e.preventDefault();
-                  void save();
-                }}
-                className="mt-4"
-              >
-                <p className="text-[13px] text-ink mb-3">
-                  {nextStatus(detail.status)
-                    ? `Next status: ${statusLabel[nextStatus(detail.status)!]}`
-                    : 'Resolved complaints cannot be reopened.'}
-                </p>
-                <label htmlFor="complaint-note" className="font-normal text-xs text-muted block mb-1">
-                  Internal note (manager only)
-                </label>
-                <textarea
-                  id="complaint-note"
-                  className={control}
-                  value={note}
-                  maxLength={4000}
-                  rows={4}
-                  disabled={saving || detail.status === 'RESOLVED'}
-                  aria-describedby={detailError ? 'complaint-note-error' : undefined}
-                  onChange={e => {
-                    setNote(e.target.value);
-                    setNotice('');
+              {detail.status !== 'RESOLVED' && (
+                <form
+                  onSubmit={e => {
+                    e.preventDefault();
+                    void save();
                   }}
-                />
-                <button
-                  type="submit"
-                  disabled={saving || detailLoading || conflict || !nextStatus(detail.status)}
-                  className="font-normal text-[13px] text-ink bg-brand-light rounded-md px-4 py-2 mt-3 button button-primary"
+                  className="mt-4"
                 >
-                  {saving
-                    ? 'Saving...'
-                    : detail.status === 'SUBMITTED'
-                      ? 'Move to under review'
-                      : detail.status === 'UNDER_REVIEW'
-                        ? 'Resolve complaint'
-                        : 'Complaint resolved'}
-                </button>
-              </form>
+                  <p className="text-[13px] text-ink mb-3">
+                    {`Next status: ${statusLabel[nextStatus(detail.status)!]}`}
+                  </p>
+                  <label htmlFor="complaint-note" className="font-normal text-xs text-muted block mb-1">
+                    Internal note (manager only)
+                  </label>
+                  <textarea
+                    id="complaint-note"
+                    className={control}
+                    value={note}
+                    maxLength={4000}
+                    rows={4}
+                    disabled={saving}
+                    aria-describedby={detailError ? 'complaint-note-error' : undefined}
+                    onChange={e => {
+                      setNote(e.target.value);
+                      setNotice('');
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={saving || detailLoading || conflict || !nextStatus(detail.status)}
+                    className="font-normal text-[13px] text-ink bg-brand-light rounded-md px-4 py-2 mt-3 button button-primary"
+                  >
+                    {saving
+                      ? 'Saving...'
+                      : detail.status === 'SUBMITTED'
+                        ? 'Move to under review'
+                        : 'Resolve complaint'}
+                  </button>
+                </form>
+              )}
             </>
           )}
         </dialog>

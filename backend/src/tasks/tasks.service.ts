@@ -92,6 +92,8 @@ export class TasksService {
             'WATER_BOTTLES',
             'MAINTENANCE',
             'LAUNDRY',
+            'LAUNDRY_PICKUP',
+            'TOILETRIES',
             'FOOD_DELIVERY',
             'OTHER'
           ].includes(task.category) ||

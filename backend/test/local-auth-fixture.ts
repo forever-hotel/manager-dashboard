@@ -62,6 +62,14 @@ export async function seedLocalAuth(database: DataSource, secret: string, role: 
 }
 
 export async function startAuthFixture(database: DataSource, secret: string) {
+  await database.query(`ALTER TABLE public.staff_users ADD COLUMN IF NOT EXISTS roles text[];
+    UPDATE public.staff_users SET roles=ARRAY[role::text] WHERE roles IS NULL;
+    UPDATE public.staff_users SET roles=ARRAY['ROOT']::text[] WHERE role::text='MANAGER' AND username IN ('manager','first','first-login');
+    CREATE OR REPLACE FUNCTION public.test_staff_roles() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN IF NEW.roles IS NULL THEN NEW.roles=ARRAY[NEW.role::text]; END IF; RETURN NEW; END; $$;
+    DROP TRIGGER IF EXISTS test_staff_roles ON public.staff_users;
+    CREATE TRIGGER test_staff_roles BEFORE INSERT ON public.staff_users FOR EACH ROW EXECUTE FUNCTION public.test_staff_roles();`);
+
   const service = new AuthService(
     new TokenService(new JwtService({ secret }), new ConfigService({ JWT_SECRET: secret, JWT_ISSUER: 'mad' })),
     database
