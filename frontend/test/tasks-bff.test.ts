@@ -89,3 +89,12 @@ describe('DDP-028 protected task routes', () => {
     expect((await POST(req())).status).toBe(503);
   });
 });
+
+it.each(['TOILETRIES', 'LAUNDRY_PICKUP'])('preserves shared category %s in task responses', async category => {
+  const snapshot = tasksSnapshot();
+  snapshot.tasks[0].category = category;
+  vi.mocked(backend).mockResolvedValue({ status: 200, data: snapshot });
+  const response = await GET(req());
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual(snapshot);
+});

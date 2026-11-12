@@ -22,6 +22,8 @@ export const tasksSnapshotSchema = z
               'WATER_BOTTLES',
               'MAINTENANCE',
               'LAUNDRY',
+              'LAUNDRY_PICKUP',
+              'TOILETRIES',
               'FOOD_DELIVERY',
               'OTHER'
             ]),

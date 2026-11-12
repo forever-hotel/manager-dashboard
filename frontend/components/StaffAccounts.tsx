@@ -542,8 +542,19 @@ export default function StaffAccounts() {
                       {s.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="text-xs text-ink px-3 py-3" title="Last login is not recorded by this API">
-                    &mdash;
+                  <td
+                    className="text-xs text-ink px-3 py-3"
+                    title={
+                      s.lastLoginAt ? 'Last successful staff login (Sri Lanka time)' : 'No successful login recorded'
+                    }
+                  >
+                    {s.lastLoginAt
+                      ? new Intl.DateTimeFormat('en-GB', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                          timeZone: 'Asia/Colombo'
+                        }).format(new Date(s.lastLoginAt))
+                      : '\u2014'}
                   </td>
 
                   <td className="px-3 py-3">

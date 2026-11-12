@@ -19,7 +19,8 @@ const staff = {
   isActive: true,
   passwordChangeRequired: true,
   version: 0,
-  deliveryStatus: 'failed'
+  deliveryStatus: 'failed',
+  lastLoginAt: null
 };
 describe('DDP-044 staff directory', () => {
   it.each(['RECEPTIONIST', 'WORKER', 'KITCHEN_STAFF', 'KITCHEN_MANAGER'])(
@@ -207,5 +208,13 @@ describe('DDP-044 staff directory', () => {
       status: 503,
       message: 'Service Unavailable'
     });
+  });
+});
+
+describe('staff last login', () => {
+  it.each([null, '2026-11-11T16:00:00+00:00'])('returns the recorded login or null: %s', async lastLoginAt => {
+    const query = jest.fn().mockResolvedValue([{ items: [{ ...staff, lastLoginAt }], total: 1 }]);
+    const service = new StaffDirectoryService({ query } as unknown as DataSource);
+    expect((await service.list(new StaffDirectoryDto())).items[0].lastLoginAt).toBe(lastLoginAt);
   });
 });
