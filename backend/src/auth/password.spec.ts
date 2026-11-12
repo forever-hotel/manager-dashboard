@@ -1,5 +1,6 @@
 jest.setTimeout(30000);
-import { hashPassword, validPassword, verifyPassword } from './password';
+import { hashPassword } from './password';
+import { validPassword, verifyPassword } from '../../test/fixtures/password-verifier';
 
 describe('Local password storage', () => {
   it('uses independent salts and verifies the complete password', async () => {

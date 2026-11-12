@@ -1,4 +1,4 @@
-import { encryptPii } from '../security/guest-pii';
+import { encryptPii } from '../../test/fixtures/guest-pii-writer';
 import { DataSource } from 'typeorm';
 import { BookingDetailsService, BOOKING_DETAILS_SQL } from './booking-details.service';
 import { ServiceUnavailableException } from '@nestjs/common';

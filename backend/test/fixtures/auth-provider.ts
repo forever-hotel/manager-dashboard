@@ -11,7 +11,8 @@ import { DataSource } from 'typeorm';
 import type { EntityManager } from 'typeorm';
 import { TokenService } from './token-service';
 import type { StaffClaims } from './token-service';
-import { hashPassword, validPassword, verifyPassword } from '../../src/auth/password';
+import { hashPassword } from '../../src/auth/password';
+import { validPassword, verifyPassword } from './password-verifier';
 
 export interface Session {
   sub: string;

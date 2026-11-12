@@ -23,15 +23,6 @@ export function shiftMonth(month: string, offset: number): string | null {
     : `${String(nextYear).padStart(4, '0')}-${String((index % 12) + 1).padStart(2, '0')}`;
 }
 
-export function hotelMonth(now = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Colombo',
-    year: 'numeric',
-    month: '2-digit'
-  }).formatToParts(now);
-
-  return `${parts.find(part => part.type === 'year')!.value}-${parts.find(part => part.type === 'month')!.value}`;
-}
 // UTC is used only to calculate weekday placement, never to reinterpret API dates.
 export function leadingDays(month: string) {
   monthSchema.parse(month);

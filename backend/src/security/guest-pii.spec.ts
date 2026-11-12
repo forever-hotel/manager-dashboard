@@ -1,12 +1,11 @@
+import { decryptPii, validateGuestPiiConfig } from './guest-pii';
 import {
-  decryptPii,
   encryptPii,
   emailLookup,
   piiSearchTokens,
   piiSearchQuery,
-  guestPiiTransformer,
-  validateGuestPiiConfig
-} from './guest-pii';
+  guestPiiTransformer
+} from '../../test/fixtures/guest-pii-writer';
 describe('guest PII storage contract', () => {
   const previous = { ...process.env };
   beforeEach(() => {

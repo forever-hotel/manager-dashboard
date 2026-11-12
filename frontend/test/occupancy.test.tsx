@@ -3,15 +3,7 @@ vi.mock('@/components/useRealtimeRefresh', () => ({ useRealtimeRefresh: () => un
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import OccupancyCalendar from '@/components/OccupancyCalendar';
-import {
-  demand,
-  hotelMonth,
-  leadingDays,
-  loadOccupancy,
-  monthDates,
-  parseOccupancy,
-  shiftMonth
-} from '@/lib/occupancy';
+import { demand, leadingDays, loadOccupancy, monthDates, parseOccupancy, shiftMonth } from '@/lib/occupancy';
 import { occupancy } from './occupancy-fixture';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -37,7 +29,6 @@ describe('DDP-016 calendar contracts', () => {
     expect(shiftMonth('0001-01', -1)).toBeNull();
     expect(shiftMonth('9999-12', 1)).toBeNull();
     expect(() => monthDates('2024-13')).toThrow();
-    expect(hotelMonth(new Date('2024-01-31T19:00:00Z'))).toBe('2024-02');
     expect([null, 0, 0.3999, 0.4, 0.6999, 0.7, 1].map(demand)).toEqual([
       'Unknown',
       'Low',

@@ -72,45 +72,6 @@ export function useNotifications() {
 }
 const button = 'font-normal text-xs text-ink underline focus-visible:outline-2 focus-visible:outline-offset-2';
 
-export function NotificationsBanner() {
-  const state = useNotifications();
-
-  if (!state) return null;
-  return (
-    <section
-      aria-label="Current alerts"
-      className="mx-8 mt-6 rounded-lg border border-accent bg-accent-light p-4 text-[13px]"
-    >
-      {state.snapshot ? (
-        <>
-          <p role="status">
-            {state.snapshot.total} active alerts: {state.snapshot.counts.complaints} unresolved complaints,{' '}
-            {state.snapshot.counts.stock} stock problems.{' '}
-            <a className={button} href="/notifications">
-              View notifications
-            </a>
-          </p>
-          {state.snapshot.items.slice(0, 3).map(item => (
-            <a key={item.id} href={item.href} className="mr-4 underline">
-              {item.title}
-            </a>
-          ))}
-        </>
-      ) : (
-        <p role="status">Alert count unavailable until notifications load.</p>
-      )}
-      {state.message && (
-        <p role="status">
-          {state.message}{' '}
-          <button type="button" className={button + ' button button-secondary'} onClick={state.retry}>
-            Refresh alerts
-          </button>
-        </p>
-      )}
-    </section>
-  );
-}
-
 export default function NotificationsPanel({ initialPage = 1 }: { initialPage?: number }) {
   const state = useNotifications();
   const setPage = state?.setPage;
