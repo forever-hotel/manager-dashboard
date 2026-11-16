@@ -430,12 +430,14 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     const original = (await readProfile(staffId).expect(200)).body as StaffProfile;
 
     expect(original.version).toBe(0);
+    expect((original as StaffProfile & { lastLoginAt: string | null }).lastLoginAt).toBeNull();
     expect(Object.keys(original).sort()).toEqual(
       [
         'age',
         'deliveryStatus',
         'email',
         'isActive',
+        'lastLoginAt',
         'name',
         'nic',
         'passwordChangeRequired',
@@ -470,12 +472,13 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     expect(Array.isArray(changed)).toBe(false);
     expect(Object.keys(changed).sort()).toEqual(
       Object.keys(original)
-        .filter(key => key !== 'deliveryStatus')
+        .filter(key => key !== 'deliveryStatus' && key !== 'lastLoginAt')
         .sort()
     );
     expect((await readProfile(staffId).expect(200)).body).toEqual({
       ...changed,
-      deliveryStatus: 'pending'
+      deliveryStatus: 'pending',
+      lastLoginAt: null
     });
     expect(changed).toMatchObject({
       name: 'Updated Name',
@@ -553,6 +556,19 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
     });
     expect(await count()).toBe(1);
   });
+  it('returns a stored last login without changing it during profile edits', async () => {
+    const { staffId } = (await post().expect(201)).body as { staffId: string };
+    await database.query('ALTER TABLE public.staff_users ADD COLUMN IF NOT EXISTS last_login_at timestamptz');
+    await database.query('UPDATE public.staff_users SET last_login_at=$2 WHERE worker_id=$1', [
+      staffId,
+      '2026-11-11T16:00:00Z'
+    ]);
+    const original = (await readProfile(staffId).expect(200)).body as StaffProfile & { lastLoginAt: string };
+    expect(new Date(original.lastLoginAt).toISOString()).toBe('2026-11-11T16:00:00.000Z');
+    await edit(staffId, { version: original.version, name: 'Updated profile' }).expect(200);
+    const updated = (await readProfile(staffId).expect(200)).body as StaffProfile & { lastLoginAt: string };
+    expect(updated.lastLoginAt).toBe(original.lastLoginAt);
+  });
   it('TC-MAD-014-AC3: duplicate emails and stale/concurrent edits do not overwrite another edit', async () => {
     const { staffId } = (await post().expect(201)).body as { staffId: string };
 
@@ -572,7 +588,8 @@ describe('DDP-012 API and disposable PostgreSQL integration', () => {
 
     expect((await readProfile(staffId)).body).toEqual({
       ...saved,
-      deliveryStatus: 'pending'
+      deliveryStatus: 'pending',
+      lastLoginAt: null
     });
     await edit(staffId, { version: 1, name: 'Latest Edit' }).expect(200);
     await edit(staffId, { version: 1, name: 'Stale Edit' }).expect(409);
